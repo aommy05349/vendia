@@ -12,6 +12,7 @@ interface Shop {
     tax_id: string;
     email: string;
     logo_path: string;
+    signature_path?: string;
     footer_text?: string;
     remarks?: string;
 }
@@ -241,7 +242,15 @@ export const PrintOrder = () => {
 
             <div className="row mt-2" style={{ fontSize: '15px' }}>
                 <div className="col-6 text-center">
-                    <div style={{ height: '80px' }}></div>
+                    <div style={{ height: '80px' }}>
+                        {isQuotation && shop.signature_path && (
+                             <img 
+                                src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.signature_path}`} 
+                                alt="Signature" 
+                                style={{ maxHeight: '80px' }} 
+                            />
+                        )}
+                    </div>
                     <div className="border-top w-75 mx-auto pt-2">
                         <div className="fw-bold">
                             {isQuotation ? 'อนุมัติโดย / Approved by' : 
@@ -253,7 +262,15 @@ export const PrintOrder = () => {
                     </div>
                 </div>
                 <div className="col-6 text-center">
-                    <div style={{ height: '80px' }}></div>
+                    <div style={{ height: '80px' }}>
+                        {!isQuotation && shop.signature_path && (
+                             <img 
+                                src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.signature_path}`} 
+                                alt="Signature" 
+                                style={{ maxHeight: '80px' }} 
+                            />
+                        )}
+                    </div>
                     <div className="border-top w-75 mx-auto pt-2">
                         <div className="fw-bold">
                             {isQuotation ? 'ยอมรับใบเสนอราคา / Accepted by' : 

@@ -53,6 +53,15 @@ class ShopController extends Controller
             $shop->logo_path = $path;
         }
 
+        if ($request->hasFile('signature')) {
+            // Delete old signature if exists
+            if ($shop->signature_path) {
+                Storage::disk('public')->delete($shop->signature_path);
+            }
+            $path = $request->file('signature')->store('shops', 'public');
+            $shop->signature_path = $path;
+        }
+
         $shop->save();
 
         return response()->json([

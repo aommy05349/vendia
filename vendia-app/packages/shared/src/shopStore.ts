@@ -14,6 +14,7 @@ export interface Shop {
   footer_text?: string;
   remarks?: string;
   logo_path?: string;
+  signature_path?: string;
 }
 
 interface ShopState {

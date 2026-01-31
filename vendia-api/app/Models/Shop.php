@@ -19,5 +19,6 @@ class Shop extends Model
         'remarks',
         'bank_details',
         'logo_path',
+        'signature_path',
     ];
 }

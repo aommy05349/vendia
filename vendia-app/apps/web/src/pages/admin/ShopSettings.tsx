@@ -15,9 +15,12 @@ export default function ShopSettings() {
   const [remarks, setRemarks] = useState('');
   const [logo, setLogo] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [signature, setSignature] = useState<File | null>(null);
+  const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!shop) {
@@ -44,6 +47,14 @@ export default function ShopSettings() {
     }
   };
 
+  const handleSignatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSignature(file);
+      setSignaturePreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -63,6 +74,9 @@ export default function ShopSettings() {
     if (logo) {
       formData.append('logo', logo);
     }
+    if (signature) {
+      formData.append('signature', signature);
+    }
 
     try {
       await updateShop(formData);
@@ -70,8 +84,13 @@ export default function ShopSettings() {
       // Reset file input
       setLogo(null);
       setPreview(null);
+      setSignature(null);
+      setSignaturePreview(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
+      }
+      if (signatureInputRef.current) {
+        signatureInputRef.current.value = '';
       }
     } catch (err) {
       setError('Failed to update shop settings. Please try again.');
@@ -110,6 +129,27 @@ export default function ShopSettings() {
                 ref={fileInputRef}
               />
               <div className="form-text">Allowed formats: JPG, PNG, GIF. Max size: 2MB.</div>
+            </div>
+
+            <div className="mb-4 text-center">
+              <label className="form-label d-block fw-bold">Authorized Signature (ลายเซ็นผู้มีอำนาจ)</label>
+              <div className="mb-3">
+                {signaturePreview ? (
+                  <img src={signaturePreview} alt="Signature Preview" className="img-thumbnail" style={{ maxHeight: '100px' }} />
+                ) : shop?.signature_path ? (
+                  <img src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.signature_path}`} alt="Current Signature" className="img-thumbnail" style={{ maxHeight: '100px' }} />
+                ) : (
+                  <div className="text-muted border p-3 d-inline-block rounded bg-light">No Signature</div>
+                )}
+              </div>
+              <input 
+                type="file" 
+                className="form-control" 
+                accept="image/*"
+                onChange={handleSignatureChange}
+                ref={signatureInputRef}
+              />
+              <div className="form-text">จะแสดงในใบเสนอราคา/ใบวางบิล/ใบเสร็จรับเงิน</div>
             </div>
 
             <div className="mb-3">
