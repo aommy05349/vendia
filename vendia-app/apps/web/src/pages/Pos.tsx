@@ -493,7 +493,7 @@ export const Pos = () => {
             onClick={handleCheckoutClick}
             className={`btn w-100 btn-lg ${items.length === 0 ? 'btn-secondary' : 'btn-success'}`}
           >
-            Checkout
+            {editingOrderId ? 'Update Order' : 'Checkout'}
           </button>
         </div>
       </div>
@@ -565,10 +565,10 @@ export const Pos = () => {
 
                     <div className="d-flex gap-2 mt-4">
                         <button type="submit" className="btn btn-success flex-grow-1 py-3 fw-bold" disabled={change !== null && change < 0}>
-                            Confirm Payment (ชำระเงิน)
+                            {editingOrderId ? 'Update & Pay' : 'Confirm Payment (ชำระเงิน)'}
                         </button>
                         <button type="button" className="btn btn-outline-warning" onClick={handlePayLater}>
-                             Save as Unpaid (ติดไว้ก่อน)
+                             {editingOrderId ? 'Update as Unpaid' : 'Save as Unpaid (ติดไว้ก่อน)'}
                         </button>
                     </div>
                     <div className="d-flex gap-2 mt-2">

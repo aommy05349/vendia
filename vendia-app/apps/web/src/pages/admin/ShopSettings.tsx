@@ -5,6 +5,7 @@ export default function ShopSettings() {
   const { shop, updateShop, fetchShop, loading } = useShopStore();
   const [name, setName] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [bankDetails, setBankDetails] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
   const [taxId, setTaxId] = useState('');
@@ -24,6 +25,7 @@ export default function ShopSettings() {
     } else {
       setName(shop.name);
       setCompanyName(shop.company_name || '');
+      setBankDetails(shop.bank_details || '');
       setAddress(shop.address || '');
       setPhone(shop.phone || '');
       setTaxId(shop.tax_id || '');
@@ -50,6 +52,7 @@ export default function ShopSettings() {
     const formData = new FormData();
     formData.append('name', name);
     formData.append('company_name', companyName);
+    formData.append('bank_details', bankDetails);
     formData.append('address', address);
     formData.append('phone', phone);
     formData.append('tax_id', taxId);
@@ -129,6 +132,18 @@ export default function ShopSettings() {
                 onChange={(e) => setCompanyName(e.target.value)} 
                 placeholder="e.g. ห้างหุ้นส่วนจำกัด..."
               />
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label fw-bold">Bank Details (รายละเอียดบัญชีธนาคาร)</label>
+              <textarea 
+                className="form-control" 
+                rows={4}
+                value={bankDetails} 
+                onChange={(e) => setBankDetails(e.target.value)} 
+                placeholder="ใส่ข้อมูลบัญชีธนาคารที่จะแสดงในใบเสนอราคา/ใบแจ้งหนี้"
+              />
+              <div className="form-text">ข้อความนี้จะแสดงในตารางรายการสินค้า</div>
             </div>
 
             <div className="mb-3">

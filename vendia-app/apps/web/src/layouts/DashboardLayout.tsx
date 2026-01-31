@@ -58,7 +58,7 @@ export const DashboardLayout = () => {
 
         {/* Sidebar */}
         <aside 
-          className={`bg-light border-end p-3 d-flex flex-column ${showMobileSidebar ? 'position-fixed top-0 start-0 h-100 shadow' : 'd-none d-lg-flex'}`} 
+          className={`bg-light border-end p-3 d-flex flex-column ${showMobileSidebar ? 'position-fixed top-0 start-0 h-100 shadow' : 'd-none d-lg-flex position-sticky top-0 vh-100'}`} 
           style={{ width: '250px', minWidth: '250px', transition: 'transform 0.3s ease-in-out', zIndex: showMobileSidebar ? 1050 : 1 }}
         >
           {/* Mobile Close Button */}

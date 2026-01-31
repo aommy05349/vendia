@@ -9,11 +9,41 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    public function index()
+    public function dailySales(Request $request)
     {
-        $orders = Order::with('items.product', 'user', 'customer')->latest()->get();
+        $date = $request->input('date', date('Y-m-d'));
+        
+        $orders = Order::whereDate('created_at', $date)
+            ->where('status', 'completed')
+            ->get();
+            
+        $total = $orders->sum('total');
+        $count = $orders->count();
+        $cash = $orders->where('payment_method', 'cash')->sum('total');
+        $transfer = $orders->where('payment_method', 'transfer')->sum('total');
+        
+        return response()->json([
+            'date' => $date,
+            'total' => $total,
+            'count' => $count,
+            'breakdown' => [
+                'cash' => $cash,
+                'transfer' => $transfer
+            ]
+        ]);
+    }
 
-        $orders->each(function($order) {
+    public function index(Request $request)
+    {
+        $query = Order::with('items.product', 'user', 'customer')->latest();
+
+        if ($request->has('status') && $request->input('status') !== 'all') {
+            $query->where('status', $request->input('status'));
+        }
+
+        $orders = $query->paginate(10);
+
+        $orders->getCollection()->each(function($order) {
             $sortedItems = $order->items->sortBy(function($item) {
                 $product = $item->product;
                 if (!$product) return 999;

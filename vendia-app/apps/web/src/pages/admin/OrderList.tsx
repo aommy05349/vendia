@@ -39,12 +39,33 @@ interface Order {
   items: OrderItem[];
 }
 
+interface DailySales {
+  date: string;
+  total: number;
+  count: number;
+  breakdown: {
+    cash: number;
+    transfer: number;
+  };
+}
+
+interface PaginatedResponse<T> {
+  data: T[];
+  current_page: number;
+  last_page: number;
+  total: number;
+  per_page: number;
+}
+
 export const OrderList = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [dailySales, setDailySales] = useState<DailySales | null>(null);
 
   // Payment Modal State
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -53,18 +74,39 @@ export const OrderList = () => {
   const [change, setChange] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchOrders();
+    fetchOrders(currentPage);
+  }, [currentPage, filterStatus]);
+
+  useEffect(() => {
+    fetchDailySales();
   }, []);
 
-  const fetchOrders = async () => {
+  const fetchDailySales = async () => {
     try {
-      const response = await api.get('/orders');
-      setOrders(response.data);
+      const response = await api.get('/orders/daily-sales');
+      setDailySales(response.data);
+    } catch (error) {
+      console.error('Failed to fetch daily sales:', error);
+    }
+  };
+
+  const fetchOrders = async (page: number) => {
+    setLoading(true);
+    try {
+      const response = await api.get<PaginatedResponse<Order>>(`/orders?page=${page}&status=${filterStatus}`);
+      setOrders(response.data.data);
+      setCurrentPage(response.data.current_page);
+      setLastPage(response.data.last_page);
     } catch (error) {
       console.error('Failed to fetch orders:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePaymentSuccess = () => {
+    fetchOrders(currentPage);
+    fetchDailySales();
   };
 
   const toggleExpand = (orderId: number) => {
@@ -79,7 +121,7 @@ export const OrderList = () => {
     setPaymentMethod('cash');
   };
 
-  const handlePrint = (e: React.MouseEvent, orderId: number, type: 'receipt' | 'quotation') => {
+  const handlePrint = (e: React.MouseEvent, orderId: number, type: 'receipt' | 'quotation' | 'billing_note') => {
     e.stopPropagation();
     window.open(`/print/order/${orderId}?type=${type}`, '_blank');
   };
@@ -88,8 +130,8 @@ export const OrderList = () => {
     e.stopPropagation();
     if (!confirm('Convert this quotation to an order? Stock will be deducted.')) return;
     try {
-        await api.put(`/orders/${orderId}`, { status: 'pending' });
-        fetchOrders();
+      await api.put(`/orders/${orderId}`, { status: 'pending' });
+      fetchOrders(currentPage);
     } catch (err) {
         alert('Failed to convert quotation');
     }
@@ -112,6 +154,8 @@ export const OrderList = () => {
           : o
       ));
       
+      handlePaymentSuccess();
+      
       setSelectedOrder(null);
       alert('Payment successful!');
     } catch (error) {
@@ -132,16 +176,37 @@ export const OrderList = () => {
 
   if (loading) return <div className="p-4 text-center">Loading orders...</div>;
 
-  const filteredOrders = orders.filter(order => {
-      if (filterStatus === 'all') return true;
-      return order.status === filterStatus;
-  });
-
   return (
     <div className="container-fluid p-4">
+      {dailySales && (
+        <div className="row mb-4">
+          <div className="col-md-4">
+            <div className="card bg-primary text-white h-100">
+              <div className="card-body">
+                <h5 className="card-title">Today's Sales</h5>
+                <h2 className="display-6 fw-bold">฿{dailySales.total.toLocaleString()}</h2>
+                <div className="mt-2 small">
+                  <span className="me-3">Cash: ฿{dailySales.breakdown.cash.toLocaleString()}</span>
+                  <span>Transfer: ฿{dailySales.breakdown.transfer.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-4">
+            <div className="card bg-success text-white h-100">
+              <div className="card-body">
+                <h5 className="card-title">Today's Orders</h5>
+                <h2 className="display-6 fw-bold">{dailySales.count}</h2>
+                <p className="card-text small">Completed orders today</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Orders & Bills</h2>
-        <button className="btn btn-primary" onClick={fetchOrders}>Refresh</button>
+        <button className="btn btn-primary" onClick={() => fetchOrders(1)}>Refresh</button>
       </div>
 
       <ul className="nav nav-tabs mb-3">
@@ -149,7 +214,7 @@ export const OrderList = () => {
             <li className="nav-item" key={status}>
                 <button 
                     className={`nav-link ${filterStatus === status ? 'active' : ''} text-capitalize`}
-                    onClick={() => setFilterStatus(status)}
+                    onClick={() => { setFilterStatus(status); setCurrentPage(1); }}
                 >
                     {status}
                 </button>
@@ -173,7 +238,7 @@ export const OrderList = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredOrders.map((order) => (
+                {orders.map((order) => (
                   <React.Fragment key={order.id}>
                     <tr onClick={() => toggleExpand(order.id)} style={{ cursor: 'pointer' }}>
                       <td className="p-3">#{order.id}</td>
@@ -228,10 +293,16 @@ export const OrderList = () => {
                               Pay Now
                             </button>
                             <button 
+                                className="btn btn-info btn-sm me-2 text-white"
+                                onClick={(e) => handlePrint(e, order.id, 'billing_note')}
+                            >
+                                Billing Note
+                            </button>
+                            <button 
                                 className="btn btn-secondary btn-sm me-2"
                                 onClick={(e) => handlePrint(e, order.id, 'receipt')}
                             >
-                                Print Bill
+                                Receipt
                             </button>
                             <button 
                               className="btn btn-warning btn-sm me-2"
@@ -310,6 +381,25 @@ export const OrderList = () => {
               </tbody>
             </table>
           </div>
+        </div>
+        <div className="card-footer bg-white d-flex justify-content-between align-items-center py-3">
+            <button 
+                className="btn btn-outline-secondary btn-sm"
+                disabled={currentPage === 1}
+                onClick={() => fetchOrders(currentPage - 1)}
+            >
+                &laquo; Previous
+            </button>
+            <span className="text-muted small">
+                Page <strong>{currentPage}</strong> of <strong>{lastPage}</strong>
+            </span>
+            <button 
+                className="btn btn-outline-secondary btn-sm"
+                disabled={currentPage === lastPage}
+                onClick={() => fetchOrders(currentPage + 1)}
+            >
+                Next &raquo;
+            </button>
         </div>
       </div>
 

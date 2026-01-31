@@ -9,6 +9,7 @@ class Shop extends Model
     protected $fillable = [
         'name',
         'company_name',
+        'bank_details',
         'address',
         'phone',
         'tax_id',
@@ -16,6 +17,7 @@ class Shop extends Model
         'website',
         'footer_text',
         'remarks',
+        'bank_details',
         'logo_path',
     ];
 }

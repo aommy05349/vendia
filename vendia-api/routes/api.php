@@ -26,5 +26,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('brands', BrandController::class);
     Route::apiResource('units', UnitController::class);
     Route::apiResource('warehouses', WarehouseController::class);
+    Route::get('/orders/daily-sales', [OrderController::class, 'dailySales']);
     Route::apiResource('orders', OrderController::class);
 });
