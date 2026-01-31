@@ -9,15 +9,16 @@ class ProductController extends Controller
 {
     public function index()
     {
-        return Product::all();
+        return Product::with('category')->get();
     }
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required',
             'price' => 'required|numeric',
             'stock' => 'required|integer',
+            'category_id' => 'nullable|exists:categories,id',
         ]);
 
         return Product::create($request->all());

@@ -1,13 +1,5 @@
 import { create } from 'zustand';
-
-export interface Product {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  stock: number;
-  sku: string;
-}
+import { Product } from './productStore';
 
 export interface OrderItem {
   product: Product;

@@ -1,28 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { useCartStore, api, Product } from '@vendia/shared';
+import { useCartStore, useProductStore, useCategoryStore, api } from '@vendia/shared';
 
 export const Pos = () => {
   const { items, addToCart, removeFromCart, clearCart, total } = useCartStore();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { products, fetchProducts, loading } = useProductStore();
+  const { categories, fetchCategories } = useCategoryStore();
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+    fetchCategories();
+  }, [fetchProducts, fetchCategories]);
 
-  const fetchProducts = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get('/products');
-      setProducts(response.data);
-    } catch (error) {
-      console.error('Failed to fetch products', error);
-      setAlertMessage({ type: 'danger', text: 'Failed to fetch products' });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const filteredProducts = selectedCategory
+    ? products.filter((p) => p.category_id === selectedCategory)
+    : products;
 
   const handleCheckout = async () => {
     try {
@@ -50,6 +43,25 @@ export const Pos = () => {
         <div className="d-flex justify-content-between align-items-center mb-4">
             <h1 className="h3 m-0">Products</h1>
         </div>
+        
+        {/* Category Filter */}
+        <div className="mb-4 d-flex gap-2 overflow-auto pb-2">
+          <button 
+            className={`btn ${selectedCategory === null ? 'btn-dark' : 'btn-outline-dark'}`}
+            onClick={() => setSelectedCategory(null)}
+          >
+            All
+          </button>
+          {categories.map((category) => (
+            <button
+              key={category.id}
+              className={`btn ${selectedCategory === category.id ? 'btn-dark' : 'btn-outline-dark'}`}
+              onClick={() => setSelectedCategory(category.id)}
+            >
+              {category.name}
+            </button>
+          ))}
+        </div>
 
         {alertMessage && (
             <div className={`alert alert-${alertMessage.type} alert-dismissible fade show`} role="alert">
@@ -62,7 +74,7 @@ export const Pos = () => {
           <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>
         ) : (
           <div className="row g-3">
-            {products.map((product) => (
+            {filteredProducts.map((product) => (
               <div key={product.id} className="col-12 col-md-6 col-lg-4 col-xl-3">
                 <div className={`card h-100 shadow-sm ${product.stock === 0 ? 'opacity-50' : ''}`}>
                   <div className="card-body d-flex flex-column">

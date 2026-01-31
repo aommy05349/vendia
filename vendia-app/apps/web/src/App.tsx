@@ -7,6 +7,12 @@ import { UserList } from './pages/admin/UserList';
 import { CreateUser } from './pages/admin/CreateUser';
 import { EditUser } from './pages/admin/EditUser';
 import ShopSettings from './pages/admin/ShopSettings';
+import { CategoryList } from './pages/admin/CategoryList';
+import { CreateCategory } from './pages/admin/CreateCategory';
+import { EditCategory } from './pages/admin/EditCategory';
+import { ProductList } from './pages/admin/ProductList';
+import { CreateProduct } from './pages/admin/CreateProduct';
+import { EditProduct } from './pages/admin/EditProduct';
 
 function App() {
   const { user, login } = useAuthStore();
@@ -92,6 +98,24 @@ function App() {
           } />
           <Route path="users/:id/edit" element={
             user.role === 'admin' ? <EditUser /> : <Navigate to="/" />
+          } />
+          <Route path="categories" element={
+            user.role === 'admin' ? <CategoryList /> : <Navigate to="/" />
+          } />
+          <Route path="categories/create" element={
+            user.role === 'admin' ? <CreateCategory /> : <Navigate to="/" />
+          } />
+          <Route path="categories/:id/edit" element={
+            user.role === 'admin' ? <EditCategory /> : <Navigate to="/" />
+          } />
+          <Route path="products" element={
+            user.role === 'admin' ? <ProductList /> : <Navigate to="/" />
+          } />
+          <Route path="products/create" element={
+            user.role === 'admin' ? <CreateProduct /> : <Navigate to="/" />
+          } />
+          <Route path="products/:id/edit" element={
+            user.role === 'admin' ? <EditProduct /> : <Navigate to="/" />
           } />
           <Route path="settings" element={
             user.role === 'admin' ? <ShopSettings /> : <Navigate to="/" />
