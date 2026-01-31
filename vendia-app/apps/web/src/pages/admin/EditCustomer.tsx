@@ -18,10 +18,31 @@ export const EditCustomer = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  // Orders State
+  const [orders, setOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [ordersTotalPages, setOrdersTotalPages] = useState(1);
 
   useEffect(() => {
     fetchCustomer();
+    fetchOrders(1);
   }, [id]);
+
+  const fetchOrders = async (pageNo: number) => {
+    setOrdersLoading(true);
+    try {
+      const response = await api.get(`/orders?customer_id=${id}&page=${pageNo}`);
+      setOrders(response.data.data);
+      setOrdersTotalPages(response.data.last_page);
+      setOrdersPage(pageNo);
+    } catch (err) {
+      console.error('Failed to fetch orders', err);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
 
   const fetchCustomer = async () => {
     try {
@@ -180,6 +201,105 @@ export const EditCustomer = () => {
           </button>
         </div>
       </form>
+
+      <div className="mt-5">
+        <h3 className="mb-3">Order History</h3>
+        <div className="card shadow-sm">
+          <div className="table-responsive">
+            <table className="table table-hover mb-0 align-middle">
+              <thead className="table-light">
+                <tr>
+                  <th className="p-3">Order ID</th>
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3 text-end">Total</th>
+                  <th className="p-3 text-center">Items</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ordersLoading ? (
+                  <tr>
+                    <td colSpan={5} className="text-center p-4">
+                      <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    </td>
+                  </tr>
+                ) : orders.length > 0 ? (
+                  orders.map((order) => (
+                    <tr key={order.id}>
+                      <td className="p-3">#{order.id}</td>
+                      <td className="p-3">
+                        {new Date(order.created_at).toLocaleDateString()}
+                        <div className="small text-muted">
+                          {new Date(order.created_at).toLocaleTimeString()}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <span className={`badge bg-${
+                          order.status === 'completed' ? 'success' :
+                          order.status === 'pending' ? 'warning' :
+                          order.status === 'cancelled' ? 'danger' :
+                          'secondary'
+                        }`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="p-3 text-end fw-bold">
+                        {Number(order.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-3 text-center">
+                        {order.items?.length || 0}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="text-center p-4 text-muted">
+                      No orders found for this customer
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          {ordersTotalPages > 1 && (
+            <div className="card-footer bg-white py-3">
+              <nav aria-label="Order navigation">
+                <ul className="pagination justify-content-center mb-0">
+                  <li className={`page-item ${ordersPage === 1 ? 'disabled' : ''}`}>
+                    <button 
+                      className="page-link" 
+                      onClick={() => fetchOrders(Math.max(ordersPage - 1, 1))}
+                      disabled={ordersPage === 1}
+                    >
+                      Previous
+                    </button>
+                  </li>
+                  {[...Array(ordersTotalPages)].map((_, i) => (
+                    <li key={i + 1} className={`page-item ${ordersPage === i + 1 ? 'active' : ''}`}>
+                      <button 
+                        className="page-link" 
+                        onClick={() => fetchOrders(i + 1)}
+                      >
+                        {i + 1}
+                      </button>
+                    </li>
+                  ))}
+                  <li className={`page-item ${ordersPage === ordersTotalPages ? 'disabled' : ''}`}>
+                    <button 
+                      className="page-link" 
+                      onClick={() => fetchOrders(Math.min(ordersPage + 1, ordersTotalPages))}
+                      disabled={ordersPage === ordersTotalPages}
+                    >
+                      Next
+                    </button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

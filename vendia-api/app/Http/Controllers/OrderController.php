@@ -41,6 +41,10 @@ class OrderController extends Controller
             $query->where('status', $request->input('status'));
         }
 
+        if ($request->has('customer_id')) {
+            $query->where('customer_id', $request->input('customer_id'));
+        }
+
         $orders = $query->paginate(10);
 
         $orders->getCollection()->each(function($order) {
