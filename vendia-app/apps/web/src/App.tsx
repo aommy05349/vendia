@@ -23,6 +23,9 @@ import { WarehouseList } from './pages/admin/WarehouseList';
 import { CreateWarehouse } from './pages/admin/CreateWarehouse';
 import { EditWarehouse } from './pages/admin/EditWarehouse';
 import { OrderList } from './pages/admin/OrderList';
+import { CustomerList } from './pages/admin/CustomerList';
+import { CreateCustomer } from './pages/admin/CreateCustomer';
+import { EditCustomer } from './pages/admin/EditCustomer';
 import { PrintOrder } from './pages/PrintOrder';
 
 function App() {
@@ -163,6 +166,9 @@ function App() {
             user.role === 'admin' ? <ShopSettings /> : <Navigate to="/" />
           } />
           <Route path="orders" element={<OrderList />} />
+          <Route path="customers" element={<CustomerList />} />
+          <Route path="customers/create" element={<CreateCustomer />} />
+          <Route path="customers/:id/edit" element={<EditCustomer />} />
         </Route>
         <Route path="/print/order/:id" element={<PrintOrder />} />
         <Route path="*" element={<Navigate to="/" replace />} />

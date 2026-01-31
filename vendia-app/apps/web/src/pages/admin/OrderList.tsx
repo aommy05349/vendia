@@ -66,6 +66,7 @@ export const OrderList = () => {
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [dailySales, setDailySales] = useState<DailySales | null>(null);
+  const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
 
   // Payment Modal State
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -133,7 +134,7 @@ export const OrderList = () => {
       await api.put(`/orders/${orderId}`, { status: 'pending' });
       fetchOrders(currentPage);
     } catch (err) {
-        alert('Failed to convert quotation');
+        setAlertMessage({ type: 'danger', text: 'Failed to convert quotation' });
     }
   };
 
@@ -157,10 +158,10 @@ export const OrderList = () => {
       handlePaymentSuccess();
       
       setSelectedOrder(null);
-      alert('Payment successful!');
+      setAlertMessage({ type: 'success', text: 'Payment successful!' });
     } catch (error) {
       console.error('Payment failed:', error);
-      alert('Payment failed. Please try again.');
+      setAlertMessage({ type: 'danger', text: 'Payment failed. Please try again.' });
     }
   };
 
@@ -178,6 +179,12 @@ export const OrderList = () => {
 
   return (
     <div className="container-fluid p-4">
+      {alertMessage && (
+        <div className={`alert alert-${alertMessage.type} alert-dismissible fade show`} role="alert">
+          {alertMessage.text}
+          <button type="button" className="btn-close" onClick={() => setAlertMessage(null)}></button>
+        </div>
+      )}
       {dailySales && (
         <div className="row mb-4">
           <div className="col-md-4">

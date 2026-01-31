@@ -46,6 +46,12 @@ export const useCustomerStore = create<CustomerState>((set) => ({
     try {
       // Ensure role is customer
       const payload = { ...data, role: 'customer' };
+
+      // Use email as username if available and username is missing
+      if (!payload.username && payload.email) {
+        payload.username = payload.email;
+      }
+
       // Generate dummy username/email if not provided for quick customer creation
       if (!payload.username) payload.username = `cust_${Date.now()}`;
       if (!payload.email) payload.email = `cust_${Date.now()}@example.com`;

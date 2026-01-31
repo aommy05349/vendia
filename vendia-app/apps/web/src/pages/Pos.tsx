@@ -16,13 +16,14 @@ export const Pos = () => {
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCreateCustomerModal, setShowCreateCustomerModal] = useState(false);
-  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerFirstName, setNewCustomerFirstName] = useState('');
+  const [newCustomerLastName, setNewCustomerLastName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [newCustomerEmail, setNewCustomerEmail] = useState('');
-  const [newCustomerLineId, setNewCustomerLineId] = useState('');
   const [newCustomerTaxId, setNewCustomerTaxId] = useState('');
   const [newCustomerAddress, setNewCustomerAddress] = useState('');
   const [newCustomerCompany, setNewCustomerCompany] = useState('');
+  const [createCustomerError, setCreateCustomerError] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
@@ -604,7 +605,7 @@ export const Pos = () => {
                             fetchCustomers({ search: e.target.value });
                         }}
                     />
-                    <button className="btn btn-primary" onClick={() => setShowCreateCustomerModal(true)}>
+                    <button className="btn btn-primary" onClick={() => { setShowCreateCustomerModal(true); setCreateCustomerError(null); }}>
                         + New Customer
                     </button>
                 </div>
@@ -653,14 +654,21 @@ export const Pos = () => {
                 <button type="button" className="btn-close" onClick={() => setShowCreateCustomerModal(false)}></button>
               </div>
               <div className="modal-body">
+                {createCustomerError && (
+                    <div className="alert alert-danger" role="alert">
+                        {createCustomerError}
+                    </div>
+                )}
                 <form onSubmit={async (e) => {
                     e.preventDefault();
+                    setCreateCustomerError(null);
                     try {
                         const newCustomer = await createCustomer({
-                            name: newCustomerName,
+                            first_name: newCustomerFirstName,
+                            last_name: newCustomerLastName,
+                            name: `${newCustomerFirstName} ${newCustomerLastName}`, // Fallback for display
                             phone: newCustomerPhone,
-                            email: newCustomerEmail || undefined,
-                            line_id: newCustomerLineId,
+                            email: newCustomerEmail,
                             tax_id: newCustomerTaxId,
                             address: newCustomerAddress,
                             company_name: newCustomerCompany,
@@ -670,27 +678,59 @@ export const Pos = () => {
                         setShowCustomerModal(false);
                         
                         // Reset form
-                        setNewCustomerName('');
+                        setNewCustomerFirstName('');
+                        setNewCustomerLastName('');
                         setNewCustomerPhone('');
                         setNewCustomerEmail('');
-                        setNewCustomerLineId('');
                         setNewCustomerTaxId('');
                         setNewCustomerAddress('');
                         setNewCustomerCompany('');
+                        setCreateCustomerError(null);
                         
                         fetchCustomers();
-                    } catch (err) {
-                        alert('Failed to create customer');
+                    } catch (err: any) {
+                        const message = err.response?.data?.message || 'Failed to create customer';
+                        setCreateCustomerError(message);
                     }
                 }}>
                     <div className="row">
                         <div className="col-md-6 mb-3">
-                            <label className="form-label">Contact Name (ผู้ติดต่อ) *</label>
+                            <label className="form-label">First Name *</label>
                             <input 
                                 type="text" 
                                 className="form-control" 
-                                value={newCustomerName}
-                                onChange={(e) => setNewCustomerName(e.target.value)}
+                                value={newCustomerFirstName}
+                                onChange={(e) => setNewCustomerFirstName(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="col-md-6 mb-3">
+                            <label className="form-label">Last Name *</label>
+                            <input 
+                                type="text" 
+                                className="form-control" 
+                                value={newCustomerLastName}
+                                onChange={(e) => setNewCustomerLastName(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="col-md-6 mb-3">
+                            <label className="form-label">Email (อีเมล) *</label>
+                            <input 
+                                type="email" 
+                                className="form-control" 
+                                value={newCustomerEmail}
+                                onChange={(e) => setNewCustomerEmail(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="col-md-6 mb-3">
+                            <label className="form-label">Phone (เบอร์โทร) *</label>
+                            <input 
+                                type="text" 
+                                className="form-control" 
+                                value={newCustomerPhone}
+                                onChange={(e) => setNewCustomerPhone(e.target.value)}
                                 required
                             />
                         </div>
@@ -701,33 +741,6 @@ export const Pos = () => {
                                 className="form-control" 
                                 value={newCustomerCompany}
                                 onChange={(e) => setNewCustomerCompany(e.target.value)}
-                            />
-                        </div>
-                        <div className="col-md-6 mb-3">
-                            <label className="form-label">Phone (เบอร์โทร)</label>
-                            <input 
-                                type="text" 
-                                className="form-control" 
-                                value={newCustomerPhone}
-                                onChange={(e) => setNewCustomerPhone(e.target.value)}
-                            />
-                        </div>
-                        <div className="col-md-6 mb-3">
-                            <label className="form-label">Email (อีเมล)</label>
-                            <input 
-                                type="email" 
-                                className="form-control" 
-                                value={newCustomerEmail}
-                                onChange={(e) => setNewCustomerEmail(e.target.value)}
-                            />
-                        </div>
-                        <div className="col-md-6 mb-3">
-                            <label className="form-label">Line ID</label>
-                            <input 
-                                type="text" 
-                                className="form-control" 
-                                value={newCustomerLineId}
-                                onChange={(e) => setNewCustomerLineId(e.target.value)}
                             />
                         </div>
                         <div className="col-md-6 mb-3">

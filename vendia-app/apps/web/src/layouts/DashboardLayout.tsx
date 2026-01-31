@@ -80,6 +80,7 @@ export const DashboardLayout = () => {
           <nav className="nav flex-column gap-2 overflow-auto flex-grow-1">
             <Link to="/" className={`nav-link border rounded text-dark ${location.pathname === '/' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🛒 POS System</Link>
             <Link to="/orders" className={`nav-link border rounded text-dark ${location.pathname === '/orders' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📄 Orders / Bill</Link>
+            <Link to="/customers" className={`nav-link border rounded text-dark ${location.pathname === '/customers' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 Customers</Link>
             
             {user.role === 'admin' && (
               <>

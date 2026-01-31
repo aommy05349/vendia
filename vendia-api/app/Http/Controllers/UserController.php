@@ -6,6 +6,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Database\QueryException;
+use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
@@ -40,7 +42,7 @@ class UserController extends Controller
             'password' => 'nullable|string|min:8', // Make password nullable for customers
             'role' => ['required', Rule::in(['admin', 'staff', 'customer'])],
             'image' => 'nullable|image|max:2048', // Max 2MB
-            'phone' => 'nullable|string|max:20',
+            'phone' => 'required|string|max:20|unique:users',
             'address' => 'nullable|string',
             'tax_id' => 'nullable|string|max:50',
             'company_name' => 'nullable|string|max:255',
@@ -65,7 +67,16 @@ class UserController extends Controller
         
         $validated['name'] = $validated['first_name'] . ' ' . $validated['last_name'];
 
-        $user = User::create($validated);
+        try {
+            $user = User::create($validated);
+        } catch (QueryException $e) {
+            if ($e->errorInfo[1] == 19) { // SQLite unique constraint violation
+                throw ValidationException::withMessages([
+                    'phone' => ['The phone has already been taken.'],
+                ]);
+            }
+            throw $e;
+        }
 
         return response()->json($user, 201);
     }
@@ -85,7 +96,7 @@ class UserController extends Controller
             'password' => 'sometimes|nullable|string|min:8',
             'role' => ['sometimes', 'required', Rule::in(['admin', 'staff', 'customer'])],
             'image' => 'nullable|image|max:2048',
-            'phone' => 'nullable|string|max:20',
+            'phone' => ['sometimes', 'required', 'string', 'max:20', Rule::unique('users')->ignore($user->id)],
             'address' => 'nullable|string',
             'tax_id' => 'nullable|string|max:50',
             'company_name' => 'nullable|string|max:255',
@@ -103,15 +114,28 @@ class UserController extends Controller
             unset($validated['password']);
         }
 
-        if (isset($validated['first_name']) || isset($validated['last_name'])) {
-            $first = $validated['first_name'] ?? $user->first_name;
-            $last = $validated['last_name'] ?? $user->last_name;
-            $validated['name'] = $first . ' ' . $last;
+        if (isset($validated['name'])) {
+            $validated['name'] = $validated['first_name'] . ' ' . $validated['last_name'];
+        } elseif (isset($validated['first_name']) && isset($validated['last_name'])) {
+            $validated['name'] = $validated['first_name'] . ' ' . $validated['last_name'];
+        } elseif (isset($validated['first_name'])) {
+            $validated['name'] = $validated['first_name'] . ' ' . $user->last_name;
+        } elseif (isset($validated['last_name'])) {
+            $validated['name'] = $user->first_name . ' ' . $validated['last_name'];
         }
 
-        $user->update($validated);
+        try {
+            $user->update($validated);
+        } catch (QueryException $e) {
+            if ($e->errorInfo[1] == 19) { // SQLite unique constraint violation
+                throw ValidationException::withMessages([
+                    'phone' => ['The phone has already been taken.'],
+                ]);
+            }
+            throw $e;
+        }
 
-        return response()->json($user);
+        return $user;
     }
 
     public function destroy(User $user)
