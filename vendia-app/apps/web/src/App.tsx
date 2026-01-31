@@ -27,6 +27,7 @@ import { CustomerList } from './pages/admin/CustomerList';
 import { CreateCustomer } from './pages/admin/CreateCustomer';
 import { EditCustomer } from './pages/admin/EditCustomer';
 import { PrintOrder } from './pages/PrintOrder';
+import { TechnicianDashboard } from './pages/technician/TechnicianDashboard';
 
 function App() {
   const { user, login } = useAuthStore();
@@ -169,6 +170,9 @@ function App() {
           <Route path="customers" element={<CustomerList />} />
           <Route path="customers/create" element={<CreateCustomer />} />
           <Route path="customers/:id/edit" element={<EditCustomer />} />
+          <Route path="technician" element={
+            user.role === 'technician' || user.role === 'admin' ? <TechnicianDashboard /> : <Navigate to="/" />
+          } />
         </Route>
         <Route path="/print/order/:id" element={<PrintOrder />} />
         <Route path="*" element={<Navigate to="/" replace />} />

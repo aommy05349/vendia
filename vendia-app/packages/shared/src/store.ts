@@ -8,7 +8,7 @@ export interface User {
   first_name?: string;
   last_name?: string;
   email: string;
-  role: 'admin' | 'staff' | 'customer';
+  role: 'admin' | 'staff' | 'customer' | 'technician';
   phone?: string;
   address?: string;
   tax_id?: string;

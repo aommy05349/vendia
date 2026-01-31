@@ -1,0 +1,23 @@
+/* Custom Scrollbar for Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #dee2e6; /* Bootstrap gray-300 */
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #adb5bd; /* Bootstrap gray-500 */
+}
+
+/* Ensure full height layout */
+html, body, #root {
+  height: 100%;
+}

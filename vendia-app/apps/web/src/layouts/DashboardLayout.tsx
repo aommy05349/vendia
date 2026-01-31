@@ -77,21 +77,29 @@ export const DashboardLayout = () => {
             )}
             <h2 className="h4 text-dark m-0">{shop?.name || 'Vendia POS'}</h2>
           </div>
-          <nav className="nav flex-column gap-2 overflow-auto flex-grow-1">
-            <Link to="/" className={`nav-link border rounded text-dark ${location.pathname === '/' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🛒 POS System</Link>
-            <Link to="/orders" className={`nav-link border rounded text-dark ${location.pathname === '/orders' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📄 Orders / Bill</Link>
-            <Link to="/customers" className={`nav-link border rounded text-dark ${location.pathname === '/customers' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 Customers</Link>
+          <nav className="nav flex-column gap-2 overflow-y-auto overflow-x-hidden flex-grow-1" style={{ scrollbarWidth: 'thin' }}>
+            <Link to="/" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🛒 POS System</Link>
+            <Link to="/orders" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/orders' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📄 Orders / Bill</Link>
+            <Link to="/customers" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/customers' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 Customers</Link>
             
+            {(user.role === 'technician' || user.role === 'admin') && (
+              <>
+                <div className=" text-muted fw-bold small ps-2">TECHNICIAN</div>
+                <Link to="/technician" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/technician' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⏱️ Attendance</Link>
+              </>
+            )}
+
             {user.role === 'admin' && (
               <>
-                <div className="mt-4 mb-2 text-muted fw-bold small ps-2">ADMIN</div>
-                <Link to="/users" className={`nav-link border rounded text-dark ${location.pathname === '/users' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 User Management</Link>
-                <Link to="/categories" className={`nav-link border rounded text-dark ${location.pathname === '/categories' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📁 Categories</Link>
-                <Link to="/products" className={`nav-link border rounded text-dark ${location.pathname === '/products' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📦 Products</Link>
-                <Link to="/brands" className={`nav-link border rounded text-dark ${location.pathname === '/brands' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏷️ Brands</Link>
-                <Link to="/units" className={`nav-link border rounded text-dark ${location.pathname === '/units' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚖️ Units</Link>
-                <Link to="/warehouses" className={`nav-link border rounded text-dark ${location.pathname === '/warehouses' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏭 Warehouses</Link>
-                <Link to="/settings" className={`nav-link border rounded text-dark ${location.pathname === '/settings' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚙️ Shop Settings</Link>
+                <div className="text-muted fw-bold small ps-2">ADMIN</div>
+                <Link to="/users" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/users' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 User Management</Link>
+                <Link to="/categories" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/categories' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📁 Categories</Link>
+                <Link to="/products" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/products' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📦 Products</Link>
+                <Link to="/brands" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/brands' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏷️ Brands</Link>
+                <Link to="/units" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/units' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚖️ Units</Link>
+                <Link to="/warehouses" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/warehouses' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏭 Warehouses</Link>
+                <Link to="/settings" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/settings' ? 'bg-primary text-white border-primary' : 'text-dark'}`}><span className="fs-5">⚙️</span> Shop Settings</Link>
+                <div className="pb-3"></div>
               </>
             )}
           </nav>

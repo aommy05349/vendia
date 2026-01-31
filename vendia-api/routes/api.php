@@ -9,6 +9,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\UnitController;
 use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\AttendanceController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -28,4 +29,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('warehouses', WarehouseController::class);
     Route::get('/orders/daily-sales', [OrderController::class, 'dailySales']);
     Route::apiResource('orders', OrderController::class);
+
+    // Attendance
+    Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn']);
+    Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut']);
+    Route::get('/attendance/status', [AttendanceController::class, 'currentStatus']);
+    Route::get('/attendance/overview', [AttendanceController::class, 'overview']);
+    Route::get('/attendance/history/{user}', [AttendanceController::class, 'history']);
+    Route::get('/attendance', [AttendanceController::class, 'index']);
 });
