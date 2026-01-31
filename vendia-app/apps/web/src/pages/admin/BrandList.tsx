@@ -3,13 +3,17 @@ import { useAuxStore } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
 
 export const BrandList = () => {
-  const { brands, fetchBrands, deleteBrand, loading, error } = useAuxStore();
+  const { brands, fetchBrands, deleteBrand, loading, error, brandPagination } = useAuxStore();
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchBrands();
+    fetchBrands(1);
   }, []);
+
+  const handlePageChange = (page: number) => {
+    fetchBrands(page);
+  };
 
   useEffect(() => {
     if (error) {
@@ -67,7 +71,7 @@ export const BrandList = () => {
                   <td className="p-3">
                     {brand.image ? (
                       <img 
-                        src={brand.image.startsWith('http') ? brand.image : `${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${brand.image}`} 
+                        src={brand.image.startsWith('http') ? brand.image : `${(import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace('/api', '')}/storage/${brand.image}`} 
                         alt={brand.name} 
                         style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }} 
                       />
@@ -100,6 +104,60 @@ export const BrandList = () => {
             </tbody>
           </table>
         </div>
+        {brandPagination && (
+          <div className="card-footer bg-white d-flex justify-content-between align-items-center py-3">
+            <div className="text-muted small">
+              Showing {brandPagination.from} to {brandPagination.to} of {brandPagination.total} entries
+            </div>
+            <nav>
+              <ul className="pagination pagination-sm mb-0">
+                <li className={`page-item ${brandPagination.current_page === 1 ? 'disabled' : ''}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => handlePageChange(brandPagination.current_page - 1)}
+                    disabled={brandPagination.current_page === 1}
+                  >
+                    Previous
+                  </button>
+                </li>
+                {[...Array(brandPagination.last_page)].map((_, index) => {
+                  const page = index + 1;
+                  // Show current page, first page, last page, and pages around current
+                  if (
+                    page === 1 ||
+                    page === brandPagination.last_page ||
+                    (page >= brandPagination.current_page - 1 && page <= brandPagination.current_page + 1)
+                  ) {
+                    return (
+                      <li key={page} className={`page-item ${brandPagination.current_page === page ? 'active' : ''}`}>
+                        <button className="page-link" onClick={() => handlePageChange(page)}>
+                          {page}
+                        </button>
+                      </li>
+                    );
+                  }
+                  // Show ellipsis
+                  if (
+                    page === brandPagination.current_page - 2 ||
+                    page === brandPagination.current_page + 2
+                  ) {
+                    return <li key={page} className="page-item disabled"><span className="page-link">...</span></li>;
+                  }
+                  return null;
+                })}
+                <li className={`page-item ${brandPagination.current_page === brandPagination.last_page ? 'disabled' : ''}`}>
+                  <button
+                    className="page-link"
+                    onClick={() => handlePageChange(brandPagination.current_page + 1)}
+                    disabled={brandPagination.current_page === brandPagination.last_page}
+                  >
+                    Next
+                  </button>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        )}
       </div>
     </div>
   );

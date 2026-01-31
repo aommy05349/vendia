@@ -82,7 +82,7 @@ export const EditBrand = () => {
               {currentImageUrl && (
                 <div className="mb-2">
                   <img 
-                    src={currentImageUrl.startsWith('http') ? currentImageUrl : `${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${currentImageUrl}`}
+                    src={currentImageUrl.startsWith('http') ? currentImageUrl : `${(import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace('/api', '')}/storage/${currentImageUrl}`}
                     alt="Current" 
                     style={{ height: '80px', borderRadius: '4px' }} 
                   />

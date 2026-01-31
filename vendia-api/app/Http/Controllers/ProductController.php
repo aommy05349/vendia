@@ -10,9 +10,24 @@ use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return Product::with(['category', 'brand', 'unit', 'warehouse', 'images'])->get();
+        $query = Product::with(['category', 'brand', 'unit', 'warehouse', 'images']);
+
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        $sortField = $request->input('sort_by', 'created_at');
+        $sortOrder = $request->input('sort_order', 'desc');
+        
+        $allowedSorts = ['name', 'price', 'created_at', 'stock'];
+        if (in_array($sortField, $allowedSorts)) {
+            $query->orderBy($sortField, $sortOrder);
+        }
+
+        $perPage = $request->input('per_page', 10);
+        return $query->paginate($perPage);
     }
 
     public function store(Request $request)

@@ -15,8 +15,8 @@ class ShopSeeder extends Seeder
     {
         if (Shop::count() === 0) {
             Shop::create([
-                'name' => 'Vendia POS',
-                'address' => 'Default Address',
+                'name' => 'PT AIR CHIANGMAI',
+                'address' => '181/78 ม.6 ต.สันพระเนตร อ.สันทราย จ.เชียงใหม่ 50209',
                 'phone' => '000-000-0000',
                 'logo_path' => null,
             ]);

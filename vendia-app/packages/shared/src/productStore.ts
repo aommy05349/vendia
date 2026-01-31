@@ -46,25 +46,62 @@ export interface Product {
   images?: ProductImage[];
 }
 
+export interface PaginationMeta {
+  current_page: number;
+  from: number;
+  last_page: number;
+  per_page: number;
+  to: number;
+  total: number;
+}
+
+export interface ProductQueryParams {
+  page?: number;
+  per_page?: number;
+  category_id?: number | string;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+}
+
 interface ProductState {
   products: Product[];
+  pagination: PaginationMeta | null;
   loading: boolean;
   error: string | null;
-  fetchProducts: () => Promise<void>;
-  createProduct: (data: FormData) => Promise<void>; // Changed to FormData for file upload
-  updateProduct: (id: number, data: FormData | Partial<Product>) => Promise<void>; // Changed to FormData
+  fetchProducts: (params?: ProductQueryParams) => Promise<void>;
+  createProduct: (data: FormData) => Promise<void>;
+  updateProduct: (id: number, data: FormData | Partial<Product>) => Promise<void>;
   deleteProduct: (id: number) => Promise<void>;
 }
 
-export const useProductStore = create<ProductState>((set) => ({
+export const useProductStore = create<ProductState>((set, get) => ({
   products: [],
+  pagination: null,
   loading: false,
   error: null,
-  fetchProducts: async () => {
+  fetchProducts: async (params = {}) => {
     set({ loading: true, error: null });
     try {
-      const response = await api.get('/products');
-      set({ products: response.data, loading: false });
+      const response = await api.get('/products', { params });
+      
+      // Check if response is paginated or flat array (backward compatibility)
+      if (response.data.data && response.data.current_page) {
+        set({ 
+          products: response.data.data, 
+          pagination: {
+            current_page: response.data.current_page,
+            from: response.data.from,
+            last_page: response.data.last_page,
+            per_page: response.data.per_page,
+            to: response.data.to,
+            total: response.data.total
+          },
+          loading: false 
+        });
+      } else {
+        // Fallback for flat array if API changes haven't propagated or for other endpoints
+        set({ products: response.data, pagination: null, loading: false });
+      }
     } catch (error: any) {
       set({ loading: false, error: error.message || 'Failed to fetch products' });
     }
@@ -72,13 +109,11 @@ export const useProductStore = create<ProductState>((set) => ({
   createProduct: async (data) => {
     set({ loading: true, error: null });
     try {
-      const response = await api.post('/products', data, {
+      await api.post('/products', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      set((state) => ({
-        products: [...state.products, response.data],
-        loading: false,
-      }));
+      // Refetch to ensure correct order and pagination
+      await get().fetchProducts();
     } catch (error: any) {
       set({ loading: false, error: error.message || 'Failed to create product' });
       throw error;
@@ -87,21 +122,16 @@ export const useProductStore = create<ProductState>((set) => ({
   updateProduct: async (id, data) => {
     set({ loading: true, error: null });
     try {
-      // If data is FormData, use post with _method=PUT for Laravel to handle file uploads
-      let response;
       if (data instanceof FormData) {
         data.append('_method', 'PUT');
-        response = await api.post(`/products/${id}`, data, {
+        await api.post(`/products/${id}`, data, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
       } else {
-        response = await api.put(`/products/${id}`, data);
+        await api.put(`/products/${id}`, data);
       }
-      
-      set((state) => ({
-        products: state.products.map((p) => (p.id === id ? response.data : p)),
-        loading: false,
-      }));
+      // Refetch to update list
+      await get().fetchProducts();
     } catch (error: any) {
       set({ loading: false, error: error.message || 'Failed to update product' });
       throw error;
@@ -111,10 +141,8 @@ export const useProductStore = create<ProductState>((set) => ({
     set({ loading: true, error: null });
     try {
       await api.delete(`/products/${id}`);
-      set((state) => ({
-        products: state.products.filter((p) => p.id !== id),
-        loading: false,
-      }));
+      // Refetch to update list
+      await get().fetchProducts();
     } catch (error: any) {
       set({ loading: false, error: error.message || 'Failed to delete product' });
       throw error;

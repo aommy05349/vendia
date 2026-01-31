@@ -21,13 +21,23 @@ export interface Warehouse {
   email?: string;
 }
 
+export interface PaginationMeta {
+  current_page: number;
+  from: number;
+  last_page: number;
+  per_page: number;
+  to: number;
+  total: number;
+}
+
 interface AuxState {
   brands: Brand[];
+  brandPagination: PaginationMeta | null;
   units: Unit[];
   warehouses: Warehouse[];
   loading: boolean;
   error: string | null;
-  fetchBrands: () => Promise<void>;
+  fetchBrands: (page?: number) => Promise<void>;
   fetchUnits: () => Promise<void>;
   fetchWarehouses: () => Promise<void>;
   createBrand: (name: string, image?: File) => Promise<void>;
@@ -43,14 +53,29 @@ interface AuxState {
 
 export const useAuxStore = create<AuxState>((set, get) => ({
   brands: [],
+  brandPagination: null,
   units: [],
   warehouses: [],
   loading: false,
   error: null,
-  fetchBrands: async () => {
+  fetchBrands: async (page = 1) => {
     try {
-      const response = await api.get('/brands');
-      set({ brands: response.data });
+      const response = await api.get('/brands', { params: { page } });
+      if (response.data.data && response.data.current_page) {
+        set({ 
+            brands: response.data.data,
+            brandPagination: {
+                current_page: response.data.current_page,
+                from: response.data.from,
+                last_page: response.data.last_page,
+                per_page: response.data.per_page,
+                to: response.data.to,
+                total: response.data.total
+            }
+        });
+      } else {
+        set({ brands: response.data, brandPagination: null });
+      }
     } catch (error) {
       console.error('Failed to fetch brands', error);
     }
@@ -81,7 +106,7 @@ export const useAuxStore = create<AuxState>((set, get) => ({
       await api.post(`/brands/${id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      await get().fetchBrands();
+      await get().fetchBrands(get().brandPagination?.current_page || 1);
       set({ loading: false });
     } catch (error: any) {
       set({ loading: false, error: error.message || 'Failed to update brand' });
@@ -92,7 +117,8 @@ export const useAuxStore = create<AuxState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       await api.delete(`/brands/${id}`);
-      set(state => ({ brands: state.brands.filter(b => b.id !== id), loading: false }));
+      await get().fetchBrands(get().brandPagination?.current_page || 1);
+      set({ loading: false });
     } catch (error: any) {
       set({ loading: false, error: error.message || 'Failed to delete brand' });
       throw error;
