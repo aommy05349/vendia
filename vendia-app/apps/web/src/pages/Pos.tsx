@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useCartStore, useProductStore, useCategoryStore, api, Product } from '@vendia/shared';
 
 export const Pos = () => {
-  const { items, addToCart, removeFromCart, clearCart, total } = useCartStore();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const editingOrderId = searchParams.get('order_id');
+  const { items, addToCart, removeFromCart, updateQuantity, clearCart, setCart, total } = useCartStore();
   const { products, fetchProducts, loading, pagination } = useProductStore();
   const { categories, fetchCategories } = useCategoryStore();
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -13,6 +17,12 @@ export const Pos = () => {
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [selectedProductForPrice, setSelectedProductForPrice] = useState<Product | null>(null);
   const [customPrice, setCustomPrice] = useState('');
+
+  // Payment Modal State
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [receivedAmount, setReceivedAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
+  const [change, setChange] = useState<number | null>(null);
 
   useEffect(() => {
     fetchProducts({
@@ -25,6 +35,76 @@ export const Pos = () => {
   useEffect(() => {
     fetchCategories({ has_products: true });
   }, [fetchCategories]);
+
+  useEffect(() => {
+    fetchCategories({ has_products: true });
+  }, [fetchCategories]);
+
+  useEffect(() => {
+    if (editingOrderId) {
+      console.log("Loading order:", editingOrderId);
+      
+      api.get(`/orders/${editingOrderId}`).then((res) => {
+        console.log("Order loaded:", res.data);
+        
+        if (!res.data.items || !Array.isArray(res.data.items)) {
+            console.error("Invalid items format:", res.data);
+            return;
+        }
+
+        let skippedCount = 0;
+        const newCartItems = res.data.items.map((item: any) => {
+           let product = item.product;
+           
+           if (!product) {
+               console.warn("Item missing product:", item);
+               // Create a placeholder product to ensure item is visible
+               product = {
+                   id: item.product_id || 0,
+                   name: `Unknown Product (ID: ${item.product_id})`,
+                   price: parseFloat(item.price) || 0,
+                   stock: 999,
+                   product_type: 'single',
+                   description: 'Product data missing or deleted'
+               };
+           }
+           
+           const qty = parseInt(item.quantity, 10);
+           const price = parseFloat(item.price);
+           
+           // Ensure product object has all necessary fields
+           const productWithAdjustedStock = {
+              ...product,
+              // Force stock to be sufficient for the order
+              stock: Math.max(product.stock || 0, qty + 100) 
+            };
+
+            return {
+                product: productWithAdjustedStock,
+                quantity: qty,
+                price: price
+            };
+        }); 
+
+        console.log("Setting cart:", newCartItems);
+        
+        if (skippedCount > 0) {
+            setAlertMessage({ type: 'danger', text: `Warning: ${skippedCount} items were skipped because the product no longer exists.` });
+        }
+
+        // Direct update without timeout to test immediate reactivity
+        setCart(newCartItems);
+        
+      }).catch(err => {
+        console.error("Failed to load order", err);
+        setAlertMessage({ type: 'danger', text: 'Failed to load order for editing: ' + err.message });
+      });
+    } else {
+        // If we are NOT editing (normal POS mode), clear the cart on mount
+        // This ensures no leftover state from previous edits or sessions
+        clearCart();
+    }
+  }, [editingOrderId, setCart, clearCart]);
 
   const handleCategorySelect = (id: number | null) => {
     setSelectedCategory(id);
@@ -57,32 +137,88 @@ export const Pos = () => {
     }
   };
 
-  const handleCheckout = async () => {
+  const handleCheckoutClick = () => {
+    setShowPaymentModal(true);
+    setReceivedAmount('');
+    setChange(null);
+    setPaymentMethod('cash');
+  };
+
+  const submitOrder = async (status: 'completed' | 'pending', method: string) => {
     try {
-      await api.post('/orders', {
+      const payload = {
         items: items.map((item) => ({
           product_id: item.product.id,
           quantity: item.quantity,
           price: item.price,
         })),
-        payment_method: 'cash',
-      });
-      setAlertMessage({ type: 'success', text: 'Order placed successfully!' });
+        payment_method: method,
+        status: status,
+      };
+
+      if (editingOrderId) {
+        await api.put(`/orders/${editingOrderId}`, payload);
+        setAlertMessage({ type: 'success', text: 'Order updated successfully!' });
+      } else {
+        await api.post('/orders', payload);
+        setAlertMessage({ type: 'success', text: status === 'pending' ? 'Order saved as Unpaid!' : 'Order placed successfully!' });
+      }
+
+      setShowPaymentModal(false);
       clearCart();
       fetchProducts(); // Refresh stock
-      setTimeout(() => setAlertMessage(null), 3000);
+      
+      if (editingOrderId) {
+        setTimeout(() => navigate('/orders'), 1000);
+      } else {
+        setTimeout(() => setAlertMessage(null), 3000);
+      }
     } catch (error) {
       setAlertMessage({ type: 'danger', text: 'Checkout failed!' });
       console.error(error);
     }
   };
 
+  const processPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    submitOrder('completed', paymentMethod);
+  };
+
+  const handlePayLater = () => {
+    submitOrder('pending', 'pay_later');
+  };
+
+  useEffect(() => {
+    if (paymentMethod === 'cash' && receivedAmount) {
+      const received = parseFloat(receivedAmount);
+      const totalAmount = total();
+      setChange(received - totalAmount);
+    } else {
+      setChange(null);
+    }
+  }, [receivedAmount, paymentMethod, total]);
+
   return (
     <div className="d-flex flex-column flex-lg-row h-100">
       {/* Product Grid */}
       <div className="flex-grow-1 p-4 overflow-auto border-end-lg border-bottom border-bottom-lg-0" style={{ flex: 3 }}>
         <div className="d-flex justify-content-between align-items-center mb-4">
-            <h1 className="h3 m-0">Products</h1>
+            <h1 className="h3 m-0">
+                {editingOrderId ? (
+                    <span>
+                        Editing Order <span className="text-primary">#{editingOrderId}</span>
+                        <button 
+                            className="btn btn-sm btn-outline-danger ms-3" 
+                            onClick={() => { 
+                                clearCart();
+                                navigate('/orders'); 
+                            }}
+                        >
+                            Cancel Edit
+                        </button>
+                    </span>
+                ) : 'Products'}
+            </h1>
         </div>
         
         {/* Category Filter */}
@@ -187,12 +323,27 @@ export const Pos = () => {
                           ฿{item.price} x {item.quantity}
                         </div>
                       </div>
-                      <button
-                        onClick={() => removeFromCart(item.product.id)}
-                        className="btn btn-danger btn-sm"
-                      >
-                        Remove
-                      </button>
+                      <div className="d-flex align-items-center">
+                        <button 
+                          className="btn btn-light btn-sm border"
+                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                        >
+                          -
+                        </button>
+                        <span className="mx-2 fw-bold">{item.quantity}</span>
+                        <button 
+                          className="btn btn-light btn-sm border"
+                          onClick={() => addToCart(item.product, 1)}
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => removeFromCart(item.product.id)}
+                          className="btn btn-danger btn-sm ms-2"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -209,15 +360,30 @@ export const Pos = () => {
                       <div>
                         <div className="fw-bold">{item.product.name}</div>
                         <div className="small text-muted">
-                          ฿{item.price}
+                          ฿{item.price} {item.quantity > 1 && `x ${item.quantity}`}
                         </div>
                       </div>
-                      <button
-                        onClick={() => removeFromCart(item.product.id)}
-                        className="btn btn-danger btn-sm"
-                      >
-                        Remove
-                      </button>
+                      <div className="d-flex align-items-center">
+                        <button 
+                          className="btn btn-light btn-sm border"
+                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                        >
+                          -
+                        </button>
+                        <span className="mx-2 fw-bold">{item.quantity}</span>
+                        <button 
+                          className="btn btn-light btn-sm border"
+                          onClick={() => addToCart(item.product, 1)}
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => removeFromCart(item.product.id)}
+                          className="btn btn-danger btn-sm ms-2"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -234,15 +400,30 @@ export const Pos = () => {
                       <div>
                         <div className="fw-bold text-danger">{item.product.name}</div>
                         <div className="small text-danger fw-bold">
-                          ฿{item.price}
+                          ฿{item.price} {item.quantity > 1 && `x ${item.quantity}`}
                         </div>
                       </div>
-                      <button
-                        onClick={() => removeFromCart(item.product.id)}
-                        className="btn btn-danger btn-sm"
-                      >
-                        Remove
-                      </button>
+                      <div className="d-flex align-items-center">
+                        <button 
+                          className="btn btn-light btn-sm border"
+                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                        >
+                          -
+                        </button>
+                        <span className="mx-2 fw-bold">{item.quantity}</span>
+                        <button 
+                          className="btn btn-light btn-sm border"
+                          onClick={() => addToCart(item.product, 1)}
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => removeFromCart(item.product.id)}
+                          className="btn btn-danger btn-sm ms-2"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -258,13 +439,99 @@ export const Pos = () => {
           </div>
           <button
             disabled={items.length === 0}
-            onClick={handleCheckout}
+            onClick={handleCheckoutClick}
             className={`btn w-100 btn-lg ${items.length === 0 ? 'btn-secondary' : 'btn-success'}`}
           >
             Checkout
           </button>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Payment</h5>
+                <button type="button" className="btn-close" onClick={() => setShowPaymentModal(false)}></button>
+              </div>
+              <form onSubmit={processPayment}>
+                <div className="modal-body">
+                  <div className="text-center mb-4">
+                    <div className="text-muted mb-1">Total Amount</div>
+                    <div className="display-4 fw-bold text-primary">฿{total().toFixed(2)}</div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">Payment Method</label>
+                    <div className="btn-group w-100" role="group">
+                      <input 
+                        type="radio" 
+                        className="btn-check" 
+                        name="paymentMethod" 
+                        id="cash" 
+                        autoComplete="off" 
+                        checked={paymentMethod === 'cash'}
+                        onChange={() => setPaymentMethod('cash')}
+                      />
+                      <label className="btn btn-outline-primary" htmlFor="cash">Cash (เงินสด)</label>
+
+                      <input 
+                        type="radio" 
+                        className="btn-check" 
+                        name="paymentMethod" 
+                        id="transfer" 
+                        autoComplete="off" 
+                        checked={paymentMethod === 'transfer'}
+                        onChange={() => setPaymentMethod('transfer')}
+                      />
+                      <label className="btn btn-outline-primary" htmlFor="transfer">Transfer (โอนเงิน)</label>
+                    </div>
+                  </div>
+
+                  {paymentMethod === 'cash' && (
+                    <div className="mb-3">
+                      <label className="form-label fw-bold">Received Amount (รับเงินมา)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="form-control form-control-lg"
+                        value={receivedAmount}
+                        onChange={(e) => setReceivedAmount(e.target.value)}
+                        autoFocus
+                        required
+                        min={total()}
+                      />
+                      {change !== null && (
+                        <div className={`mt-3 p-3 rounded text-center ${change >= 0 ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger'}`}>
+                          <div className="small fw-bold text-uppercase">Change (เงินทอน)</div>
+                          <div className="fs-2 fw-bold">฿{change.toFixed(2)}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="modal-footer justify-content-between">
+                  <button type="button" className="btn btn-outline-warning" onClick={handlePayLater}>
+                    Save as Unpaid (ติดไว้ก่อน)
+                  </button>
+                  <div>
+                    <button type="button" className="btn btn-secondary me-2" onClick={() => setShowPaymentModal(false)}>Cancel</button>
+                    <button 
+                      type="submit" 
+                      className="btn btn-success btn-lg px-4"
+                      disabled={paymentMethod === 'cash' && (!receivedAmount || parseFloat(receivedAmount) < total())}
+                    >
+                      Confirm Payment
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Price Override Modal */}
       {showPriceModal && (

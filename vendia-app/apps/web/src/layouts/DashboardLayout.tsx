@@ -79,6 +79,7 @@ export const DashboardLayout = () => {
           </div>
           <nav className="nav flex-column gap-2 overflow-auto flex-grow-1">
             <Link to="/" className={`nav-link border rounded text-dark ${location.pathname === '/' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🛒 POS System</Link>
+            <Link to="/orders" className={`nav-link border rounded text-dark ${location.pathname === '/orders' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📄 Orders / Bill</Link>
             
             {user.role === 'admin' && (
               <>
@@ -86,7 +87,6 @@ export const DashboardLayout = () => {
                 <Link to="/users" className={`nav-link border rounded text-dark ${location.pathname === '/users' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 User Management</Link>
                 <Link to="/categories" className={`nav-link border rounded text-dark ${location.pathname === '/categories' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📁 Categories</Link>
                 <Link to="/products" className={`nav-link border rounded text-dark ${location.pathname === '/products' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📦 Products</Link>
-                <Link to="/orders" className={`nav-link border rounded text-dark ${location.pathname === '/orders' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📊 Sales Reports</Link>
                 <Link to="/brands" className={`nav-link border rounded text-dark ${location.pathname === '/brands' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏷️ Brands</Link>
                 <Link to="/units" className={`nav-link border rounded text-dark ${location.pathname === '/units' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚖️ Units</Link>
                 <Link to="/warehouses" className={`nav-link border rounded text-dark ${location.pathname === '/warehouses' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏭 Warehouses</Link>

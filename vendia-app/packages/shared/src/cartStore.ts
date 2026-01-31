@@ -13,11 +13,13 @@ interface CartState {
   removeFromCart: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void; // Added for flexibility
   clearCart: () => void;
+  setCart: (items: OrderItem[]) => void;
   total: () => number;
 }
 
 export const useCartStore = create<CartState>((set, get) => ({
   items: [],
+  setCart: (items) => set({ items }),
   addToCart: (product, quantity = 1, price) => {
     const items = get().items;
     const existingItem = items.find((item) => item.product.id === product.id);

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '@vendia/shared';
+import { useNavigate } from 'react-router-dom';
 
 interface BundleItemSnapshot {
   id: number;
@@ -32,14 +33,22 @@ interface Order {
   created_at: string;
   user?: {
     name: string;
+    id: number;
   };
   items: OrderItem[];
 }
 
 export const OrderList = () => {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
+
+  // Payment Modal State
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [receivedAmount, setReceivedAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
+  const [change, setChange] = useState<number | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -60,12 +69,55 @@ export const OrderList = () => {
     setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
   };
 
+  const handlePayClick = (order: Order, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row expansion
+    setSelectedOrder(order);
+    setReceivedAmount('');
+    setChange(null);
+    setPaymentMethod('cash');
+  };
+
+  const processPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOrder) return;
+
+    try {
+      await api.put(`/orders/${selectedOrder.id}`, {
+        status: 'completed',
+        payment_method: paymentMethod,
+      });
+      
+      // Update local state
+      setOrders(orders.map(o => 
+        o.id === selectedOrder.id 
+          ? { ...o, status: 'completed', payment_method: paymentMethod } 
+          : o
+      ));
+      
+      setSelectedOrder(null);
+      alert('Payment successful!');
+    } catch (error) {
+      console.error('Payment failed:', error);
+      alert('Payment failed. Please try again.');
+    }
+  };
+
+  useEffect(() => {
+    if (selectedOrder && paymentMethod === 'cash' && receivedAmount) {
+      const received = parseFloat(receivedAmount);
+      const totalAmount = parseFloat(selectedOrder.total);
+      setChange(received - totalAmount);
+    } else {
+      setChange(null);
+    }
+  }, [receivedAmount, paymentMethod, selectedOrder]);
+
   if (loading) return <div className="p-4 text-center">Loading orders...</div>;
 
   return (
     <div className="container-fluid p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>Sales Report & Orders</h2>
+        <h2>Orders & Bills</h2>
         <button className="btn btn-primary" onClick={fetchOrders}>Refresh</button>
       </div>
 
@@ -81,7 +133,7 @@ export const OrderList = () => {
                   <th className="p-3">Status</th>
                   <th className="p-3">Total</th>
                   <th className="p-3">Items</th>
-                  <th className="p-3"></th>
+                  <th className="p-3">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -92,15 +144,34 @@ export const OrderList = () => {
                       <td className="p-3">{new Date(order.created_at).toLocaleString()}</td>
                       <td className="p-3">{order.user?.name || 'Guest'}</td>
                       <td className="p-3">
-                        <span className={`badge bg-${order.status === 'completed' ? 'success' : 'warning'}`}>
-                          {order.status}
+                        <span className={`badge bg-${order.status === 'completed' ? 'success' : order.status === 'pending' ? 'warning' : 'danger'}`}>
+                          {order.status.toUpperCase()}
                         </span>
                       </td>
                       <td className="p-3 fw-bold">฿{parseFloat(order.total).toFixed(2)}</td>
                       <td className="p-3">{order.items.length} items</td>
-                      <td className="p-3 text-end">
+                      <td className="p-3">
+                        {order.status === 'pending' && (
+                          <>
+                            <button 
+                              className="btn btn-success btn-sm me-2"
+                              onClick={(e) => handlePayClick(order, e)}
+                            >
+                              Pay Now
+                            </button>
+                            <button 
+                              className="btn btn-warning btn-sm me-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/pos?order_id=${order.id}`);
+                              }}
+                            >
+                              Edit
+                            </button>
+                          </>
+                        )}
                         <button className="btn btn-sm btn-link text-decoration-none">
-                          {expandedOrderId === order.id ? 'Hide Details' : 'View Details'}
+                          {expandedOrderId === order.id ? 'Hide' : 'View'}
                         </button>
                       </td>
                     </tr>
@@ -118,7 +189,7 @@ export const OrderList = () => {
                                     <th>Price</th>
                                     <th>Qty</th>
                                     <th>Subtotal</th>
-                                    <th>Details (Bundle Snapshot)</th>
+                                    <th>Details</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -132,19 +203,16 @@ export const OrderList = () => {
                                       <td>
                                         {item.metadata?.bundle_items ? (
                                           <div className="small text-muted">
-                                            <strong>Bundle Contents (Snapshot):</strong>
+                                            <strong>Bundle Contents:</strong>
                                             <ul className="mb-0 ps-3">
                                               {item.metadata.bundle_items.map((bItem, idx) => (
                                                 <li key={idx}>
                                                   {bItem.name} (Qty: {bItem.total_quantity_deducted}) 
-                                                  - Cost: ${bItem.price_at_sale}
                                                 </li>
                                               ))}
                                             </ul>
                                           </div>
-                                        ) : (
-                                          <span className="text-muted">-</span>
-                                        )}
+                                        ) : '-'}
                                       </td>
                                     </tr>
                                   ))}
@@ -162,6 +230,87 @@ export const OrderList = () => {
           </div>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      {selectedOrder && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Pay for Order #{selectedOrder.id}</h5>
+                <button type="button" className="btn-close" onClick={() => setSelectedOrder(null)}></button>
+              </div>
+              <form onSubmit={processPayment}>
+                <div className="modal-body">
+                  <div className="text-center mb-4">
+                    <div className="text-muted mb-1">Total Amount</div>
+                    <div className="display-4 fw-bold text-primary">฿{parseFloat(selectedOrder.total).toFixed(2)}</div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">Payment Method</label>
+                    <div className="btn-group w-100" role="group">
+                      <input 
+                        type="radio" 
+                        className="btn-check" 
+                        name="paymentMethod" 
+                        id="cash" 
+                        autoComplete="off" 
+                        checked={paymentMethod === 'cash'}
+                        onChange={() => setPaymentMethod('cash')}
+                      />
+                      <label className="btn btn-outline-primary" htmlFor="cash">Cash (เงินสด)</label>
+
+                      <input 
+                        type="radio" 
+                        className="btn-check" 
+                        name="paymentMethod" 
+                        id="transfer" 
+                        autoComplete="off" 
+                        checked={paymentMethod === 'transfer'}
+                        onChange={() => setPaymentMethod('transfer')}
+                      />
+                      <label className="btn btn-outline-primary" htmlFor="transfer">Transfer (โอนเงิน)</label>
+                    </div>
+                  </div>
+
+                  {paymentMethod === 'cash' && (
+                    <div className="mb-3">
+                      <label className="form-label fw-bold">Received Amount (รับเงินมา)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="form-control form-control-lg"
+                        value={receivedAmount}
+                        onChange={(e) => setReceivedAmount(e.target.value)}
+                        autoFocus
+                        required
+                        min={parseFloat(selectedOrder.total)}
+                      />
+                      {change !== null && (
+                        <div className={`mt-3 p-3 rounded text-center ${change >= 0 ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger'}`}>
+                          <div className="small fw-bold text-uppercase">Change (เงินทอน)</div>
+                          <div className="fs-2 fw-bold">฿{change.toFixed(2)}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={() => setSelectedOrder(null)}>Cancel</button>
+                  <button 
+                    type="submit" 
+                    className="btn btn-success btn-lg px-4"
+                    disabled={paymentMethod === 'cash' && (!receivedAmount || parseFloat(receivedAmount) < parseFloat(selectedOrder.total))}
+                  >
+                    Confirm Payment
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

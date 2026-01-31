@@ -100,6 +100,7 @@ function App() {
       <Routes>
         <Route path="/" element={<DashboardLayout />}>
           <Route index element={<Pos />} />
+          <Route path="pos" element={<Pos />} />
           <Route path="users" element={
             user.role === 'admin' ? <UserList /> : <Navigate to="/" />
           } />
