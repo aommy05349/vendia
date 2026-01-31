@@ -1,0 +1,106 @@
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useAuthStore, api, useShopStore } from '@vendia/shared';
+import { DashboardLayout } from './layouts/DashboardLayout';
+import { Pos } from './pages/Pos';
+import { UserList } from './pages/admin/UserList';
+import { CreateUser } from './pages/admin/CreateUser';
+import { EditUser } from './pages/admin/EditUser';
+import ShopSettings from './pages/admin/ShopSettings';
+
+function App() {
+  const { user, login } = useAuthStore();
+  const { shop, fetchShop } = useShopStore();
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [error, setError] = React.useState('');
+
+  useEffect(() => {
+    fetchShop();
+  }, [fetchShop]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await api.post('/login', { email, password });
+      login(response.data.user, response.data.access_token);
+    } catch (err: any) {
+      console.error(err);
+      setError('Invalid credentials');
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
+        <div className="card shadow-sm" style={{ width: '400px' }}>
+          <div className="card-body p-4">
+            <div className="text-center mb-4">
+              {shop?.logo_path && (
+                <img 
+                  src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.logo_path}`} 
+                  alt="Shop Logo" 
+                  className="mb-3"
+                  style={{ maxHeight: '80px' }} 
+                />
+              )}
+              <h1 className="h3">{shop?.name || 'Vendia Login'}</h1>
+            </div>
+            {error && <div className="alert alert-danger text-center py-2">{error}</div>}
+            <form onSubmit={handleLogin} className="d-flex flex-column gap-3">
+              <input
+                type="email"
+                placeholder="Email"
+                className="form-control"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                className="form-control"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button type="submit" className="btn btn-primary w-100 fw-bold">
+                Login
+              </button>
+            </form>
+            <div className="mt-4 text-center small text-muted">
+              <div className="mb-2 fw-bold">Demo Credentials:</div>
+              <div>Admin: admin@vendia.com / password</div>
+              <div>Staff: staff@vendia.com / password</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<DashboardLayout />}>
+          <Route index element={<Pos />} />
+          <Route path="users" element={
+            user.role === 'admin' ? <UserList /> : <Navigate to="/" />
+          } />
+          <Route path="users/create" element={
+            user.role === 'admin' ? <CreateUser /> : <Navigate to="/" />
+          } />
+          <Route path="users/:id/edit" element={
+            user.role === 'admin' ? <EditUser /> : <Navigate to="/" />
+          } />
+          <Route path="settings" element={
+            user.role === 'admin' ? <ShopSettings /> : <Navigate to="/" />
+          } />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
