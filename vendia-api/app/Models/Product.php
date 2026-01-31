@@ -54,4 +54,11 @@ class Product extends Model
     {
         return $this->hasMany(ProductImage::class);
     }
+
+    public function bundleItems()
+    {
+        return $this->belongsToMany(Product::class, 'product_bundles', 'parent_id', 'child_id')
+                    ->withPivot('quantity')
+                    ->withTimestamps();
+    }
 }

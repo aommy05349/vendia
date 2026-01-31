@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useProductStore, useCategoryStore, useAuxStore } from '@vendia/shared';
+import { useProductStore, useCategoryStore, useAuxStore, Product } from '@vendia/shared';
 import { useNavigate, useParams } from 'react-router-dom';
 
 export const EditProduct = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { products, fetchProducts, updateProduct, loading } = useProductStore();
+  const { products, fetchProducts, updateProduct, loading, products: searchResults, fetchProducts: searchProducts } = useProductStore();
   const { categories, fetchCategories } = useCategoryStore();
   const { brands, units, warehouses, fetchBrands, fetchUnits, fetchWarehouses } = useAuxStore();
   
@@ -34,6 +34,10 @@ export const EditProduct = () => {
   // Images
   const [images, setImages] = useState<FileList | null>(null);
 
+  // Bundle Items
+  const [bundleItems, setBundleItems] = useState<{id: number, name: string, quantity: number, price: number}[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
   const [error, setError] = useState('');
   const [initialLoading, setInitialLoading] = useState(true);
 
@@ -50,6 +54,15 @@ export const EditProduct = () => {
     };
     loadData();
   }, [fetchProducts, fetchCategories, fetchBrands, fetchUnits, fetchWarehouses, products.length, categories.length]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchTerm) {
+        searchProducts({ search: searchTerm, per_page: 5 });
+      }
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm, searchProducts]);
 
   useEffect(() => {
     if (!initialLoading && id) {
@@ -74,11 +87,34 @@ export const EditProduct = () => {
         setTaxAmount(product.tax_amount ? product.tax_amount.toString() : '0');
         setDiscountType(product.discount_type || 'fixed');
         setDiscountValue(product.discount_value ? product.discount_value.toString() : '0');
+
+        if (product.product_type === 'bundle' && product.bundle_items) {
+           setBundleItems(product.bundle_items.map(item => ({
+             id: item.id,
+             name: item.name,
+             quantity: item.pivot.quantity,
+             price: item.price
+           })));
+        }
       } else {
         setError('Product not found');
       }
     }
   }, [initialLoading, id, products]);
+
+  const addBundleItem = (product: Product) => {
+    if (bundleItems.find(item => item.id === product.id)) return;
+    setBundleItems([...bundleItems, { id: product.id, name: product.name, quantity: 1, price: product.price }]);
+    setSearchTerm(''); // Clear search after adding
+  };
+
+  const removeBundleItem = (id: number) => {
+    setBundleItems(bundleItems.filter(item => item.id !== id));
+  };
+
+  const updateBundleItemQuantity = (id: number, quantity: number) => {
+    setBundleItems(bundleItems.map(item => item.id === id ? { ...item, quantity } : item));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,6 +148,13 @@ export const EditProduct = () => {
         for (let i = 0; i < images.length; i++) {
           formData.append('images[]', images[i]);
         }
+      }
+
+      if (productType === 'bundle') {
+        bundleItems.forEach((item, index) => {
+          formData.append(`bundle_items[${index}][id]`, item.id.toString());
+          formData.append(`bundle_items[${index}][quantity]`, item.quantity.toString());
+        });
       }
 
       await updateProduct(parseInt(id), formData);
@@ -227,6 +270,7 @@ export const EditProduct = () => {
                     <select className="form-select" value={productType} onChange={e => setProductType(e.target.value)}>
                       <option value="single">Single Product</option>
                       <option value="variable">Variable Product</option>
+                      <option value="bundle">Bundle/Set Product</option>
                     </select>
                   </div>
                   <div className="col-md-6">
@@ -234,6 +278,79 @@ export const EditProduct = () => {
                     <input type="number" className="form-control" value={quantityAlert} onChange={e => setQuantityAlert(e.target.value)} />
                   </div>
                 </div>
+
+                {productType === 'bundle' && (
+                  <div className="mb-3">
+                    <label className="form-label">Bundle Items</label>
+                    <div className="card bg-light border-0 p-3">
+                      <div className="mb-3 position-relative">
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Search by Name, SKU, Barcode, or Description..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                        {searchTerm && searchResults && searchResults.length > 0 && (
+                          <ul className="list-group position-absolute w-100 shadow-sm" style={{ zIndex: 1000, maxHeight: '200px', overflowY: 'auto' }}>
+                            {searchResults.map(product => (
+                              <button
+                                key={product.id}
+                                type="button"
+                                className="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                onClick={() => addBundleItem(product)}
+                              >
+                                <span>{product.name} ({product.sku})</span>
+                                <span className="badge bg-primary rounded-pill">฿{product.price}</span>
+                              </button>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      {bundleItems.length > 0 ? (
+                        <div className="table-responsive bg-white rounded shadow-sm">
+                          <table className="table mb-0">
+                            <thead>
+                              <tr>
+                                <th>Product</th>
+                                <th style={{ width: '100px' }}>Qty</th>
+                                <th style={{ width: '50px' }}></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {bundleItems.map((item) => (
+                                <tr key={item.id}>
+                                  <td className="align-middle">{item.name}</td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      className="form-control form-control-sm"
+                                      min="1"
+                                      value={item.quantity}
+                                      onChange={(e) => updateBundleItemQuantity(item.id, parseInt(e.target.value) || 1)}
+                                    />
+                                  </td>
+                                  <td className="align-middle">
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-danger"
+                                      onClick={() => removeBundleItem(item.id)}
+                                    >
+                                      &times;
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className="text-muted small mb-0 text-center">No items added to bundle yet.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="row mb-3">
                   <div className="col-md-6">

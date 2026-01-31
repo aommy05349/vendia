@@ -12,10 +12,20 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'brand', 'unit', 'warehouse', 'images']);
+        $query = Product::with(['category', 'brand', 'unit', 'warehouse', 'images', 'bundleItems']);
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('sku', 'like', "%{$search}%")
+                  ->orWhere('barcode', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
         }
 
         $sortField = $request->input('sort_by', 'created_at');
@@ -45,13 +55,16 @@ class ProductController extends Controller
             'unit_id' => 'nullable|exists:units,id',
             'barcode_symbology' => 'nullable|string',
             'barcode' => 'nullable|string|unique:products,barcode',
-            'product_type' => 'in:single,variable',
+            'product_type' => 'in:single,variable,bundle,service',
             'tax_type' => 'in:exclusive,inclusive',
             'tax_amount' => 'numeric|min:0',
             'discount_type' => 'in:fixed,percentage',
             'discount_value' => 'numeric|min:0',
             'quantity_alert' => 'integer|min:0',
             'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            'bundle_items' => 'required_if:product_type,bundle|array',
+            'bundle_items.*.id' => 'required_if:product_type,bundle|exists:products,id',
+            'bundle_items.*.quantity' => 'required_if:product_type,bundle|integer|min:1',
         ]);
 
         if (empty($validated['slug'])) {
@@ -59,6 +72,14 @@ class ProductController extends Controller
         }
 
         $product = Product::create($validated);
+
+        if (($validated['product_type'] ?? 'single') === 'bundle' && $request->has('bundle_items')) {
+            $syncData = [];
+            foreach ($request->bundle_items as $item) {
+                $syncData[$item['id']] = ['quantity' => $item['quantity']];
+            }
+            $product->bundleItems()->sync($syncData);
+        }
 
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
@@ -70,12 +91,12 @@ class ProductController extends Controller
             }
         }
 
-        return response()->json($product->load(['category', 'brand', 'unit', 'warehouse', 'images']), 201);
+        return response()->json($product->load(['category', 'brand', 'unit', 'warehouse', 'images', 'bundleItems']), 201);
     }
 
     public function show(Product $product)
     {
-        return $product->load(['category', 'brand', 'unit', 'warehouse', 'images']);
+        return $product->load(['category', 'brand', 'unit', 'warehouse', 'images', 'bundleItems']);
     }
 
     public function update(Request $request, Product $product)
@@ -93,13 +114,16 @@ class ProductController extends Controller
             'unit_id' => 'nullable|exists:units,id',
             'barcode_symbology' => 'nullable|string',
             'barcode' => 'nullable|string|unique:products,barcode,' . $product->id,
-            'product_type' => 'in:single,variable',
+            'product_type' => 'in:single,variable,bundle,service',
             'tax_type' => 'in:exclusive,inclusive',
             'tax_amount' => 'numeric|min:0',
             'discount_type' => 'in:fixed,percentage',
             'discount_value' => 'numeric|min:0',
             'quantity_alert' => 'integer|min:0',
             'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            'bundle_items' => 'required_if:product_type,bundle|array',
+            'bundle_items.*.id' => 'required_if:product_type,bundle|exists:products,id',
+            'bundle_items.*.quantity' => 'required_if:product_type,bundle|integer|min:1',
         ]);
 
         if (isset($validated['name']) && empty($validated['slug'])) {
@@ -107,6 +131,16 @@ class ProductController extends Controller
         }
 
         $product->update($validated);
+
+        if (($validated['product_type'] ?? $product->product_type) === 'bundle' && $request->has('bundle_items')) {
+            $syncData = [];
+            foreach ($request->bundle_items as $item) {
+                $syncData[$item['id']] = ['quantity' => $item['quantity']];
+            }
+            $product->bundleItems()->sync($syncData);
+        } elseif (($validated['product_type'] ?? $product->product_type) !== 'bundle') {
+            $product->bundleItems()->detach();
+        }
 
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {

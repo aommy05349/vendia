@@ -10,9 +10,15 @@ class CategoryController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return Category::all();
+        $query = Category::query();
+
+        if ($request->has('has_products') && $request->boolean('has_products')) {
+            $query->whereHas('products');
+        }
+
+        return $query->get();
     }
 
     /**

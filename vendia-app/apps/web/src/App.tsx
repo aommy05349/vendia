@@ -22,6 +22,7 @@ import { EditUnit } from './pages/admin/EditUnit';
 import { WarehouseList } from './pages/admin/WarehouseList';
 import { CreateWarehouse } from './pages/admin/CreateWarehouse';
 import { EditWarehouse } from './pages/admin/EditWarehouse';
+import { OrderList } from './pages/admin/OrderList';
 
 function App() {
   const { user, login } = useAuthStore();
@@ -47,8 +48,8 @@ function App() {
 
   if (!user) {
     return (
-      <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
-        <div className="card shadow-sm" style={{ width: '400px' }}>
+      <div className="d-flex justify-content-center align-items-center vh-100 bg-light p-3">
+        <div className="card shadow-sm w-100" style={{ maxWidth: '400px' }}>
           <div className="card-body p-4">
             <div className="text-center mb-4">
               {shop?.logo_path && (
@@ -158,6 +159,9 @@ function App() {
           } />
           <Route path="settings" element={
             user.role === 'admin' ? <ShopSettings /> : <Navigate to="/" />
+          } />
+          <Route path="orders" element={
+            user.role === 'admin' ? <OrderList /> : <Navigate to="/" />
           } />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

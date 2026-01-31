@@ -130,6 +130,7 @@ export const ProductList = () => {
                         <th className="p-3 border-bottom-2">Stock</th>
                         <th className="p-3 border-bottom-2">Category</th>
                         <th className="p-3 border-bottom-2">SKU</th>
+                        <th className="p-3 border-bottom-2">Type</th>
                         <th className="p-3 border-bottom-2">Actions</th>
                     </tr>
                     </thead>
@@ -140,7 +141,7 @@ export const ProductList = () => {
                             <div className="fw-bold">{product.name}</div>
                             <div className="small text-muted text-truncate" style={{ maxWidth: '200px' }}>{product.description}</div>
                         </td>
-                        <td className="p-3">${product.price}</td>
+                        <td className="p-3">฿{product.price}</td>
                         <td className="p-3">
                             <span className={`badge ${product.stock > 0 ? 'bg-success' : 'bg-danger'}`}>
                             {product.stock}
@@ -148,6 +149,15 @@ export const ProductList = () => {
                         </td>
                         <td className="p-3">{product.category?.name || getCategoryName(product.category_id)}</td>
                         <td className="p-3">{product.sku}</td>
+                        <td className="p-3">
+                            {product.product_type === 'bundle' ? (
+                                <span className="badge bg-info text-dark">Bundle</span>
+                            ) : product.product_type === 'variable' ? (
+                                <span className="badge bg-warning text-dark">Variable</span>
+                            ) : (
+                                <span className="badge bg-light text-dark border">Single</span>
+                            )}
+                        </td>
                         <td className="p-3">
                             <button
                             onClick={() => navigate(`/products/${product.id}/edit`)}

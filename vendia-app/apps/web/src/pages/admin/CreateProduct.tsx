@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useProductStore, useCategoryStore, useAuxStore } from '@vendia/shared';
+import { useProductStore, useCategoryStore, useAuxStore, Product } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
 
 export const CreateProduct = () => {
   const navigate = useNavigate();
-  const { createProduct, loading } = useProductStore();
+  const { createProduct, loading, products: searchResults, fetchProducts: searchProducts } = useProductStore();
   const { categories, fetchCategories } = useCategoryStore();
   const { brands, units, warehouses, fetchBrands, fetchUnits, fetchWarehouses } = useAuxStore();
   
@@ -33,6 +33,10 @@ export const CreateProduct = () => {
   // Images
   const [images, setImages] = useState<FileList | null>(null);
 
+  // Bundle Items
+  const [bundleItems, setBundleItems] = useState<{id: number, name: string, quantity: number, price: number}[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -41,6 +45,29 @@ export const CreateProduct = () => {
     fetchUnits();
     fetchWarehouses();
   }, [fetchCategories, fetchBrands, fetchUnits, fetchWarehouses]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchTerm) {
+        searchProducts({ search: searchTerm, per_page: 5 });
+      }
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm, searchProducts]);
+
+  const addBundleItem = (product: Product) => {
+    if (bundleItems.find(item => item.id === product.id)) return;
+    setBundleItems([...bundleItems, { id: product.id, name: product.name, quantity: 1, price: product.price }]);
+    setSearchTerm(''); // Clear search after adding
+  };
+
+  const removeBundleItem = (id: number) => {
+    setBundleItems(bundleItems.filter(item => item.id !== id));
+  };
+
+  const updateBundleItemQuantity = (id: number, quantity: number) => {
+    setBundleItems(bundleItems.map(item => item.id === id ? { ...item, quantity } : item));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +88,13 @@ export const CreateProduct = () => {
       
       formData.append('product_type', productType);
       formData.append('price', price);
-      formData.append('stock', stock);
+      
+      if (productType === 'service') {
+        formData.append('stock', '0'); // Service items don't track stock
+      } else {
+        formData.append('stock', stock);
+      }
+      
       formData.append('quantity_alert', quantityAlert);
       formData.append('tax_type', taxType);
       formData.append('tax_amount', taxAmount);
@@ -72,6 +105,13 @@ export const CreateProduct = () => {
         for (let i = 0; i < images.length; i++) {
           formData.append('images[]', images[i]);
         }
+      }
+
+      if (productType === 'bundle') {
+        bundleItems.forEach((item, index) => {
+          formData.append(`bundle_items[${index}][id]`, item.id.toString());
+          formData.append(`bundle_items[${index}][quantity]`, item.quantity.toString());
+        });
       }
 
       await createProduct(formData);
@@ -185,6 +225,8 @@ export const CreateProduct = () => {
                     <select className="form-select" value={productType} onChange={e => setProductType(e.target.value)}>
                       <option value="single">Single Product</option>
                       <option value="variable">Variable Product</option>
+                      <option value="bundle">Bundle/Set Product</option>
+                      <option value="service">Service</option>
                     </select>
                   </div>
                   <div className="col-md-6">
@@ -193,15 +235,90 @@ export const CreateProduct = () => {
                   </div>
                 </div>
 
+                {productType === 'bundle' && (
+                  <div className="mb-3">
+                    <label className="form-label">Bundle Items</label>
+                    <div className="card bg-light border-0 p-3">
+                      <div className="mb-3 position-relative">
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Search by Name, SKU, Barcode, or Description..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                        {searchTerm && searchResults && searchResults.length > 0 && (
+                          <ul className="list-group position-absolute w-100 shadow-sm" style={{ zIndex: 1000, maxHeight: '200px', overflowY: 'auto' }}>
+                            {searchResults.map(product => (
+                              <button
+                                key={product.id}
+                                type="button"
+                                className="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                onClick={() => addBundleItem(product)}
+                              >
+                                <span>{product.name} ({product.sku})</span>
+                                <span className="badge bg-primary rounded-pill">฿{product.price}</span>
+                              </button>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      {bundleItems.length > 0 ? (
+                        <div className="table-responsive bg-white rounded shadow-sm">
+                          <table className="table mb-0">
+                            <thead>
+                              <tr>
+                                <th>Product</th>
+                                <th style={{ width: '100px' }}>Qty</th>
+                                <th style={{ width: '50px' }}></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {bundleItems.map((item) => (
+                                <tr key={item.id}>
+                                  <td className="align-middle">{item.name}</td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      className="form-control form-control-sm"
+                                      min="1"
+                                      value={item.quantity}
+                                      onChange={(e) => updateBundleItemQuantity(item.id, parseInt(e.target.value) || 1)}
+                                    />
+                                  </td>
+                                  <td className="align-middle">
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-danger"
+                                      onClick={() => removeBundleItem(item.id)}
+                                    >
+                                      &times;
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className="text-muted small mb-0 text-center">No items added to bundle yet.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="row mb-3">
                   <div className="col-md-6">
                     <label className="form-label">Price <span className="text-danger">*</span></label>
                     <input type="number" step="0.01" className="form-control" value={price} onChange={e => setPrice(e.target.value)} required />
                   </div>
+                  {productType !== 'service' && (
                   <div className="col-md-6">
                     <label className="form-label">Quantity <span className="text-danger">*</span></label>
                     <input type="number" className="form-control" value={stock} onChange={e => setStock(e.target.value)} required />
                   </div>
+                  )}
                 </div>
 
                 <div className="row mb-3">

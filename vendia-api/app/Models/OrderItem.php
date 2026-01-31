@@ -14,6 +14,11 @@ class OrderItem extends Model
         'product_id',
         'quantity',
         'price',
+        'metadata',
+    ];
+
+    protected $casts = [
+        'metadata' => 'array',
     ];
 
     public function order()

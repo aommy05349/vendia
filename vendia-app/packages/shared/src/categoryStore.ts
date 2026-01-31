@@ -13,7 +13,7 @@ interface CategoryState {
   categories: Category[];
   loading: boolean;
   error: string | null;
-  fetchCategories: () => Promise<void>;
+  fetchCategories: (params?: { has_products?: boolean }) => Promise<void>;
   createCategory: (data: Partial<Category>) => Promise<Category>;
   updateCategory: (id: number, data: Partial<Category>) => Promise<Category>;
   deleteCategory: (id: number) => Promise<void>;
@@ -23,10 +23,10 @@ export const useCategoryStore = create<CategoryState>((set) => ({
   categories: [],
   loading: false,
   error: null,
-  fetchCategories: async () => {
+  fetchCategories: async (params) => {
     set({ loading: true, error: null });
     try {
-      const response = await api.get('/categories');
+      const response = await api.get('/categories', { params });
       set({ categories: response.data, loading: false });
     } catch (error: any) {
       set({ loading: false, error: error.message || 'Failed to fetch categories' });

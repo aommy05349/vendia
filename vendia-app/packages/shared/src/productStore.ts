@@ -7,6 +7,14 @@ export interface ProductImage {
   image_path: string;
 }
 
+export interface BundleItem extends Product {
+  pivot: {
+    parent_id: number;
+    child_id: number;
+    quantity: number;
+  };
+}
+
 export interface Product {
   id: number;
   name: string;
@@ -21,7 +29,7 @@ export interface Product {
   unit_id?: number;
   barcode_symbology?: string;
   barcode?: string;
-  product_type?: 'single' | 'variable';
+  product_type?: 'single' | 'variable' | 'bundle' | 'service';
   tax_type?: 'exclusive' | 'inclusive';
   tax_amount?: number;
   discount_type?: 'fixed' | 'percentage';
@@ -44,6 +52,7 @@ export interface Product {
     name: string;
   };
   images?: ProductImage[];
+  bundle_items?: BundleItem[];
 }
 
 export interface PaginationMeta {
@@ -61,6 +70,7 @@ export interface ProductQueryParams {
   category_id?: number | string;
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
+  search?: string;
 }
 
 interface ProductState {
