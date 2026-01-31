@@ -130,6 +130,7 @@ export const ProductList = () => {
                         <th className="p-3 border-bottom-2">Stock</th>
                         <th className="p-3 border-bottom-2">Category</th>
                         <th className="p-3 border-bottom-2">SKU</th>
+                        <th className="p-3 border-bottom-2">Value</th>
                         <th className="p-3 border-bottom-2">Type</th>
                         <th className="p-3 border-bottom-2">Actions</th>
                     </tr>
@@ -141,19 +142,41 @@ export const ProductList = () => {
                             <div className="fw-bold">{product.name}</div>
                             <div className="small text-muted text-truncate" style={{ maxWidth: '200px' }}>{product.description}</div>
                         </td>
-                        <td className="p-3">฿{product.price}</td>
+                        <td className="p-3">฿{Number(product.price).toLocaleString()}</td>
                         <td className="p-3">
-                            <span className={`badge ${product.stock > 0 ? 'bg-success' : 'bg-danger'}`}>
-                            {product.stock}
-                            </span>
+                            {product.product_type === 'service' ? (
+                                <span className="text-muted">-</span>
+                            ) : (
+                                <div className="d-flex flex-column">
+                                    <span className={`badge ${
+                                        product.stock <= 0 ? 'bg-danger' : 
+                                        product.stock <= (product.quantity_alert || 5) ? 'bg-warning text-dark' : 
+                                        'bg-success'
+                                    }`}>
+                                        {product.stock} {product.unit?.name || ''}
+                                    </span>
+                                    {product.stock <= (product.quantity_alert || 5) && product.stock > 0 && (
+                                        <small className="text-danger mt-1" style={{ fontSize: '0.7em' }}>Low Stock</small>
+                                    )}
+                                </div>
+                            )}
                         </td>
                         <td className="p-3">{product.category?.name || getCategoryName(product.category_id)}</td>
                         <td className="p-3">{product.sku}</td>
+                        <td className="p-3">
+                            {product.product_type === 'service' ? (
+                                <span className="text-muted">-</span>
+                            ) : (
+                                Number(product.price * product.stock).toLocaleString('en-US', { minimumFractionDigits: 2 })
+                            )}
+                        </td>
                         <td className="p-3">
                             {product.product_type === 'bundle' ? (
                                 <span className="badge bg-info text-dark">Bundle</span>
                             ) : product.product_type === 'variable' ? (
                                 <span className="badge bg-warning text-dark">Variable</span>
+                            ) : product.product_type === 'service' ? (
+                                <span className="badge bg-secondary text-white">Service</span>
                             ) : (
                                 <span className="badge bg-light text-dark border">Single</span>
                             )}

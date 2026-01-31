@@ -73,6 +73,12 @@ export const CreateProduct = () => {
     e.preventDefault();
     setError('');
 
+    if (productType === 'bundle' && bundleItems.length === 0) {
+      setError('Please add at least one item to the bundle.');
+      window.scrollTo(0, 0);
+      return;
+    }
+
     try {
       const formData = new FormData();
       formData.append('name', name);
