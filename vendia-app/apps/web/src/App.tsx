@@ -13,6 +13,15 @@ import { EditCategory } from './pages/admin/EditCategory';
 import { ProductList } from './pages/admin/ProductList';
 import { CreateProduct } from './pages/admin/CreateProduct';
 import { EditProduct } from './pages/admin/EditProduct';
+import { BrandList } from './pages/admin/BrandList';
+import { CreateBrand } from './pages/admin/CreateBrand';
+import { EditBrand } from './pages/admin/EditBrand';
+import { UnitList } from './pages/admin/UnitList';
+import { CreateUnit } from './pages/admin/CreateUnit';
+import { EditUnit } from './pages/admin/EditUnit';
+import { WarehouseList } from './pages/admin/WarehouseList';
+import { CreateWarehouse } from './pages/admin/CreateWarehouse';
+import { EditWarehouse } from './pages/admin/EditWarehouse';
 
 function App() {
   const { user, login } = useAuthStore();
@@ -116,6 +125,36 @@ function App() {
           } />
           <Route path="products/:id/edit" element={
             user.role === 'admin' ? <EditProduct /> : <Navigate to="/" />
+          } />
+          {/* Brands */}
+          <Route path="brands" element={
+            user.role === 'admin' ? <BrandList /> : <Navigate to="/" />
+          } />
+          <Route path="brands/create" element={
+            user.role === 'admin' ? <CreateBrand /> : <Navigate to="/" />
+          } />
+          <Route path="brands/:id/edit" element={
+            user.role === 'admin' ? <EditBrand /> : <Navigate to="/" />
+          } />
+          {/* Units */}
+          <Route path="units" element={
+            user.role === 'admin' ? <UnitList /> : <Navigate to="/" />
+          } />
+          <Route path="units/create" element={
+            user.role === 'admin' ? <CreateUnit /> : <Navigate to="/" />
+          } />
+          <Route path="units/:id/edit" element={
+            user.role === 'admin' ? <EditUnit /> : <Navigate to="/" />
+          } />
+          {/* Warehouses */}
+          <Route path="warehouses" element={
+            user.role === 'admin' ? <WarehouseList /> : <Navigate to="/" />
+          } />
+          <Route path="warehouses/create" element={
+            user.role === 'admin' ? <CreateWarehouse /> : <Navigate to="/" />
+          } />
+          <Route path="warehouses/:id/edit" element={
+            user.role === 'admin' ? <EditWarehouse /> : <Navigate to="/" />
           } />
           <Route path="settings" element={
             user.role === 'admin' ? <ShopSettings /> : <Navigate to="/" />

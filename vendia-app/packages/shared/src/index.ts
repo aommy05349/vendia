@@ -4,3 +4,4 @@ export * from './cartStore';
 export * from './shopStore';
 export * from './categoryStore';
 export * from './productStore';
+export * from './auxStore';

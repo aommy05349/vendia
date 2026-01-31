@@ -1,37 +1,80 @@
 import React, { useState, useEffect } from 'react';
-import { useProductStore, useCategoryStore } from '@vendia/shared';
+import { useProductStore, useCategoryStore, useAuxStore } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
 
 export const CreateProduct = () => {
   const navigate = useNavigate();
   const { createProduct, loading } = useProductStore();
   const { categories, fetchCategories } = useCategoryStore();
+  const { brands, units, warehouses, fetchBrands, fetchUnits, fetchWarehouses } = useAuxStore();
   
+  // Product Information
   const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [sku, setSku] = useState('');
+  const [barcode, setBarcode] = useState('');
+  const [barcodeSymbology, setBarcodeSymbology] = useState('Code128');
+  const [categoryId, setCategoryId] = useState('');
+  const [brandId, setBrandId] = useState('');
+  const [unitId, setUnitId] = useState('');
+  const [warehouseId, setWarehouseId] = useState('');
   const [description, setDescription] = useState('');
+  
+  // Pricing & Stocks
+  const [productType, setProductType] = useState('single');
   const [price, setPrice] = useState('');
   const [stock, setStock] = useState('');
-  const [sku, setSku] = useState('');
-  const [categoryId, setCategoryId] = useState('');
+  const [quantityAlert, setQuantityAlert] = useState('0');
+  const [taxType, setTaxType] = useState('exclusive');
+  const [taxAmount, setTaxAmount] = useState('0');
+  const [discountType, setDiscountType] = useState('fixed');
+  const [discountValue, setDiscountValue] = useState('0');
+  
+  // Images
+  const [images, setImages] = useState<FileList | null>(null);
+
   const [error, setError] = useState('');
 
   useEffect(() => {
     fetchCategories();
-  }, [fetchCategories]);
+    fetchBrands();
+    fetchUnits();
+    fetchWarehouses();
+  }, [fetchCategories, fetchBrands, fetchUnits, fetchWarehouses]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     try {
-      await createProduct({ 
-        name, 
-        description, 
-        price: parseFloat(price), 
-        stock: parseInt(stock), 
-        sku,
-        category_id: categoryId ? parseInt(categoryId) : undefined 
-      });
+      const formData = new FormData();
+      formData.append('name', name);
+      if (slug) formData.append('slug', slug);
+      formData.append('sku', sku);
+      if (barcode) formData.append('barcode', barcode);
+      formData.append('barcode_symbology', barcodeSymbology);
+      formData.append('category_id', categoryId);
+      if (brandId) formData.append('brand_id', brandId);
+      if (unitId) formData.append('unit_id', unitId);
+      if (warehouseId) formData.append('warehouse_id', warehouseId);
+      formData.append('description', description);
+      
+      formData.append('product_type', productType);
+      formData.append('price', price);
+      formData.append('stock', stock);
+      formData.append('quantity_alert', quantityAlert);
+      formData.append('tax_type', taxType);
+      formData.append('tax_amount', taxAmount);
+      formData.append('discount_type', discountType);
+      formData.append('discount_value', discountValue);
+
+      if (images) {
+        for (let i = 0; i < images.length; i++) {
+          formData.append('images[]', images[i]);
+        }
+      }
+
+      await createProduct(formData);
       navigate('/products', { state: { success: 'Product created successfully!' } });
     } catch (err: any) {
       setError(err.message || 'Failed to create product');
@@ -39,111 +82,194 @@ export const CreateProduct = () => {
   };
 
   return (
-    <div className="container mt-5" style={{ maxWidth: '800px' }}>
-      <h1 className="mb-4">Create New Product</h1>
-      
+    <div className="container-fluid p-4">
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2>Create Product</h2>
+        <button className="btn btn-secondary" onClick={() => navigate('/products')}>
+          Back to List
+        </button>
+      </div>
+
       {error && <div className="alert alert-danger">{error}</div>}
 
-      <div className="card shadow-sm">
-        <div className="card-body p-4">
-          <form onSubmit={handleSubmit}>
-            <div className="row">
-              <div className="col-md-6 mb-3">
-                <label className="form-label fw-bold">Name</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  value={name} 
-                  onChange={(e) => setName(e.target.value)} 
-                  required
-                />
+      <form onSubmit={handleSubmit}>
+        <div className="row">
+          {/* Product Information Section */}
+          <div className="col-lg-8">
+            <div className="card shadow-sm mb-4">
+              <div className="card-header bg-white py-3">
+                <h5 className="mb-0">Product Information</h5>
               </div>
-              
-              <div className="col-md-6 mb-3">
-                <label className="form-label fw-bold">SKU</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  value={sku} 
-                  onChange={(e) => setSku(e.target.value)} 
-                  required
-                />
-              </div>
-            </div>
+              <div className="card-body">
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <label className="form-label">Product Name <span className="text-danger">*</span></label>
+                    <input type="text" className="form-control" value={name} onChange={e => setName(e.target.value)} required />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Slug</label>
+                    <input type="text" className="form-control" value={slug} onChange={e => setSlug(e.target.value)} placeholder="Auto-generated if empty" />
+                  </div>
+                </div>
 
-            <div className="mb-3">
-              <label className="form-label fw-bold">Description</label>
-              <textarea 
-                className="form-control" 
-                rows={3}
-                value={description} 
-                onChange={(e) => setDescription(e.target.value)} 
-              />
-            </div>
+                <div className="row mb-3">
+                  <div className="col-md-4">
+                    <label className="form-label">SKU <span className="text-danger">*</span></label>
+                    <input type="text" className="form-control" value={sku} onChange={e => setSku(e.target.value)} required />
+                  </div>
+                  <div className="col-md-4">
+                    <label className="form-label">Barcode Symbology</label>
+                    <select className="form-select" value={barcodeSymbology} onChange={e => setBarcodeSymbology(e.target.value)}>
+                      <option value="Code128">Code 128</option>
+                      <option value="Code39">Code 39</option>
+                      <option value="EAN8">EAN-8</option>
+                      <option value="EAN13">EAN-13</option>
+                      <option value="UPC">UPC</option>
+                    </select>
+                  </div>
+                  <div className="col-md-4">
+                    <label className="form-label">Item Barcode</label>
+                    <input type="text" className="form-control" value={barcode} onChange={e => setBarcode(e.target.value)} />
+                  </div>
+                </div>
 
-            <div className="row">
-              <div className="col-md-4 mb-3">
-                <label className="form-label fw-bold">Price</label>
-                <div className="input-group">
-                  <span className="input-group-text">$</span>
-                  <input 
-                    type="number" 
-                    step="0.01"
-                    className="form-control" 
-                    value={price} 
-                    onChange={(e) => setPrice(e.target.value)} 
-                    required
-                  />
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <label className="form-label">Category <span className="text-danger">*</span></label>
+                    <select className="form-select" value={categoryId} onChange={e => setCategoryId(e.target.value)} required>
+                      <option value="">Select Category</option>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Brand</label>
+                    <select className="form-select" value={brandId} onChange={e => setBrandId(e.target.value)}>
+                      <option value="">Select Brand</option>
+                      {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <label className="form-label">Unit</label>
+                    <select className="form-select" value={unitId} onChange={e => setUnitId(e.target.value)}>
+                      <option value="">Select Unit</option>
+                      {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Warehouse</label>
+                    <select className="form-select" value={warehouseId} onChange={e => setWarehouseId(e.target.value)}>
+                      <option value="">Select Warehouse</option>
+                      {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Description</label>
+                  <textarea className="form-control" rows={4} value={description} onChange={e => setDescription(e.target.value)}></textarea>
                 </div>
               </div>
+            </div>
 
-              <div className="col-md-4 mb-3">
-                <label className="form-label fw-bold">Stock</label>
-                <input 
-                  type="number" 
-                  className="form-control" 
-                  value={stock} 
-                  onChange={(e) => setStock(e.target.value)} 
-                  required
-                />
+            <div className="card shadow-sm mb-4">
+              <div className="card-header bg-white py-3">
+                <h5 className="mb-0">Pricing & Stocks</h5>
               </div>
+              <div className="card-body">
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <label className="form-label">Product Type</label>
+                    <select className="form-select" value={productType} onChange={e => setProductType(e.target.value)}>
+                      <option value="single">Single Product</option>
+                      <option value="variable">Variable Product</option>
+                    </select>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Quantity Alert</label>
+                    <input type="number" className="form-control" value={quantityAlert} onChange={e => setQuantityAlert(e.target.value)} />
+                  </div>
+                </div>
 
-              <div className="col-md-4 mb-3">
-                <label className="form-label fw-bold">Category</label>
-                <select 
-                  className="form-select"
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <label className="form-label">Price <span className="text-danger">*</span></label>
+                    <input type="number" step="0.01" className="form-control" value={price} onChange={e => setPrice(e.target.value)} required />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Quantity <span className="text-danger">*</span></label>
+                    <input type="number" className="form-control" value={stock} onChange={e => setStock(e.target.value)} required />
+                  </div>
+                </div>
+
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <label className="form-label">Tax Type</label>
+                    <select className="form-select" value={taxType} onChange={e => setTaxType(e.target.value)}>
+                      <option value="exclusive">Exclusive</option>
+                      <option value="inclusive">Inclusive</option>
+                    </select>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Tax (%)</label>
+                    <input type="number" step="0.01" className="form-control" value={taxAmount} onChange={e => setTaxAmount(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <label className="form-label">Discount Type</label>
+                    <select className="form-select" value={discountType} onChange={e => setDiscountType(e.target.value)}>
+                      <option value="fixed">Fixed</option>
+                      <option value="percentage">Percentage</option>
+                    </select>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Discount Value</label>
+                    <input type="number" step="0.01" className="form-control" value={discountValue} onChange={e => setDiscountValue(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Images & Actions */}
+          <div className="col-lg-4">
+            <div className="card shadow-sm mb-4">
+              <div className="card-header bg-white py-3">
+                <h5 className="mb-0">Product Images</h5>
+              </div>
+              <div className="card-body">
+                <div className="mb-3">
+                  <label className="form-label">Upload Images</label>
+                  <input 
+                    type="file" 
+                    className="form-control" 
+                    multiple 
+                    accept="image/*"
+                    onChange={e => setImages(e.target.files)} 
+                  />
+                  <div className="form-text">Allowed: jpg, jpeg, png, gif</div>
+                </div>
+                {/* Preview could go here */}
               </div>
             </div>
 
-            <div className="d-flex justify-content-between mt-4">
-              <button 
-                type="button" 
-                className="btn btn-secondary"
-                onClick={() => navigate('/products')}
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit" 
-                className="btn btn-success"
-                disabled={loading}
-              >
-                {loading ? 'Creating...' : 'Create Product'}
-              </button>
+            <div className="card shadow-sm">
+              <div className="card-body">
+                <button type="submit" className="btn btn-primary w-100 mb-2" disabled={loading}>
+                  {loading ? 'Creating...' : 'Create Product'}
+                </button>
+                <button type="button" className="btn btn-outline-secondary w-100" onClick={() => navigate('/products')}>
+                  Cancel
+                </button>
+              </div>
             </div>
-          </form>
+          </div>
         </div>
-      </div>
+      </form>
     </div>
   );
 };

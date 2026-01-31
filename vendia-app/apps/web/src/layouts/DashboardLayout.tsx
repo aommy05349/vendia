@@ -40,6 +40,9 @@ export const DashboardLayout = () => {
               <Link to="/users" className="nav-link bg-white border rounded text-dark">👥 User Management</Link>
               <Link to="/categories" className="nav-link bg-white border rounded text-dark">📁 Categories</Link>
               <Link to="/products" className="nav-link bg-white border rounded text-dark">📦 Products</Link>
+              <Link to="/brands" className="nav-link bg-white border rounded text-dark">🏷️ Brands</Link>
+              <Link to="/units" className="nav-link bg-white border rounded text-dark">⚖️ Units</Link>
+              <Link to="/warehouses" className="nav-link bg-white border rounded text-dark">🏭 Warehouses</Link>
               <Link to="/settings" className="nav-link bg-white border rounded text-dark">⚙️ Shop Settings</Link>
             </>
           )}
