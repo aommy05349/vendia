@@ -8,12 +8,14 @@ class Shop extends Model
 {
     protected $fillable = [
         'name',
+        'company_name',
         'address',
         'phone',
         'tax_id',
         'email',
         'website',
         'footer_text',
+        'remarks',
         'logo_path',
     ];
 }

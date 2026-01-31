@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useCartStore, useProductStore, useCategoryStore, api, Product } from '@vendia/shared';
+import { useCartStore, useProductStore, useCategoryStore, useCustomerStore, api, Product, User } from '@vendia/shared';
 
 export const Pos = () => {
   const [searchParams] = useSearchParams();
@@ -9,7 +9,21 @@ export const Pos = () => {
   const { items, addToCart, removeFromCart, updateQuantity, clearCart, setCart, total } = useCartStore();
   const { products, fetchProducts, loading, pagination } = useProductStore();
   const { categories, fetchCategories } = useCategoryStore();
+  const { customers, fetchCustomers, createCustomer } = useCustomerStore();
+  
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<User | null>(null);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showCreateCustomerModal, setShowCreateCustomerModal] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
+  const [newCustomerEmail, setNewCustomerEmail] = useState('');
+  const [newCustomerLineId, setNewCustomerLineId] = useState('');
+  const [newCustomerTaxId, setNewCustomerTaxId] = useState('');
+  const [newCustomerAddress, setNewCustomerAddress] = useState('');
+  const [newCustomerCompany, setNewCustomerCompany] = useState('');
+
   const [currentPage, setCurrentPage] = useState(1);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
 
@@ -47,6 +61,12 @@ export const Pos = () => {
       api.get(`/orders/${editingOrderId}`).then((res) => {
         console.log("Order loaded:", res.data);
         
+        if (res.data.customer) {
+            setSelectedCustomer(res.data.customer);
+        } else {
+            setSelectedCustomer(null);
+        }
+
         if (!res.data.items || !Array.isArray(res.data.items)) {
             console.error("Invalid items format:", res.data);
             return;
@@ -144,7 +164,7 @@ export const Pos = () => {
     setPaymentMethod('cash');
   };
 
-  const submitOrder = async (status: 'completed' | 'pending', method: string) => {
+  const submitOrder = async (status: 'completed' | 'pending' | 'quotation', method: string) => {
     try {
       const payload = {
         items: items.map((item) => ({
@@ -154,6 +174,7 @@ export const Pos = () => {
         })),
         payment_method: method,
         status: status,
+        customer_id: selectedCustomer?.id || null,
       };
 
       if (editingOrderId) {
@@ -161,7 +182,10 @@ export const Pos = () => {
         setAlertMessage({ type: 'success', text: 'Order updated successfully!' });
       } else {
         await api.post('/orders', payload);
-        setAlertMessage({ type: 'success', text: status === 'pending' ? 'Order saved as Unpaid!' : 'Order placed successfully!' });
+        let msg = 'Order placed successfully!';
+        if (status === 'pending') msg = 'Order saved as Unpaid!';
+        if (status === 'quotation') msg = 'Quotation created successfully!';
+        setAlertMessage({ type: 'success', text: msg });
       }
 
       setShowPaymentModal(false);
@@ -186,6 +210,10 @@ export const Pos = () => {
 
   const handlePayLater = () => {
     submitOrder('pending', 'pay_later');
+  };
+
+  const handleQuotation = () => {
+    submitOrder('quotation', 'quotation');
   };
 
   useEffect(() => {
@@ -259,7 +287,7 @@ export const Pos = () => {
                       <h6 className="card-title">{product.name}</h6>
                       <p className="card-text text-muted flex-grow-1" style={{ fontSize: 'x-small' }}>{product.description}</p>
                       <div className="d-flex justify-content-between align-items-center mt-3">
-                        <span className="fw-bold fs-5">฿{product.price}</span>
+                        <span className="fw-bold fs-5">฿{Number(product.price).toLocaleString()}</span>
                         <span className="small text-muted">
                           {product.product_type === 'service' ? 'Service' : `Stock: ${product.stock}`}
                         </span>
@@ -305,6 +333,29 @@ export const Pos = () => {
 
       {/* Cart Sidebar */}
       <div className="d-flex flex-column p-4 bg-light border-top" style={{ flex: 1, minWidth: '280px' }}>
+        
+        {/* Customer Section */}
+        <div className="mb-4">
+             <div className="d-flex justify-content-between align-items-center mb-2">
+                 <h6 className="text-muted text-uppercase small fw-bold m-0">Customer</h6>
+                 <button className="btn btn-sm btn-link text-decoration-none" onClick={() => { setShowCustomerModal(true); fetchCustomers(); }}>
+                     {selectedCustomer ? 'Change' : 'Select'}
+                 </button>
+             </div>
+             <div className="card shadow-sm border-0" onClick={() => { setShowCustomerModal(true); fetchCustomers(); }} style={{ cursor: 'pointer' }}>
+                 <div className="card-body p-3">
+                     {selectedCustomer ? (
+                         <div>
+                             <div className="fw-bold">{selectedCustomer.name}</div>
+                             {selectedCustomer.phone && <div className="small text-muted">{selectedCustomer.phone}</div>}
+                         </div>
+                     ) : (
+                         <div className="text-muted">Walk-in Customer</div>
+                     )}
+                 </div>
+             </div>
+        </div>
+
         <h2 className="h4 mt-0 mb-4">Cart</h2>
         {items.length === 0 ? (
           <p className="text-muted text-center my-5">Cart is empty</p>
@@ -320,7 +371,7 @@ export const Pos = () => {
                       <div>
                         <div className="fw-bold">{item.product.name}</div>
                         <div className="small text-muted">
-                          ฿{item.price} x {item.quantity}
+                          ฿{Number(item.price).toLocaleString()} x {item.quantity}
                         </div>
                       </div>
                       <div className="d-flex align-items-center">
@@ -360,7 +411,7 @@ export const Pos = () => {
                       <div>
                         <div className="fw-bold">{item.product.name}</div>
                         <div className="small text-muted">
-                          ฿{item.price} {item.quantity > 1 && `x ${item.quantity}`}
+                          ฿{Number(item.price).toLocaleString()} {item.quantity > 1 && `x ${item.quantity}`}
                         </div>
                       </div>
                       <div className="d-flex align-items-center">
@@ -400,7 +451,7 @@ export const Pos = () => {
                       <div>
                         <div className="fw-bold text-danger">{item.product.name}</div>
                         <div className="small text-danger fw-bold">
-                          ฿{item.price} {item.quantity > 1 && `x ${item.quantity}`}
+                          ฿{Number(item.price).toLocaleString()} {item.quantity > 1 && `x ${item.quantity}`}
                         </div>
                       </div>
                       <div className="d-flex align-items-center">
@@ -435,7 +486,7 @@ export const Pos = () => {
         <div className="pt-3 border-top mt-auto">
           <div className="d-flex justify-content-between fs-4 fw-bold mb-3">
             <span>Total:</span>
-            <span>฿{total().toFixed(2)}</span>
+            <span>฿{total().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
           <button
             disabled={items.length === 0}
@@ -453,81 +504,256 @@ export const Pos = () => {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Payment</h5>
+                <h5 className="modal-title">Complete Payment</h5>
                 <button type="button" className="btn-close" onClick={() => setShowPaymentModal(false)}></button>
               </div>
-              <form onSubmit={processPayment}>
-                <div className="modal-body">
-                  <div className="text-center mb-4">
-                    <div className="text-muted mb-1">Total Amount</div>
-                    <div className="display-4 fw-bold text-primary">฿{total().toFixed(2)}</div>
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">Payment Method</label>
-                    <div className="btn-group w-100" role="group">
-                      <input 
-                        type="radio" 
-                        className="btn-check" 
-                        name="paymentMethod" 
-                        id="cash" 
-                        autoComplete="off" 
-                        checked={paymentMethod === 'cash'}
-                        onChange={() => setPaymentMethod('cash')}
-                      />
-                      <label className="btn btn-outline-primary" htmlFor="cash">Cash (เงินสด)</label>
-
-                      <input 
-                        type="radio" 
-                        className="btn-check" 
-                        name="paymentMethod" 
-                        id="transfer" 
-                        autoComplete="off" 
-                        checked={paymentMethod === 'transfer'}
-                        onChange={() => setPaymentMethod('transfer')}
-                      />
-                      <label className="btn btn-outline-primary" htmlFor="transfer">Transfer (โอนเงิน)</label>
-                    </div>
-                  </div>
-
-                  {paymentMethod === 'cash' && (
+              <div className="modal-body">
+                <form onSubmit={processPayment}>
                     <div className="mb-3">
-                      <label className="form-label fw-bold">Received Amount (รับเงินมา)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        className="form-control form-control-lg"
-                        value={receivedAmount}
-                        onChange={(e) => setReceivedAmount(e.target.value)}
-                        autoFocus
-                        required
-                        min={total()}
-                      />
-                      {change !== null && (
-                        <div className={`mt-3 p-3 rounded text-center ${change >= 0 ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger'}`}>
-                          <div className="small fw-bold text-uppercase">Change (เงินทอน)</div>
-                          <div className="fs-2 fw-bold">฿{change.toFixed(2)}</div>
+                        <label className="form-label">Payment Method</label>
+                        <div className="btn-group w-100" role="group">
+                            <input 
+                                type="radio" 
+                                className="btn-check" 
+                                name="paymentMethod" 
+                                id="cash" 
+                                autoComplete="off" 
+                                checked={paymentMethod === 'cash'}
+                                onChange={() => setPaymentMethod('cash')}
+                            />
+                            <label className="btn btn-outline-primary" htmlFor="cash">Cash</label>
+
+                            <input 
+                                type="radio" 
+                                className="btn-check" 
+                                name="paymentMethod" 
+                                id="transfer" 
+                                autoComplete="off" 
+                                checked={paymentMethod === 'transfer'}
+                                onChange={() => setPaymentMethod('transfer')}
+                            />
+                            <label className="btn btn-outline-primary" htmlFor="transfer">Transfer</label>
                         </div>
-                      )}
                     </div>
-                  )}
-                </div>
-                <div className="modal-footer justify-content-between">
-                  <button type="button" className="btn btn-outline-warning" onClick={handlePayLater}>
-                    Save as Unpaid (ติดไว้ก่อน)
-                  </button>
-                  <div>
-                    <button type="button" className="btn btn-secondary me-2" onClick={() => setShowPaymentModal(false)}>Cancel</button>
-                    <button 
-                      type="submit" 
-                      className="btn btn-success btn-lg px-4"
-                      disabled={paymentMethod === 'cash' && (!receivedAmount || parseFloat(receivedAmount) < total())}
-                    >
-                      Confirm Payment
+
+                    {paymentMethod === 'cash' && (
+                        <div className="mb-3">
+                            <label className="form-label">Received Amount</label>
+                            <input
+                                type="number"
+                                className="form-control form-control-lg"
+                                value={receivedAmount}
+                                onChange={(e) => setReceivedAmount(e.target.value)}
+                                placeholder="Enter amount"
+                                autoFocus
+                                required
+                            />
+                        </div>
+                    )}
+
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                        <span className="fs-5">Total:</span>
+                        <span className="fs-4 fw-bold">฿{total().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+
+                    {change !== null && (
+                        <div className={`alert ${change < 0 ? 'alert-danger' : 'alert-success'} text-center`}>
+                            <div className="small text-uppercase fw-bold mb-1">{change < 0 ? 'Insufficient' : 'Change'}</div>
+                            <div className="fs-2 fw-bold">฿{change.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        </div>
+                    )}
+
+                    <div className="d-flex gap-2 mt-4">
+                        <button type="submit" className="btn btn-success flex-grow-1 py-3 fw-bold" disabled={change !== null && change < 0}>
+                            Confirm Payment (ชำระเงิน)
+                        </button>
+                        <button type="button" className="btn btn-outline-warning" onClick={handlePayLater}>
+                             Save as Unpaid (ติดไว้ก่อน)
+                        </button>
+                    </div>
+                    <div className="d-flex gap-2 mt-2">
+                        <button type="button" className="btn btn-outline-info w-100" onClick={handleQuotation}>
+                            Quotation (ใบเสนอราคา)
+                        </button>
+                    </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Selection Modal */}
+      {showCustomerModal && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Select Customer</h5>
+                <button type="button" className="btn-close" onClick={() => setShowCustomerModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                <div className="d-flex gap-2 mb-3">
+                    <input 
+                        type="text" 
+                        className="form-control" 
+                        placeholder="Search customer by name, phone..." 
+                        value={customerSearch}
+                        onChange={(e) => {
+                            setCustomerSearch(e.target.value);
+                            fetchCustomers({ search: e.target.value });
+                        }}
+                    />
+                    <button className="btn btn-primary" onClick={() => setShowCreateCustomerModal(true)}>
+                        + New Customer
                     </button>
-                  </div>
                 </div>
-              </form>
+                
+                <div className="list-group overflow-auto" style={{ maxHeight: '400px' }}>
+                    <button 
+                        className={`list-group-item list-group-item-action ${!selectedCustomer ? 'active' : ''}`}
+                        onClick={() => { setSelectedCustomer(null); setShowCustomerModal(false); }}
+                    >
+                        <div className="fw-bold">Walk-in Customer</div>
+                        <div className="small">Default</div>
+                    </button>
+                    {customers.map(customer => (
+                        <button 
+                            key={customer.id} 
+                            className={`list-group-item list-group-item-action ${selectedCustomer?.id === customer.id ? 'active' : ''}`}
+                            onClick={() => { setSelectedCustomer(customer); setShowCustomerModal(false); }}
+                        >
+                            <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div className="fw-bold">{customer.name}</div>
+                                    <div className="small opacity-75">{customer.phone} {customer.email && `• ${customer.email}`}</div>
+                                    {customer.company_name && <div className="small opacity-75">{customer.company_name}</div>}
+                                </div>
+                                {selectedCustomer?.id === customer.id && <span className="badge bg-light text-dark">Selected</span>}
+                            </div>
+                        </button>
+                    ))}
+                    {customers.length === 0 && (
+                        <div className="text-center p-4 text-muted">No customers found</div>
+                    )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Customer Modal */}
+      {showCreateCustomerModal && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">New Customer</h5>
+                <button type="button" className="btn-close" onClick={() => setShowCreateCustomerModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    try {
+                        const newCustomer = await createCustomer({
+                            name: newCustomerName,
+                            phone: newCustomerPhone,
+                            email: newCustomerEmail || undefined,
+                            line_id: newCustomerLineId,
+                            tax_id: newCustomerTaxId,
+                            address: newCustomerAddress,
+                            company_name: newCustomerCompany,
+                        });
+                        setSelectedCustomer(newCustomer);
+                        setShowCreateCustomerModal(false);
+                        setShowCustomerModal(false);
+                        
+                        // Reset form
+                        setNewCustomerName('');
+                        setNewCustomerPhone('');
+                        setNewCustomerEmail('');
+                        setNewCustomerLineId('');
+                        setNewCustomerTaxId('');
+                        setNewCustomerAddress('');
+                        setNewCustomerCompany('');
+                        
+                        fetchCustomers();
+                    } catch (err) {
+                        alert('Failed to create customer');
+                    }
+                }}>
+                    <div className="row">
+                        <div className="col-md-6 mb-3">
+                            <label className="form-label">Contact Name (ผู้ติดต่อ) *</label>
+                            <input 
+                                type="text" 
+                                className="form-control" 
+                                value={newCustomerName}
+                                onChange={(e) => setNewCustomerName(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="col-md-6 mb-3">
+                            <label className="form-label">Company Name (ชื่อบริษัท)</label>
+                            <input 
+                                type="text" 
+                                className="form-control" 
+                                value={newCustomerCompany}
+                                onChange={(e) => setNewCustomerCompany(e.target.value)}
+                            />
+                        </div>
+                        <div className="col-md-6 mb-3">
+                            <label className="form-label">Phone (เบอร์โทร)</label>
+                            <input 
+                                type="text" 
+                                className="form-control" 
+                                value={newCustomerPhone}
+                                onChange={(e) => setNewCustomerPhone(e.target.value)}
+                            />
+                        </div>
+                        <div className="col-md-6 mb-3">
+                            <label className="form-label">Email (อีเมล)</label>
+                            <input 
+                                type="email" 
+                                className="form-control" 
+                                value={newCustomerEmail}
+                                onChange={(e) => setNewCustomerEmail(e.target.value)}
+                            />
+                        </div>
+                        <div className="col-md-6 mb-3">
+                            <label className="form-label">Line ID</label>
+                            <input 
+                                type="text" 
+                                className="form-control" 
+                                value={newCustomerLineId}
+                                onChange={(e) => setNewCustomerLineId(e.target.value)}
+                            />
+                        </div>
+                        <div className="col-md-6 mb-3">
+                            <label className="form-label">Tax ID (เลขผู้เสียภาษี)</label>
+                            <input 
+                                type="text" 
+                                className="form-control" 
+                                value={newCustomerTaxId}
+                                onChange={(e) => setNewCustomerTaxId(e.target.value)}
+                            />
+                        </div>
+                        <div className="col-12 mb-3">
+                            <label className="form-label">Address (ที่อยู่)</label>
+                            <textarea 
+                                className="form-control" 
+                                rows={2}
+                                value={newCustomerAddress}
+                                onChange={(e) => setNewCustomerAddress(e.target.value)}
+                            ></textarea>
+                        </div>
+                    </div>
+                    <div className="d-grid">
+                        <button type="submit" className="btn btn-success">Create Customer</button>
+                    </div>
+                </form>
+              </div>
             </div>
           </div>
         </div>
@@ -539,27 +765,30 @@ export const Pos = () => {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Enter Service Price</h5>
-                <button type="button" className="btn-close" onClick={() => setShowPriceModal(false)}></button>
+                <h5 className="modal-title">Enter Price</h5>
+                <button type="button" className="btn-close" onClick={() => { setShowPriceModal(false); setSelectedProductForPrice(null); }}></button>
               </div>
-              <form onSubmit={confirmPrice}>
-                <div className="modal-body">
-                  <label className="form-label">Price for {selectedProductForPrice?.name}</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="form-control"
-                    value={customPrice}
-                    onChange={(e) => setCustomPrice(e.target.value)}
-                    autoFocus
-                  />
-                  <div className="form-text">Negative values allowed for deductions (e.g. Deposit).</div>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowPriceModal(false)}>Cancel</button>
-                  <button type="submit" className="btn btn-primary">Add to Cart</button>
-                </div>
-              </form>
+              <div className="modal-body">
+                <form onSubmit={confirmPrice}>
+                  <div className="mb-3">
+                    <label className="form-label">Price (฿)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={customPrice}
+                      onChange={(e) => setCustomPrice(e.target.value)}
+                      autoFocus
+                    />
+                    <div className="form-text text-muted">
+                      Enter negative value for deductions (e.g., -100)
+                    </div>
+                  </div>
+                  <div className="d-flex justify-content-end gap-2">
+                    <button type="button" className="btn btn-secondary" onClick={() => { setShowPriceModal(false); setSelectedProductForPrice(null); }}>Cancel</button>
+                    <button type="submit" className="btn btn-primary">Confirm</button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         </div>

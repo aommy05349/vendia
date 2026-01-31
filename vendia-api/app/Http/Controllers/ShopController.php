@@ -19,22 +19,26 @@ class ShopController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'company_name' => 'nullable|string|max:255',
             'address' => 'nullable|string',
             'phone' => 'nullable|string',
             'tax_id' => 'nullable|string',
             'email' => 'nullable|email',
             'website' => 'nullable|url',
             'footer_text' => 'nullable|string',
+            'remarks' => 'nullable|string',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         $shop->name = $validated['name'];
+        $shop->company_name = $validated['company_name'] ?? $shop->company_name;
         $shop->address = $validated['address'] ?? $shop->address;
         $shop->phone = $validated['phone'] ?? $shop->phone;
         $shop->tax_id = $validated['tax_id'] ?? $shop->tax_id;
         $shop->email = $validated['email'] ?? $shop->email;
         $shop->website = $validated['website'] ?? $shop->website;
         $shop->footer_text = $validated['footer_text'] ?? $shop->footer_text;
+        $shop->remarks = $validated['remarks'] ?? $shop->remarks;
 
         if ($request->hasFile('logo')) {
             // Delete old logo if exists

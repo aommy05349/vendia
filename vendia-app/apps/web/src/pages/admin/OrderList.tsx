@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '@vendia/shared';
+import { api, User } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
 
 interface BundleItemSnapshot {
@@ -35,6 +35,7 @@ interface Order {
     name: string;
     id: number;
   };
+  customer?: User;
   items: OrderItem[];
 }
 
@@ -43,6 +44,7 @@ export const OrderList = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
 
   // Payment Modal State
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -75,6 +77,22 @@ export const OrderList = () => {
     setReceivedAmount('');
     setChange(null);
     setPaymentMethod('cash');
+  };
+
+  const handlePrint = (e: React.MouseEvent, orderId: number, type: 'receipt' | 'quotation') => {
+    e.stopPropagation();
+    window.open(`/print/order/${orderId}?type=${type}`, '_blank');
+  };
+
+  const handleConvertQuotation = async (e: React.MouseEvent, orderId: number) => {
+    e.stopPropagation();
+    if (!confirm('Convert this quotation to an order? Stock will be deducted.')) return;
+    try {
+        await api.put(`/orders/${orderId}`, { status: 'pending' });
+        fetchOrders();
+    } catch (err) {
+        alert('Failed to convert quotation');
+    }
   };
 
   const processPayment = async (e: React.FormEvent) => {
@@ -114,12 +132,30 @@ export const OrderList = () => {
 
   if (loading) return <div className="p-4 text-center">Loading orders...</div>;
 
+  const filteredOrders = orders.filter(order => {
+      if (filterStatus === 'all') return true;
+      return order.status === filterStatus;
+  });
+
   return (
     <div className="container-fluid p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Orders & Bills</h2>
         <button className="btn btn-primary" onClick={fetchOrders}>Refresh</button>
       </div>
+
+      <ul className="nav nav-tabs mb-3">
+        {['all', 'completed', 'pending', 'quotation', 'cancelled'].map(status => (
+            <li className="nav-item" key={status}>
+                <button 
+                    className={`nav-link ${filterStatus === status ? 'active' : ''} text-capitalize`}
+                    onClick={() => setFilterStatus(status)}
+                >
+                    {status}
+                </button>
+            </li>
+        ))}
+      </ul>
 
       <div className="card shadow-sm">
         <div className="card-body p-0">
@@ -129,7 +165,7 @@ export const OrderList = () => {
                 <tr>
                   <th className="p-3">Order ID</th>
                   <th className="p-3">Date</th>
-                  <th className="p-3">Customer/Staff</th>
+                  <th className="p-3">Customer</th>
                   <th className="p-3">Status</th>
                   <th className="p-3">Total</th>
                   <th className="p-3">Items</th>
@@ -137,20 +173,52 @@ export const OrderList = () => {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
+                {filteredOrders.map((order) => (
                   <React.Fragment key={order.id}>
                     <tr onClick={() => toggleExpand(order.id)} style={{ cursor: 'pointer' }}>
                       <td className="p-3">#{order.id}</td>
                       <td className="p-3">{new Date(order.created_at).toLocaleString()}</td>
-                      <td className="p-3">{order.user?.name || 'Guest'}</td>
                       <td className="p-3">
-                        <span className={`badge bg-${order.status === 'completed' ? 'success' : order.status === 'pending' ? 'warning' : 'danger'}`}>
+                        <div className="fw-bold">{order.customer?.name || 'Walk-in'}</div>
+                        <div className="small text-muted">Staff: {order.user?.name || 'Unknown'}</div>
+                      </td>
+                      <td className="p-3">
+                        <span className={`badge bg-${
+                            order.status === 'completed' ? 'success' : 
+                            order.status === 'pending' ? 'warning' : 
+                            order.status === 'quotation' ? 'info' : 'danger'
+                        }`}>
                           {order.status.toUpperCase()}
                         </span>
                       </td>
-                      <td className="p-3 fw-bold">฿{parseFloat(order.total).toFixed(2)}</td>
+                      <td className="p-3 fw-bold">฿{parseFloat(order.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className="p-3">{order.items.length} items</td>
                       <td className="p-3">
+                        {order.status === 'quotation' && (
+                            <>
+                                <button 
+                                    className="btn btn-info btn-sm me-2 text-white"
+                                    onClick={(e) => handlePrint(e, order.id, 'quotation')}
+                                >
+                                    Print Quote
+                                </button>
+                                <button 
+                                    className="btn btn-success btn-sm me-2"
+                                    onClick={(e) => handleConvertQuotation(e, order.id)}
+                                >
+                                    To Order
+                                </button>
+                                <button 
+                                    className="btn btn-warning btn-sm me-2"
+                                    onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/pos?order_id=${order.id}`);
+                                    }}
+                                >
+                                    Edit
+                                </button>
+                            </>
+                        )}
                         {order.status === 'pending' && (
                           <>
                             <button 
@@ -158,6 +226,12 @@ export const OrderList = () => {
                               onClick={(e) => handlePayClick(order, e)}
                             >
                               Pay Now
+                            </button>
+                            <button 
+                                className="btn btn-secondary btn-sm me-2"
+                                onClick={(e) => handlePrint(e, order.id, 'receipt')}
+                            >
+                                Print Bill
                             </button>
                             <button 
                               className="btn btn-warning btn-sm me-2"
@@ -169,6 +243,14 @@ export const OrderList = () => {
                               Edit
                             </button>
                           </>
+                        )}
+                        {order.status === 'completed' && (
+                            <button 
+                                className="btn btn-secondary btn-sm me-2"
+                                onClick={(e) => handlePrint(e, order.id, 'receipt')}
+                            >
+                                Print Receipt
+                            </button>
                         )}
                         <button className="btn btn-sm btn-link text-decoration-none">
                           {expandedOrderId === order.id ? 'Hide' : 'View'}
@@ -197,9 +279,9 @@ export const OrderList = () => {
                                     <tr key={item.id}>
                                       <td>{item.product?.name || 'Unknown Product'}</td>
                                       <td>{item.product?.sku}</td>
-                                      <td>฿{parseFloat(item.price.toString()).toFixed(2)}</td>
+                                      <td>฿{Number(item.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                       <td>{item.quantity}</td>
-                                      <td>฿{(parseFloat(item.price.toString()) * item.quantity).toFixed(2)}</td>
+                                      <td>฿{(Number(item.price) * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                       <td>
                                         {item.metadata?.bundle_items ? (
                                           <div className="small text-muted">
@@ -244,7 +326,7 @@ export const OrderList = () => {
                 <div className="modal-body">
                   <div className="text-center mb-4">
                     <div className="text-muted mb-1">Total Amount</div>
-                    <div className="display-4 fw-bold text-primary">฿{parseFloat(selectedOrder.total).toFixed(2)}</div>
+                    <div className="display-4 fw-bold text-primary">฿{parseFloat(selectedOrder.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                   </div>
 
                   <div className="mb-3">
@@ -290,7 +372,7 @@ export const OrderList = () => {
                       {change !== null && (
                         <div className={`mt-3 p-3 rounded text-center ${change >= 0 ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger'}`}>
                           <div className="small fw-bold text-uppercase">Change (เงินทอน)</div>
-                          <div className="fs-2 fw-bold">฿{change.toFixed(2)}</div>
+                          <div className="fs-2 fw-bold">฿{change.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                         </div>
                       )}
                     </div>

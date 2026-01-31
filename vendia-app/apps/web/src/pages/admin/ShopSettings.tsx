@@ -4,12 +4,14 @@ import { useShopStore } from '@vendia/shared';
 export default function ShopSettings() {
   const { shop, updateShop, fetchShop, loading } = useShopStore();
   const [name, setName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
   const [taxId, setTaxId] = useState('');
   const [email, setEmail] = useState('');
   const [website, setWebsite] = useState('');
   const [footerText, setFooterText] = useState('');
+  const [remarks, setRemarks] = useState('');
   const [logo, setLogo] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -21,12 +23,14 @@ export default function ShopSettings() {
       fetchShop();
     } else {
       setName(shop.name);
+      setCompanyName(shop.company_name || '');
       setAddress(shop.address || '');
       setPhone(shop.phone || '');
       setTaxId(shop.tax_id || '');
       setEmail(shop.email || '');
       setWebsite(shop.website || '');
       setFooterText(shop.footer_text || '');
+      setRemarks(shop.remarks || '');
     }
   }, [shop, fetchShop]);
 
@@ -45,12 +49,14 @@ export default function ShopSettings() {
 
     const formData = new FormData();
     formData.append('name', name);
+    formData.append('company_name', companyName);
     formData.append('address', address);
     formData.append('phone', phone);
     formData.append('tax_id', taxId);
     formData.append('email', email);
     formData.append('website', website);
     formData.append('footer_text', footerText);
+    formData.append('remarks', remarks);
     if (logo) {
       formData.append('logo', logo);
     }
@@ -104,13 +110,24 @@ export default function ShopSettings() {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Shop Name</label>
+              <label className="form-label fw-bold">Shop Name (Display Name)</label>
               <input 
                 type="text" 
                 className="form-control" 
                 value={name} 
                 onChange={(e) => setName(e.target.value)} 
                 required 
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label fw-bold">Company Name (Legal Name for Invoices)</label>
+              <input 
+                type="text" 
+                className="form-control" 
+                value={companyName} 
+                onChange={(e) => setCompanyName(e.target.value)} 
+                placeholder="e.g. ห้างหุ้นส่วนจำกัด..."
               />
             </div>
 
@@ -165,14 +182,27 @@ export default function ShopSettings() {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Footer Text (สำหรับใบเสร็จ)</label>
+              <label className="form-label fw-bold">Footer Text (ข้อความท้ายใบเสร็จ)</label>
               <textarea 
                 className="form-control" 
                 rows={2}
                 value={footerText} 
                 onChange={(e) => setFooterText(e.target.value)} 
-                placeholder="e.g. Thank you for your business"
+                placeholder="e.g. ขอบคุณที่ใช้บริการ"
               />
+              <div className="form-text">ข้อความนี้จะแสดงด้านล่างของราคารวม (Net Total)</div>
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label fw-bold">Remarks (หมายเหตุ)</label>
+              <textarea 
+                className="form-control" 
+                rows={3}
+                value={remarks} 
+                onChange={(e) => setRemarks(e.target.value)} 
+                placeholder="e.g. สินค้าซื้อแล้วไม่รับเปลี่ยนคืน..."
+              />
+              <div className="form-text">ข้อความนี้จะแสดงในกล่องหมายเหตุ (Remarks box)</div>
             </div>
 
             <div className="d-flex justify-content-end">

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api } from './api';
+import { PaginationMeta } from './types';
 
 export interface Brand {
   id: number;
@@ -19,15 +20,6 @@ export interface Warehouse {
   address?: string;
   phone?: string;
   email?: string;
-}
-
-export interface PaginationMeta {
-  current_page: number;
-  from: number;
-  last_page: number;
-  per_page: number;
-  to: number;
-  total: number;
 }
 
 interface AuxState {

@@ -5,3 +5,4 @@ export * from './shopStore';
 export * from './categoryStore';
 export * from './productStore';
 export * from './auxStore';
+export * from './customerStore';

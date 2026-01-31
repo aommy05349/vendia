@@ -4,12 +4,14 @@ import { api } from './api';
 export interface Shop {
   id: number;
   name: string;
+  company_name?: string;
   address?: string;
   phone?: string;
   tax_id?: string;
   email?: string;
   website?: string;
   footer_text?: string;
+  remarks?: string;
   logo_path?: string;
 }
 

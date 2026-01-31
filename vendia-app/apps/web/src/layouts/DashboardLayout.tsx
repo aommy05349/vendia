@@ -31,8 +31,8 @@ export const DashboardLayout = () => {
           {shop?.logo_path && (
             <img 
               src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.logo_path}`} 
-              alt="Logo" 
-              style={{ maxHeight: '32px' }} 
+              alt="Shop Logo" 
+              style={{ height: '30px', marginRight: '10px' }} 
             />
           )}
           <h1 className="h5 m-0 fw-bold">{shop?.name || 'Vendia POS'}</h1>
@@ -72,7 +72,7 @@ export const DashboardLayout = () => {
                 src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.logo_path}`} 
                 alt="Logo" 
                 className="mb-2 img-fluid d-block mx-auto"
-                style={{ maxHeight: '60px' }} 
+                style={{ maxHeight: '70%' }} 
               />
             )}
             <h2 className="h4 text-dark m-0">{shop?.name || 'Vendia POS'}</h2>

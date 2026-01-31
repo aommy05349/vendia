@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api } from './api';
+import { PaginationMeta } from './types';
 
 export interface ProductImage {
   id: number;
@@ -53,15 +54,6 @@ export interface Product {
   };
   images?: ProductImage[];
   bundle_items?: BundleItem[];
-}
-
-export interface PaginationMeta {
-  current_page: number;
-  from: number;
-  last_page: number;
-  per_page: number;
-  to: number;
-  total: number;
 }
 
 export interface ProductQueryParams {

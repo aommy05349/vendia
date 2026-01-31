@@ -1,11 +1,20 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-interface User {
+export interface User {
   id: number;
   name: string;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
   email: string;
-  role: 'admin' | 'staff';
+  role: 'admin' | 'staff' | 'customer';
+  phone?: string;
+  address?: string;
+  tax_id?: string;
+  company_name?: string;
+  line_id?: string;
+  image?: string;
 }
 
 interface AuthState {

@@ -23,6 +23,7 @@ import { WarehouseList } from './pages/admin/WarehouseList';
 import { CreateWarehouse } from './pages/admin/CreateWarehouse';
 import { EditWarehouse } from './pages/admin/EditWarehouse';
 import { OrderList } from './pages/admin/OrderList';
+import { PrintOrder } from './pages/PrintOrder';
 
 function App() {
   const { user, login } = useAuthStore();
@@ -161,10 +162,9 @@ function App() {
           <Route path="settings" element={
             user.role === 'admin' ? <ShopSettings /> : <Navigate to="/" />
           } />
-          <Route path="orders" element={
-            user.role === 'admin' ? <OrderList /> : <Navigate to="/" />
-          } />
+          <Route path="orders" element={<OrderList />} />
         </Route>
+        <Route path="/print/order/:id" element={<PrintOrder />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
