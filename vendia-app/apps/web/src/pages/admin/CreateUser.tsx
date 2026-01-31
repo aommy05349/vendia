@@ -9,6 +9,7 @@ export const CreateUser = () => {
     first_name: '',
     last_name: '',
     email: '',
+    phone: '',
     password: '',
     role: 'staff',
     image: null as File | null,
@@ -124,6 +125,19 @@ export const CreateUser = () => {
         </div>
 
         <div className="mb-3">
+          <label className="form-label fw-bold">Phone Number</label>
+          <input 
+            type="text" 
+            name="phone" 
+            className="form-control"
+            value={formData.phone} 
+            onChange={handleChange} 
+            required 
+            placeholder="e.g. 0812345678"
+          />
+        </div>
+
+        <div className="mb-3">
           <label className="form-label fw-bold">Role</label>
           <select 
             name="role" 
@@ -133,6 +147,7 @@ export const CreateUser = () => {
           >
             <option value="staff">Staff</option>
             <option value="admin">Admin</option>
+            <option value="technician">Technician</option>
           </select>
         </div>
 

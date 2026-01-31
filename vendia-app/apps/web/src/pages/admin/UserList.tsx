@@ -32,7 +32,7 @@ export const UserList = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await api.get('/users');
+      const response = await api.get('/users?exclude_role=customer');
       setUsers(response.data.data); // Assuming pagination
     } catch (error) {
       console.error('Failed to fetch users:', error);
@@ -96,7 +96,11 @@ export const UserList = () => {
                   <td className="p-3">{user.username}</td>
                   <td className="p-3">{user.email}</td>
                   <td className="p-3">
-                    <span className={`badge ${user.role === 'admin' ? 'bg-primary' : 'bg-secondary'}`}>
+                    <span className={`badge ${
+                      user.role === 'admin' ? 'bg-primary' : 
+                      user.role === 'technician' ? 'bg-info text-dark' : 
+                      'bg-secondary'
+                    }`}>
                       {user.role}
                     </span>
                   </td>

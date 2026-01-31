@@ -19,6 +19,10 @@ class UserController extends Controller
             $query->where('role', $request->role);
         }
 
+        if ($request->has('exclude_role')) {
+            $query->where('role', '!=', $request->exclude_role);
+        }
+
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -40,7 +44,7 @@ class UserController extends Controller
             'last_name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'nullable|string|min:8', // Make password nullable for customers
-            'role' => ['required', Rule::in(['admin', 'staff', 'customer'])],
+            'role' => ['required', Rule::in(['admin', 'staff', 'customer', 'technician'])],
             'image' => 'nullable|image|max:2048', // Max 2MB
             'phone' => 'required|string|max:20|unique:users',
             'address' => 'nullable|string',
@@ -94,7 +98,7 @@ class UserController extends Controller
             'last_name' => 'sometimes|required|string|max:255',
             'email' => ['sometimes', 'required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'password' => 'sometimes|nullable|string|min:8',
-            'role' => ['sometimes', 'required', Rule::in(['admin', 'staff', 'customer'])],
+            'role' => ['sometimes', 'required', Rule::in(['admin', 'staff', 'customer', 'technician'])],
             'image' => 'nullable|image|max:2048',
             'phone' => ['sometimes', 'required', 'string', 'max:20', Rule::unique('users')->ignore($user->id)],
             'address' => 'nullable|string',

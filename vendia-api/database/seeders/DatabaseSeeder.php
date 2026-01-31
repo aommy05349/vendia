@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
                 'email' => 'admin@vendia.com',
                 'password' => 'password',
                 'role' => 'admin',
+                'phone' => '0812345678',
             ]);
         }
 
@@ -36,6 +37,7 @@ class DatabaseSeeder extends Seeder
                 'email' => 'staff@vendia.com',
                 'password' => 'password',
                 'role' => 'staff',
+                'phone' => '0812345679',
             ]);
         }
 
