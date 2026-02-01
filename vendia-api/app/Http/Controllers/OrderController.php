@@ -35,10 +35,15 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
-        $query = Order::with('items.product', 'user', 'customer')->latest();
+        $query = Order::with('items.product', 'user', 'customer', 'parent')->latest();
 
         if ($request->has('status') && $request->input('status') !== 'all') {
-            $query->where('status', $request->input('status'));
+            $status = $request->input('status');
+            if (str_contains($status, ',')) {
+                $query->whereIn('status', explode(',', $status));
+            } else {
+                $query->where('status', $status);
+            }
         }
 
         if ($request->has('customer_id')) {
@@ -79,6 +84,7 @@ class OrderController extends Controller
             'payment_method' => 'required|string',
             'status' => 'nullable|in:completed,cancelled,pending,quotation',
             'customer_id' => 'nullable|exists:users,id',
+            'parent_id' => 'nullable|exists:orders,id',
         ]);
 
         return DB::transaction(function () use ($request) {
@@ -166,6 +172,7 @@ class OrderController extends Controller
             $order = Order::create([
                 'user_id' => $request->user()->id,
                 'customer_id' => $request->customer_id,
+                'parent_id' => $request->parent_id,
                 'total' => $total,
                 'status' => $request->input('status', 'completed'),
                 'payment_method' => $request->payment_method,
@@ -173,13 +180,13 @@ class OrderController extends Controller
 
             $order->items()->createMany($items);
 
-            return $order->load('items.product', 'customer');
+            return $order->load('items.product', 'customer', 'parent');
         });
     }
 
     public function show($id)
     {
-        $order = Order::with(['items.product', 'user', 'customer'])->findOrFail($id);
+        $order = Order::with(['items.product', 'user', 'customer', 'parent'])->findOrFail($id);
         
         $sortedItems = $order->items->sortBy(function($item) {
             $product = $item->product;

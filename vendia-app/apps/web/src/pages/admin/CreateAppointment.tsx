@@ -129,7 +129,7 @@ export const CreateAppointment = () => {
 
   const fetchCustomerData = async (customerId: string, includeOrderId?: string) => {
     try {
-      let orderQuery = `/orders?customer_id=${customerId}&exclude_has_appointment=true`;
+      let orderQuery = `/orders?customer_id=${customerId}&exclude_has_appointment=true&status=pending,completed`;
       if (includeOrderId) {
         orderQuery += `&include_order_id=${includeOrderId}`;
       }
@@ -389,6 +389,63 @@ export const CreateAppointment = () => {
                 />
             </div>
         </div>
+
+        <hr />
+
+        {/* Team Assignment */}
+        <h5 className="mb-3">Assign Team</h5>
+        <div className="mb-3">
+             <label className="form-label">Select Technicians</label>
+             <Select
+                 isMulti
+                 options={technicians.map(t => ({
+                     value: t.id,
+                     label: `${t.first_name ? t.first_name + ' ' + t.last_name : t.name}`
+                 }))}
+                 onChange={(selectedOptions) => {
+                     const newSelected = selectedOptions.map((option: any) => {
+                         const existing = selectedTechnicians.find(t => t.id === option.value);
+                         return {
+                             id: option.value,
+                             is_lead: existing ? existing.is_lead : false
+                         };
+                     });
+                     setSelectedTechnicians(newSelected);
+                 }}
+                 className="mb-3"
+             />
+        </div>
+        
+        {selectedTechnicians.length > 0 && (
+            <div className="card bg-light border-0 mb-3">
+                <div className="card-body p-3">
+                    <small className="d-block mb-2 text-muted fw-bold">Select Team Lead:</small>
+                    <ul className="list-group">
+                        {selectedTechnicians.map(st => {
+                            const tech = technicians.find(t => t.id === st.id);
+                            if (!tech) return null;
+                            return (
+                                <li key={st.id} className="list-group-item d-flex justify-content-between align-items-center py-2">
+                                    <span>{tech.first_name ? `${tech.first_name} ${tech.last_name}` : tech.name}</span>
+                                    <div className="form-check form-switch mb-0">
+                                        <input
+                                            className="form-check-input"
+                                            type="checkbox"
+                                            checked={st.is_lead}
+                                            onChange={() => setLeadTechnician(st.id)}
+                                            id={`lead-${st.id}`}
+                                        />
+                                        <label className="form-check-label small" htmlFor={`lead-${st.id}`}>
+                                            Lead
+                                        </label>
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </div>
+            </div>
+        )}
 
         <hr />
         

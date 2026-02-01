@@ -202,6 +202,8 @@ export const AppointmentDetail = () => {
 
   const nextActions = getNextActions(appointment.status);
   const showCancelButton = isAdmin && appointment.status === 'scheduled';
+  
+  const showPaymentWarning = appointment.order?.status === 'pending';
 
   return (
     <div className="container-fluid p-4">
@@ -215,14 +217,30 @@ export const AppointmentDetail = () => {
             <span className={`badge ${getStatusBadge(appointment.status)} fs-6`}>
               {appointment.status.replace('_', ' ').toUpperCase()}
             </span>
+            {appointment.status === 'completed' && showPaymentWarning && (
+                 <div className="alert alert-warning mt-2 d-inline-block py-1 px-2 mb-0 ms-2">
+                    <i className="bi bi-exclamation-triangle-fill me-1"></i> Order is still Unpaid!
+                 </div>
+            )}
           </div>
           {/* Status Actions */}
-          <div className="d-flex gap-2">
+          <div className="d-flex gap-2 align-items-center">
+             {nextActions.some(a => a.value === 'completed') && showPaymentWarning && (
+                 <span className="text-danger small fw-bold me-2">
+                    <i className="bi bi-exclamation-circle me-1"></i>
+                    Order is Unpaid
+                 </span>
+             )}
              {nextActions.map(action => (
                <button
                  key={action.value}
                  className={`btn ${action.btn}`}
-                 onClick={() => handleStatusUpdate(action.value)}
+                 onClick={() => {
+                     if (action.value === 'completed' && showPaymentWarning) {
+                         if(!confirm('Order is still UNPAID (Pending). Do you want to complete this job anyway?')) return;
+                     }
+                     handleStatusUpdate(action.value);
+                 }}
                  disabled={updating}
                >
                  {action.label}
@@ -260,12 +278,20 @@ export const AppointmentDetail = () => {
                    <div className="mt-4 pt-3 border-top">
                        <div className="d-flex justify-content-between align-items-center mb-3">
                            <h6 className="mb-0">Products & Materials (Order #{appointment.order.code})</h6>
-                           {appointment.order.status === 'pending' && (
+                           {['pending', 'quotation'].includes(appointment.order.status) ? (
                                <button 
                                    className="btn btn-sm btn-warning"
                                    onClick={() => navigate(`/pos?order_id=${appointment.order!.id}`)}
                                >
-                                   <i className="bi bi-cart me-1"></i> Manage Order
+                                   <i className="bi bi-pencil-square me-1"></i>Edit Order
+                               </button>
+                           ) : (
+                               <button 
+                                   className="btn btn-sm btn-outline-primary"
+                                   onClick={() => navigate(`/pos?customer_id=${appointment.customer.id}&parent_order_id=${appointment.order!.id}`)}
+                                   title="Create a new supplementary order for additional costs"
+                               >
+                                   <i className="bi bi-plus-circle me-1"></i>Add Extra Charge
                                </button>
                            )}
                        </div>

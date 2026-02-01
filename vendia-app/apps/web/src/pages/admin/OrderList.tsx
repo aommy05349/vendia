@@ -27,6 +27,11 @@ interface OrderItem {
 
 interface Order {
   id: number;
+  parent_id?: number;
+  parent?: {
+    id: number;
+    total: string;
+  };
   total: string;
   status: string;
   payment_method: string;
@@ -248,7 +253,16 @@ export const OrderList = () => {
                 {orders.map((order) => (
                   <React.Fragment key={order.id}>
                     <tr onClick={() => toggleExpand(order.id)} style={{ cursor: 'pointer' }}>
-                      <td className="p-3">#{order.id}</td>
+                      <td className="p-3">
+                        #{order.id}
+                        {order.parent && (
+                            <div className="mt-1">
+                                <span className="badge bg-secondary" style={{ fontSize: '0.7em' }} title="Supplementary Order">
+                                    Ref: #{order.parent.id}
+                                </span>
+                            </div>
+                        )}
+                      </td>
                       <td className="p-3">{new Date(order.created_at).toLocaleString()}</td>
                       <td className="p-3">
                         <div className="fw-bold">{order.customer?.name || 'Walk-in'}</div>

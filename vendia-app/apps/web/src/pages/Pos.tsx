@@ -6,6 +6,7 @@ export const Pos = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const editingOrderId = searchParams.get('order_id');
+  const parentOrderId = searchParams.get('parent_order_id');
   const { items, addToCart, removeFromCart, updateQuantity, clearCart, setCart, total } = useCartStore();
   const { products, fetchProducts, loading, pagination } = useProductStore();
   const { categories, fetchCategories } = useCategoryStore();
@@ -13,6 +14,7 @@ export const Pos = () => {
   
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<User | null>(null);
+  const [parentOrder, setParentOrder] = useState<any | null>(null);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCreateCustomerModal, setShowCreateCustomerModal] = useState(false);
@@ -54,6 +56,14 @@ export const Pos = () => {
   useEffect(() => {
     fetchCategories({ has_products: true });
   }, [fetchCategories]);
+
+  useEffect(() => {
+    if (parentOrderId) {
+        api.get(`/orders/${parentOrderId}`).then(res => {
+            setParentOrder(res.data);
+        }).catch(err => console.error("Failed to load parent order", err));
+    }
+  }, [parentOrderId]);
 
   useEffect(() => {
     if (editingOrderId) {
@@ -122,10 +132,17 @@ export const Pos = () => {
       });
     } else {
         // If we are NOT editing (normal POS mode), clear the cart on mount
-        // This ensures no leftover state from previous edits or sessions
         clearCart();
+        
+        // Check for customer_id param to pre-fill customer
+        const customerIdParam = searchParams.get('customer_id');
+        if (customerIdParam) {
+            api.get(`/users/${customerIdParam}`).then(res => {
+                setSelectedCustomer(res.data);
+            }).catch(err => console.error('Failed to load customer', err));
+        }
     }
-  }, [editingOrderId, setCart, clearCart]);
+  }, [editingOrderId, setCart, clearCart, searchParams]);
 
   const handleCategorySelect = (id: number | null) => {
     setSelectedCategory(id);
@@ -176,6 +193,7 @@ export const Pos = () => {
         payment_method: method,
         status: status,
         customer_id: selectedCustomer?.id || null,
+        parent_id: parentOrderId || null,
       };
 
       if (editingOrderId) {
@@ -244,6 +262,19 @@ export const Pos = () => {
                             }}
                         >
                             Cancel Edit
+                        </button>
+                    </span>
+                ) : parentOrder ? (
+                    <span>
+                        Adding Extra Charge for Order <span className="text-primary">#{parentOrder.id}</span>
+                        <button 
+                            className="btn btn-sm btn-outline-danger ms-3" 
+                            onClick={() => { 
+                                clearCart();
+                                navigate('/appointments'); 
+                            }}
+                        >
+                            Cancel
                         </button>
                     </span>
                 ) : 'Products'}
@@ -566,15 +597,10 @@ export const Pos = () => {
 
                     <div className="d-flex gap-2 mt-4">
                         <button type="submit" className="btn btn-success flex-grow-1 py-3 fw-bold" disabled={change !== null && change < 0}>
-                            {editingOrderId ? 'Update & Pay' : 'Confirm Payment (ชำระเงิน)'}
+                            {editingOrderId ? 'Update and Pay' : 'Pay'}
                         </button>
                         <button type="button" className="btn btn-outline-warning" onClick={handlePayLater}>
-                             {editingOrderId ? 'Update as Unpaid' : 'Save as Unpaid (ติดไว้ก่อน)'}
-                        </button>
-                    </div>
-                    <div className="d-flex gap-2 mt-2">
-                        <button type="button" className="btn btn-outline-info w-100" onClick={handleQuotation}>
-                            Quotation (ใบเสนอราคา)
+                             {editingOrderId ? 'Update and Pay Later' : 'Pay Later'}
                         </button>
                     </div>
                 </form>

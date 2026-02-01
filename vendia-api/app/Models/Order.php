@@ -12,10 +12,21 @@ class Order extends Model
     protected $fillable = [
         'user_id',
         'customer_id',
+        'parent_id',
         'total',
         'status',
         'payment_method',
     ];
+
+    public function parent()
+    {
+        return $this->belongsTo(Order::class, 'parent_id');
+    }
+
+    public function children()
+    {
+        return $this->hasMany(Order::class, 'parent_id');
+    }
 
     public function user()
     {
