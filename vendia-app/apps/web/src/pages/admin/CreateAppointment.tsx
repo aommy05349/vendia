@@ -259,7 +259,7 @@ export const CreateAppointment = () => {
               <option value="">Select Order</option>
               {orders.map(o => (
                 <option key={o.id} value={o.id}>
-                  #{o.id} - {new Date(o.created_at).toLocaleDateString()} ({o.total})
+                  #{o.id} - {new Date(o.created_at).toLocaleDateString()} ({o.status}) - {o.total}
                 </option>
               ))}
             </select>

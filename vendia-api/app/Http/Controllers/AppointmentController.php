@@ -32,7 +32,18 @@ class AppointmentController extends Controller
     {
         $validated = $request->validate([
             'customer_id' => 'required|exists:users,id',
-            'order_id' => 'nullable|exists:orders,id',
+            'order_id' => [
+                'nullable',
+                'exists:orders,id',
+                function ($attribute, $value, $fail) use ($request) {
+                    if ($value) {
+                        $order = \App\Models\Order::find($value);
+                        if ($order && $order->customer_id != $request->customer_id) {
+                            $fail('The selected order does not belong to the customer.');
+                        }
+                    }
+                },
+            ],
             'title' => 'required|string',
             'description' => 'nullable|string',
             'start_time' => 'required|date',

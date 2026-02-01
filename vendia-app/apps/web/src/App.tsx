@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore, api, useShopStore } from '@vendia/shared';
+import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from './layouts/DashboardLayout';
+import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { Pos } from './pages/Pos';
 import { UserList } from './pages/admin/UserList';
 import { CreateUser } from './pages/admin/CreateUser';
@@ -38,6 +40,7 @@ import { TechnicianJobs } from './pages/technician/TechnicianJobs';
 function App() {
   const { user, login } = useAuthStore();
   const { shop, fetchShop } = useShopStore();
+  const { t } = useTranslation();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
@@ -59,7 +62,10 @@ function App() {
 
   if (!user) {
     return (
-      <div className="d-flex justify-content-center align-items-center vh-100 bg-light p-3">
+      <div className="d-flex justify-content-center align-items-center vh-100 bg-light p-3 position-relative">
+        <div className="position-absolute top-0 end-0 m-3">
+          <LanguageSwitcher />
+        </div>
         <div className="card shadow-sm w-100" style={{ maxWidth: '400px' }}>
           <div className="card-body p-4">
             <div className="text-center mb-4">
@@ -71,13 +77,13 @@ function App() {
                   style={{ maxHeight: '80px' }} 
                 />
               )}
-              <h1 className="h3">{shop?.name || 'Vendia Login'}</h1>
+              <h1 className="h3">{shop?.name || t('login.title')}</h1>
             </div>
-            {error && <div className="alert alert-danger text-center py-2">{error}</div>}
+            {error && <div className="alert alert-danger text-center py-2">{t('login.invalid_credentials')}</div>}
             <form onSubmit={handleLogin} className="d-flex flex-column gap-3">
               <input
                 type="email"
-                placeholder="Email"
+                placeholder={t('login.email')}
                 className="form-control"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -85,20 +91,20 @@ function App() {
               />
               <input
                 type="password"
-                placeholder="Password"
+                placeholder={t('login.password')}
                 className="form-control"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
               <button type="submit" className="btn btn-primary w-100 fw-bold">
-                Login
+                {t('login.title')}
               </button>
             </form>
             <div className="mt-4 text-center small text-muted">
-              <div className="mb-2 fw-bold">Demo Credentials:</div>
-              <div>Admin: admin@vendia.com / password</div>
-              <div>Staff: staff@vendia.com / password</div>
+              <div className="mb-2 fw-bold">{t('login.demo_credentials')}:</div>
+              <div>{t('login.admin')}: admin@vendia.com / password</div>
+              <div>{t('login.technician')}: tech@vendia.com / password</div>
             </div>
           </div>
         </div>

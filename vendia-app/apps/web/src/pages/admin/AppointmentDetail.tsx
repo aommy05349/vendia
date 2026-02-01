@@ -63,6 +63,10 @@ export const AppointmentDetail = () => {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
+  // Confirmation Modal State
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [pendingStatusUpdate, setPendingStatusUpdate] = useState<string | null>(null);
+
   // Manage Team Modal State
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [technicians, setTechnicians] = useState<any[]>([]);
@@ -142,13 +146,26 @@ export const AppointmentDetail = () => {
     }
   };
 
-  const handleStatusUpdate = async (newStatus: string) => {
-    if (!confirm(`Are you sure you want to update status to ${newStatus}?`)) return;
+  const handleStatusUpdateClick = (newStatus: string) => {
+    if (newStatus === 'completed') {
+        setPendingStatusUpdate(newStatus);
+        setShowCompleteModal(true);
+    } else {
+        // For other statuses, maybe just a simple confirm or direct update?
+        // Let's keep simple confirm for others to avoid too much UI overhead, 
+        // or just do it directly. The user originally had a confirm for everything.
+        if (confirm(`Change status to ${newStatus.replace('_', ' ')}?`)) {
+            handleStatusUpdate(newStatus);
+        }
+    }
+  };
 
+  const handleStatusUpdate = async (newStatus: string) => {
     setUpdating(true);
     try {
       const response = await api.patch(`/appointments/${id}`, { status: newStatus });
       setAppointment(response.data);
+      setShowCompleteModal(false); // Close modal if open
     } catch (error) {
       console.error('Failed to update status', error);
       alert('Failed to update status');
@@ -453,7 +470,7 @@ export const AppointmentDetail = () => {
 
       {/* Manage Team Modal */}
       {showTeamModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
@@ -478,6 +495,8 @@ export const AppointmentDetail = () => {
                          })}
                          onChange={handleTechnicianChange}
                          className="mb-3"
+                         menuPortalTarget={document.body} 
+                         styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
                      />
                  </div>
                  
@@ -516,6 +535,52 @@ export const AppointmentDetail = () => {
                 <button type="button" className="btn btn-secondary" onClick={() => setShowTeamModal(false)}>Cancel</button>
                 <button type="button" className="btn btn-primary" onClick={handleSaveTeam} disabled={savingTeam}>
                   {savingTeam ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Job Confirmation Modal */}
+      {showCompleteModal && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Complete Job</h5>
+                <button type="button" className="btn-close" onClick={() => setShowCompleteModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                <p>Are you sure you want to mark this job as <strong>Completed</strong>?</p>
+                
+                {showPaymentWarning && (
+                    <div className="alert alert-warning">
+                        <div className="d-flex">
+                            <i className="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+                            <div>
+                                <h6 className="alert-heading fw-bold">Payment Pending</h6>
+                                <p className="mb-0 small">
+                                    The linked order (<strong>#{appointment?.order?.code || appointment?.order?.id}</strong>) is currently <strong>UNPAID</strong>.
+                                </p>
+                                <hr />
+                                <p className="mb-0 small">
+                                    Please ensure you have collected payment or confirmed the payment arrangement before completing the job.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCompleteModal(false)}>Cancel</button>
+                <button 
+                    type="button" 
+                    className="btn btn-success" 
+                    onClick={() => pendingStatusUpdate && handleStatusUpdate(pendingStatusUpdate)}
+                    disabled={updating}
+                >
+                  {updating ? 'Updating...' : 'Confirm Completion'}
                 </button>
               </div>
             </div>

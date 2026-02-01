@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useCartStore, useProductStore, useCategoryStore, useCustomerStore, api, Product, User } from '@vendia/shared';
 
 export const Pos = () => {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const editingOrderId = searchParams.get('order_id');
@@ -253,7 +255,7 @@ export const Pos = () => {
             <h1 className="h3 m-0">
                 {editingOrderId ? (
                     <span>
-                        Editing Order <span className="text-primary">#{editingOrderId}</span>
+                        {t('pos.editing_order')} <span className="text-primary">#{editingOrderId}</span>
                         <button 
                             className="btn btn-sm btn-outline-danger ms-3" 
                             onClick={() => { 
@@ -261,12 +263,12 @@ export const Pos = () => {
                                 navigate('/orders'); 
                             }}
                         >
-                            Cancel Edit
+                            {t('pos.cancel_edit')}
                         </button>
                     </span>
                 ) : parentOrder ? (
                     <span>
-                        Adding Extra Charge for Order <span className="text-primary">#{parentOrder.id}</span>
+                        {t('pos.adding_extra_charge')} <span className="text-primary">#{parentOrder.id}</span>
                         <button 
                             className="btn btn-sm btn-outline-danger ms-3" 
                             onClick={() => { 
@@ -274,10 +276,10 @@ export const Pos = () => {
                                 navigate('/appointments'); 
                             }}
                         >
-                            Cancel
+                            {t('pos.cancel')}
                         </button>
                     </span>
-                ) : 'Products'}
+                ) : t('pos.products')}
             </h1>
         </div>
         
@@ -287,7 +289,7 @@ export const Pos = () => {
             className={`btn ${selectedCategory === null ? 'btn-dark' : 'btn-outline-dark'}`}
             onClick={() => handleCategorySelect(null)}
           >
-            All
+            {t('common.all')}
           </button>
           {categories.map((category) => (
             <button
@@ -329,7 +331,7 @@ export const Pos = () => {
                         onClick={() => handleProductClick(product)}
                         className={`btn w-100 mt-3 ${product.product_type !== 'service' && product.stock === 0 ? 'btn-secondary' : 'btn-primary'}`}
                       >
-                        {product.product_type !== 'service' && product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                        {product.product_type !== 'service' && product.stock === 0 ? 'Out of Stock' : t('actions.add')}
                       </button>
                     </div>
                   </div>
@@ -369,7 +371,7 @@ export const Pos = () => {
         {/* Customer Section */}
         <div className="mb-4">
              <div className="d-flex justify-content-between align-items-center mb-2">
-                 <h6 className="text-muted text-uppercase small fw-bold m-0">Customer</h6>
+                 <h6 className="text-muted text-uppercase small fw-bold m-0">{t('pos.select_customer')}</h6>
                  <button className="btn btn-sm btn-link text-decoration-none" onClick={() => { setShowCustomerModal(true); fetchCustomers(); }}>
                      {selectedCustomer ? 'Change' : 'Select'}
                  </button>
@@ -382,13 +384,13 @@ export const Pos = () => {
                              {selectedCustomer.phone && <div className="small text-muted">{selectedCustomer.phone}</div>}
                          </div>
                      ) : (
-                         <div className="text-muted">Walk-in Customer</div>
+                         <div className="text-muted">{t('pos.walk_in')}</div>
                      )}
                  </div>
              </div>
         </div>
 
-        <h2 className="h4 mt-0 mb-4">Cart</h2>
+        <h2 className="h4 mt-0 mb-4">{t('pos.cart')}</h2>
         {items.length === 0 ? (
           <p className="text-muted text-center my-5">Cart is empty</p>
         ) : (
@@ -396,7 +398,7 @@ export const Pos = () => {
             {/* Products Section */}
             {items.some(item => item.product.product_type !== 'service') && (
               <div className="mb-3">
-                <h6 className="text-muted text-uppercase small fw-bold mb-2">Products</h6>
+                <h6 className="text-muted text-uppercase small fw-bold mb-2">{t('pos.products')}</h6>
                 {items.filter(item => item.product.product_type !== 'service').map((item) => (
                   <div key={item.product.id} className="card mb-2 border-0 shadow-sm">
                     <div className="card-body p-3 d-flex justify-content-between align-items-center">
@@ -424,7 +426,7 @@ export const Pos = () => {
                           onClick={() => removeFromCart(item.product.id)}
                           className="btn btn-danger btn-sm ms-2"
                         >
-                          Remove
+                          {t('actions.delete')}
                         </button>
                       </div>
                     </div>
@@ -464,7 +466,7 @@ export const Pos = () => {
                           onClick={() => removeFromCart(item.product.id)}
                           className="btn btn-danger btn-sm ms-2"
                         >
-                          Remove
+                          {t('actions.delete')}
                         </button>
                       </div>
                     </div>
@@ -476,7 +478,7 @@ export const Pos = () => {
             {/* Deductions Section (Negative Price) */}
             {items.some(item => item.product.product_type === 'service' && item.price < 0) && (
               <div className="mb-3">
-                <h6 className="text-danger text-uppercase small fw-bold mb-2">Deductions</h6>
+                <h6 className="text-danger text-uppercase small fw-bold mb-2">{t('pos.discount')}</h6>
                 {items.filter(item => item.product.product_type === 'service' && item.price < 0).map((item) => (
                   <div key={item.product.id} className="card mb-2 border-0 shadow-sm border-start border-4 border-danger bg-danger bg-opacity-10">
                     <div className="card-body p-3 d-flex justify-content-between align-items-center">
@@ -504,7 +506,7 @@ export const Pos = () => {
                           onClick={() => removeFromCart(item.product.id)}
                           className="btn btn-danger btn-sm ms-2"
                         >
-                          Remove
+                          {t('actions.delete')}
                         </button>
                       </div>
                     </div>
@@ -517,7 +519,7 @@ export const Pos = () => {
         
         <div className="pt-3 border-top mt-auto">
           <div className="d-flex justify-content-between fs-4 fw-bold mb-3">
-            <span>Total:</span>
+            <span>{t('pos.total')}:</span>
             <span>฿{total().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
           <button
@@ -525,7 +527,7 @@ export const Pos = () => {
             onClick={handleCheckoutClick}
             className={`btn w-100 btn-lg ${items.length === 0 ? 'btn-secondary' : 'btn-success'}`}
           >
-            {editingOrderId ? 'Update Order' : 'Checkout'}
+            {editingOrderId ? t('actions.update') : t('pos.pay')}
           </button>
         </div>
       </div>
@@ -536,13 +538,13 @@ export const Pos = () => {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Complete Payment</h5>
+                <h5 className="modal-title">{t('pos.payment')}</h5>
                 <button type="button" className="btn-close" onClick={() => setShowPaymentModal(false)}></button>
               </div>
               <div className="modal-body">
                 <form onSubmit={processPayment}>
                     <div className="mb-3">
-                        <label className="form-label">Payment Method</label>
+                        <label className="form-label">{t('pos.payment_method')}</label>
                         <div className="btn-group w-100" role="group">
                             <input 
                                 type="radio" 
@@ -553,7 +555,7 @@ export const Pos = () => {
                                 checked={paymentMethod === 'cash'}
                                 onChange={() => setPaymentMethod('cash')}
                             />
-                            <label className="btn btn-outline-primary" htmlFor="cash">Cash</label>
+                            <label className="btn btn-outline-primary" htmlFor="cash">{t('pos.cash')}</label>
 
                             <input 
                                 type="radio" 
@@ -564,13 +566,13 @@ export const Pos = () => {
                                 checked={paymentMethod === 'transfer'}
                                 onChange={() => setPaymentMethod('transfer')}
                             />
-                            <label className="btn btn-outline-primary" htmlFor="transfer">Transfer</label>
+                            <label className="btn btn-outline-primary" htmlFor="transfer">{t('pos.transfer')}</label>
                         </div>
                     </div>
 
                     {paymentMethod === 'cash' && (
                         <div className="mb-3">
-                            <label className="form-label">Received Amount</label>
+                            <label className="form-label">{t('pos.received_amount')}</label>
                             <input
                                 type="number"
                                 className="form-control form-control-lg"
@@ -584,23 +586,23 @@ export const Pos = () => {
                     )}
 
                     <div className="d-flex justify-content-between align-items-center mb-3">
-                        <span className="fs-5">Total:</span>
+                        <span className="fs-5">{t('pos.total')}:</span>
                         <span className="fs-4 fw-bold">฿{total().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
 
                     {change !== null && (
                         <div className={`alert ${change < 0 ? 'alert-danger' : 'alert-success'} text-center`}>
-                            <div className="small text-uppercase fw-bold mb-1">{change < 0 ? 'Insufficient' : 'Change'}</div>
+                            <div className="small text-uppercase fw-bold mb-1">{change < 0 ? 'Insufficient' : t('pos.change')}</div>
                             <div className="fs-2 fw-bold">฿{change.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                         </div>
                     )}
 
                     <div className="d-flex gap-2 mt-4">
                         <button type="submit" className="btn btn-success flex-grow-1 py-3 fw-bold" disabled={change !== null && change < 0}>
-                            {editingOrderId ? 'Update and Pay' : 'Pay'}
+                            {editingOrderId ? t('pos.update_pay') : t('pos.pay')}
                         </button>
                         <button type="button" className="btn btn-outline-warning" onClick={handlePayLater}>
-                             {editingOrderId ? 'Update and Pay Later' : 'Pay Later'}
+                             {editingOrderId ? t('pos.update_pay_later') : t('pos.pay_later')}
                         </button>
                     </div>
                 </form>
@@ -616,7 +618,7 @@ export const Pos = () => {
           <div className="modal-dialog modal-dialog-centered modal-lg">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Select Customer</h5>
+                <h5 className="modal-title">{t('pos.select_customer')}</h5>
                 <button type="button" className="btn-close" onClick={() => setShowCustomerModal(false)}></button>
               </div>
               <div className="modal-body">
@@ -624,7 +626,7 @@ export const Pos = () => {
                     <input 
                         type="text" 
                         className="form-control" 
-                        placeholder="Search customer by name, phone..." 
+                        placeholder={t('pos.search_customers')}
                         value={customerSearch}
                         onChange={(e) => {
                             setCustomerSearch(e.target.value);
@@ -632,7 +634,7 @@ export const Pos = () => {
                         }}
                     />
                     <button className="btn btn-primary" onClick={() => { setShowCreateCustomerModal(true); setCreateCustomerError(null); }}>
-                        + New Customer
+                        + {t('pos.add_customer')}
                     </button>
                 </div>
                 
@@ -641,7 +643,7 @@ export const Pos = () => {
                         className={`list-group-item list-group-item-action ${!selectedCustomer ? 'active' : ''}`}
                         onClick={() => { setSelectedCustomer(null); setShowCustomerModal(false); }}
                     >
-                        <div className="fw-bold">Walk-in Customer</div>
+                        <div className="fw-bold">{t('pos.walk_in')}</div>
                         <div className="small">Default</div>
                     </button>
                     {customers.map(customer => (
@@ -656,7 +658,7 @@ export const Pos = () => {
                                     <div className="small opacity-75">{customer.phone} {customer.email && `• ${customer.email}`}</div>
                                     {customer.company_name && <div className="small opacity-75">{customer.company_name}</div>}
                                 </div>
-                                {selectedCustomer?.id === customer.id && <span className="badge bg-light text-dark">Selected</span>}
+                                {selectedCustomer?.id === customer.id && <span className="badge bg-light text-dark">{t('customers.selected')}</span>}
                             </div>
                         </button>
                     ))}
@@ -676,7 +678,7 @@ export const Pos = () => {
           <div className="modal-dialog modal-dialog-centered modal-lg">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">New Customer</h5>
+                <h5 className="modal-title">{t('customers.new_customer')}</h5>
                 <button type="button" className="btn-close" onClick={() => setShowCreateCustomerModal(false)}></button>
               </div>
               <div className="modal-body">
@@ -715,13 +717,13 @@ export const Pos = () => {
                         
                         fetchCustomers();
                     } catch (err: any) {
-                        const message = err.response?.data?.message || 'Failed to create customer';
+                        const message = err.response?.data?.message || t('customers.create_failed');
                         setCreateCustomerError(message);
                     }
                 }}>
                     <div className="row">
                         <div className="col-md-6 mb-3">
-                            <label className="form-label">First Name *</label>
+                            <label className="form-label">{t('customers.first_name')} *</label>
                             <input 
                                 type="text" 
                                 className="form-control" 
@@ -731,7 +733,7 @@ export const Pos = () => {
                             />
                         </div>
                         <div className="col-md-6 mb-3">
-                            <label className="form-label">Last Name *</label>
+                            <label className="form-label">{t('customers.last_name')} *</label>
                             <input 
                                 type="text" 
                                 className="form-control" 
@@ -741,7 +743,7 @@ export const Pos = () => {
                             />
                         </div>
                         <div className="col-md-6 mb-3">
-                            <label className="form-label">Email (อีเมล) *</label>
+                            <label className="form-label">{t('customers.email')} *</label>
                             <input 
                                 type="email" 
                                 className="form-control" 
@@ -751,7 +753,7 @@ export const Pos = () => {
                             />
                         </div>
                         <div className="col-md-6 mb-3">
-                            <label className="form-label">Phone (เบอร์โทร) *</label>
+                            <label className="form-label">{t('customers.phone')} *</label>
                             <input 
                                 type="text" 
                                 className="form-control" 
@@ -761,7 +763,7 @@ export const Pos = () => {
                             />
                         </div>
                         <div className="col-md-6 mb-3">
-                            <label className="form-label">Company Name (ชื่อบริษัท)</label>
+                            <label className="form-label">{t('customers.company')}</label>
                             <input 
                                 type="text" 
                                 className="form-control" 
@@ -770,7 +772,7 @@ export const Pos = () => {
                             />
                         </div>
                         <div className="col-md-6 mb-3">
-                            <label className="form-label">Tax ID (เลขผู้เสียภาษี)</label>
+                            <label className="form-label">{t('customers.tax_id')}</label>
                             <input 
                                 type="text" 
                                 className="form-control" 
@@ -779,7 +781,7 @@ export const Pos = () => {
                             />
                         </div>
                         <div className="col-12 mb-3">
-                            <label className="form-label">Address (ที่อยู่)</label>
+                            <label className="form-label">{t('customers.address')}</label>
                             <textarea 
                                 className="form-control" 
                                 rows={2}
@@ -789,7 +791,7 @@ export const Pos = () => {
                         </div>
                     </div>
                     <div className="d-grid">
-                        <button type="submit" className="btn btn-success">Create Customer</button>
+                        <button type="submit" className="btn btn-success">{t('customers.create_btn')}</button>
                     </div>
                 </form>
               </div>

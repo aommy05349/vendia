@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore, useShopStore } from '@vendia/shared';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 export const DashboardLayout = () => {
   const { user, logout } = useAuthStore();
   const { shop } = useShopStore();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -78,20 +81,20 @@ export const DashboardLayout = () => {
             <h2 className="h5 text-dark m-0 fw-bold">{shop?.name || 'Vendia POS'}</h2>
           </div>
           <nav className="nav flex-column gap-2 overflow-y-auto overflow-x-hidden flex-grow-1" style={{ scrollbarWidth: 'thin', minHeight: 0 }}>
-            <Link to="/" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🛒 POS System</Link>
-            <Link to="/orders" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/orders' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📄 Orders / Bill</Link>
-            <Link to="/customers" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/customers' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 Customers</Link>
+            <Link to="/" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🛒 {t('common.pos')}</Link>
+            <Link to="/orders" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/orders' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📄 {t('common.orders')}</Link>
+            <Link to="/customers" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/customers' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 {t('common.customers')}</Link>
             
             {user.role === 'admin' && (
-              <Link to="/appointments" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/appointments') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 Appointments</Link>
+              <Link to="/appointments" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/appointments') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 {t('common.appointments')}</Link>
             )}
 
             {(user.role === 'technician' || user.role === 'admin') && (
               <>
                 <div className=" text-muted fw-bold small ps-2">TECHNICIAN</div>
-                <Link to="/technician" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/technician' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⏱️ Attendance</Link>
+                <Link to="/technician" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/technician' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⏱️ {t('common.attendance')}</Link>
                 {user.role === 'technician' && (
-                  <Link to="/technician/jobs" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/technician/jobs') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 My Jobs</Link>
+                  <Link to="/technician/jobs" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/technician/jobs') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 {t('common.my_jobs')}</Link>
                 )}
               </>
             )}
@@ -100,19 +103,22 @@ export const DashboardLayout = () => {
               <>
                 <div className="text-muted fw-bold small ps-2">ADMIN</div>
                 {/* <Link to="/attendance/history" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/attendance/history' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 Attendance History</Link> */}
-                <Link to="/users" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/users' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 User Management</Link>
-                <Link to="/categories" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/categories' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📁 Categories</Link>
-                <Link to="/products" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/products' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📦 Products</Link>
-                <Link to="/brands" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/brands' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏷️ Brands</Link>
-                <Link to="/units" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/units' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚖️ Units</Link>
-                <Link to="/warehouses" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/warehouses' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏭 Warehouses</Link>
-                <Link to="/settings" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/settings' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚙️ Shop Settings</Link>
+                <Link to="/users" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/users' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 {t('common.users')}</Link>
+                <Link to="/categories" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/categories' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📁 {t('common.categories')}</Link>
+                <Link to="/products" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/products' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📦 {t('common.products')}</Link>
+                <Link to="/brands" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/brands' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏷️ {t('common.brands')}</Link>
+                <Link to="/units" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/units' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚖️ {t('common.units')}</Link>
+                <Link to="/warehouses" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/warehouses' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏭 {t('common.warehouses')}</Link>
+                <Link to="/settings" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/settings' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚙️ {t('common.settings')}</Link>
                 {/* <div className="pb-4"></div> */}
               </>
             )}
           </nav>
           
           <div className="mt-3 pt-3 border-top">
+            <div className="mb-3">
+               <LanguageSwitcher />
+            </div>
             <div className="d-flex align-items-center gap-2 mb-3">
               <div className="rounded-circle bg-secondary bg-opacity-25 d-flex align-items-center justify-content-center overflow-hidden" style={{ width: '40px', height: '40px', minWidth: '40px' }}>
                  {/* Placeholder for user image if available, else initials */}
@@ -126,7 +132,7 @@ export const DashboardLayout = () => {
               </div>
             </div>
             <button onClick={handleLogout} className="btn btn-danger w-100 bg-danger bg-opacity-10 text-danger border-0 fw-bold">
-              Logout
+              {t('common.logout')}
             </button>
           </div>
         </aside>
