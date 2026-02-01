@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { api } from '@vendia/shared';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from 'date-fns';
+import { AppointmentCalendar } from './AppointmentCalendar';
 
 interface Appointment {
   id: number;
@@ -32,6 +34,8 @@ export const AppointmentList = () => {
   const { t } = useTranslation();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [filters, setFilters] = useState({
     status: '',
     start_date: '',
@@ -40,15 +44,23 @@ export const AppointmentList = () => {
 
   useEffect(() => {
     fetchAppointments();
-  }, [filters]);
+  }, [filters, viewMode, currentMonth]);
 
   const fetchAppointments = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (filters.status) params.append('status', filters.status);
-      if (filters.start_date) params.append('start_date', filters.start_date);
-      if (filters.end_date) params.append('end_date', filters.end_date);
+
+      if (viewMode === 'calendar') {
+        const start = startOfWeek(startOfMonth(currentMonth));
+        const end = endOfWeek(endOfMonth(currentMonth));
+        params.append('start_date', format(start, 'yyyy-MM-dd'));
+        params.append('end_date', format(end, 'yyyy-MM-dd'));
+      } else {
+        if (filters.start_date) params.append('start_date', filters.start_date);
+        if (filters.end_date) params.append('end_date', filters.end_date);
+      }
 
       const response = await api.get(`/appointments?${params.toString()}`);
       setAppointments(response.data);
@@ -78,11 +90,28 @@ export const AppointmentList = () => {
     <div className="container-fluid p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>{t('appointments.title')}</h2>
-        <Link to="/appointments/create" className="btn btn-primary">
-          <i className="bi bi-plus-lg me-2"></i>{t('appointments.create_btn')}
-        </Link>
+        <div className="d-flex gap-2">
+            <div className="btn-group">
+                <button 
+                    className={`btn ${viewMode === 'list' ? 'btn-primary' : 'btn-outline-primary'}`}
+                    onClick={() => setViewMode('list')}
+                >
+                    <i className="bi bi-list-ul me-2"></i>{t('appointments.view_list', 'List')}
+                </button>
+                <button 
+                    className={`btn ${viewMode === 'calendar' ? 'btn-primary' : 'btn-outline-primary'}`}
+                    onClick={() => setViewMode('calendar')}
+                >
+                    <i className="bi bi-calendar3 me-2"></i>{t('appointments.view_calendar', 'Calendar')}
+                </button>
+            </div>
+            <Link to="/appointments/create" className="btn btn-primary">
+              <i className="bi bi-plus-lg me-2"></i>{t('appointments.create_btn')}
+            </Link>
+        </div>
       </div>
 
+      {viewMode === 'list' && (
       <div className="card mb-4">
         <div className="card-body">
           <div className="row g-3">
@@ -125,8 +154,17 @@ export const AppointmentList = () => {
           </div>
         </div>
       </div>
+      )}
 
-      {loading ? (
+      {viewMode === 'calendar' ? (
+        <AppointmentCalendar 
+            appointments={appointments}
+            currentDate={currentMonth}
+            onDateChange={setCurrentMonth}
+            loading={loading}
+        />
+      ) : (
+      loading ? (
         <div className="text-center">
           <div className="spinner-border text-primary" role="status"></div>
           <p className="mt-2">{t('appointments.loading')}</p>
@@ -194,6 +232,7 @@ export const AppointmentList = () => {
             </tbody>
           </table>
         </div>
+      )
       )}
     </div>
   );

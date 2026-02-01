@@ -275,8 +275,16 @@ export const AppointmentDetail = () => {
         <div className="col-md-8">
           {/* Job Details */}
           <div className="card mb-4">
-            <div className="card-header">
+            <div className="card-header d-flex justify-content-between align-items-center">
               <h5 className="mb-0">{t('appointments.detail.job_details')}</h5>
+              {isAdmin && (
+                <button 
+                    className="btn btn-sm btn-outline-primary" 
+                    onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
+                >
+                    <i className="bi bi-pencil me-1"></i>{t('common.edit')}
+                </button>
+              )}
             </div>
             <div className="card-body">
               <h4 className="card-title">{appointment.title}</h4>

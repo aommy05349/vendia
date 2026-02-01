@@ -13,16 +13,18 @@ class CategorySeeder extends Seeder
     public function run(): void
     {
         $categories = [
-            ['name' => 'Wall Type', 'description' => 'แอร์ติดผนัง'],
-            ['name' => 'Ceiling Type', 'description' => 'แอร์แขวนใต้ฝ้า'],
-            ['name' => 'Cassette Type', 'description' => 'แอร์ฝังฝ้า 4 ทิศทาง'],
-            ['name' => 'Floor Standing', 'description' => 'แอร์ตู้ตั้งพื้น'],
-            ['name' => 'Ducted Type', 'description' => 'แอร์เปลือย / แอร์ต่อท่อลม'],
-            ['name' => 'VRV/VRF System', 'description' => 'ระบบแอร์ VRV/VRF'],
-            ['name' => 'Portable Air Conditioner', 'description' => 'แอร์เคลื่อนที่'],
-            ['name' => 'Installation Equipment', 'description' => 'อุปกรณ์ติดตั้ง'],
-            ['name' => 'Spare Parts', 'description' => 'อะไหล่แอร์'],
-            ['name' => 'Tools', 'description' => 'เครื่องมือช่าง'],
+            ['name' => 'แอร์ติดผนัง', 'description' => 'Wall Type'],
+            ['name' => 'แอร์แขวนใต้ฝ้า', 'description' => 'Ceiling Type'],
+            ['name' => 'แอร์ฝังฝ้า 4 ทิศทาง', 'description' => 'Cassette Type'],
+            ['name' => 'แอร์ตู้ตั้งพื้น', 'description' => 'Floor Standing'],
+            ['name' => 'แอร์เปลือย / แอร์ต่อท่อลม', 'description' => 'Ducted Type'],
+            ['name' => 'ระบบแอร์ VRV/VRF', 'description' => 'VRV/VRF System'],
+            ['name' => 'แอร์เคลื่อนที่', 'description' => 'Portable Air Conditioner'],
+            ['name' => 'อุปกรณ์ติดตั้ง', 'description' => 'Installation Equipment'],
+            ['name' => 'อะไหล่แอร์', 'description' => 'Spare Parts'],
+            ['name' => 'เครื่องมือช่าง', 'description' => 'Tools'],
+            ['name' => 'การบริการ', 'description' => 'Services'],
+            ['name' => 'ชุดสินค้า', 'description' => 'Product Sets'],
         ];
 
         foreach ($categories as $category) {

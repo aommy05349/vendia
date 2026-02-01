@@ -259,8 +259,8 @@ export const PrintOrder = () => {
                              isBillingNote ? t('print.signatures.received_billing') : 
                              t('print.signatures.receiver')}
                         </div>
-                        <div className="mt-4">{t('print.signatures.sign')}..........................................................</div>
-                        <div className="mt-2">{t('print.signatures.date')} ........................................</div>
+                        <div className="mt-4">{t('print.signatures.sign')}</div>
+                        <div className="mt-2">{t('print.signatures.date')}</div>
                     </div>
                 </div>
                 <div className="col-6 text-center">
@@ -279,8 +279,8 @@ export const PrintOrder = () => {
                              isBillingNote ? t('print.signatures.billing') : 
                              t('print.signatures.collector')}
                         </div>
-                        <div className="mt-4">{t('print.signatures.sign')}..........................................................</div>
-                        <div className="mt-2">{t('print.signatures.date')} ........................................</div>
+                        <div className="mt-4">{t('print.signatures.sign')}</div>
+                        <div className="mt-2">{t('print.signatures.date')}</div>
                     </div>
                 </div>
             </div>

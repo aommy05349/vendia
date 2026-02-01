@@ -17,11 +17,11 @@ class ServiceProductSeeder extends Seeder
     {
         // Ensure Service category exists (it should, id=12 based on check)
         // If not, we might want to fetch it dynamically, but for now hardcoding or fetching is fine.
-        $categoryId = DB::table('categories')->where('name', 'Service')->value('id');
+        $categoryId = DB::table('categories')->where('name', 'การบริการ')->value('id');
         
         if (!$categoryId) {
             $categoryId = DB::table('categories')->insertGetId([
-                'name' => 'Service',
+                'name' => 'การบริการ',
                 'description' => 'All Service',
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
@@ -32,7 +32,7 @@ class ServiceProductSeeder extends Seeder
             [
                 'name' => 'รับเทิร์นแอร์เก่าพร้อมรื้อถอน',
                 'price' => -500.00, // Negative price for deduction example
-                'description' => 'Turn-in old AC with dismantling',
+                'description' => 'รับเทิร์นแอร์เก่าพร้อมรื้อถอน',
             ],
             [
                 'name' => 'ลูกค้าชำระค่ามัดจำสินค้าล่วงหน้า',
@@ -42,37 +42,37 @@ class ServiceProductSeeder extends Seeder
                                      // But "ค่ามัดจําสินค้า ต้องลบออกจาก ค่าบริการ" suggests using it as a discount/deduction line item.
                                      // I will set it to negative as a default "Deposit Deduction" item.
                                      // If they want to CHARGE deposit, they can edit price to positive.
-                'description' => 'Deposit Deduction',
+                'description' => 'หักเงินมัดจำ',
             ],
             [
                 'name' => 'ค่าแรงติดตั้งระบบ',
                 'price' => 2000.00,
-                'description' => 'System installation labor',
+                'description' => 'ค่าแรงติดตั้งระบบ',
             ],
             [
                 'name' => 'ค่าบริการรื้อผนัง',
                 'price' => 500.00,
-                'description' => 'Wall dismantling service',
+                'description' => 'ค่าบริการรื้อผนัง',
             ],
             [
                 'name' => 'ค่าบริการรื้อย้ายล้างติดตั้งม่านอากาศ (รวมอุปกรณ์)',
                 'price' => 1500.00,
-                'description' => 'Air curtain service (Inc. equipment)',
+                'description' => 'ค่าบริการรื้อย้ายล้างติดตั้งม่านอากาศ (รวมอุปกรณ์)',
             ],
             [
                 'name' => 'ค่าบริการรื้อย้ายล้างติดตั้งม่านอากาศ (ไม่รวมอุปกรณ์)',
                 'price' => 1000.00,
-                'description' => 'Air curtain service (Exc. equipment)',
+                'description' => 'ค่าบริการรื้อย้ายล้างติดตั้งม่านอากาศ (ไม่รวมอุปกรณ์)',
             ],
             [
                 'name' => 'ค่าบริการรื้อ ย้าย ติดตั้งระบบแอร์ติดผนัง 9000-12000 BTU',
                 'price' => 2500.00,
-                'description' => 'Wall type AC service 9000-12000 BTU',
+                'description' => 'ค่าบริการรื้อ ย้าย ติดตั้งระบบแอร์ติดผนัง 9000-12000 BTU',
             ],
             [
                 'name' => 'ค่าบริการรื้อ ย้าย ติดตั้งระบบแอร์ติดผนัง 18000-24000 BTU',
                 'price' => 3500.00,
-                'description' => 'Wall type AC service 18000-24000 BTU',
+                'description' => 'ค่าบริการรื้อ ย้าย ติดตั้งระบบแอร์ติดผนัง 18000-24000 BTU',
             ],
         ];
 
