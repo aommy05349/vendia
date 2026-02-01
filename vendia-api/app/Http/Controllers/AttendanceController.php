@@ -131,16 +131,21 @@ class AttendanceController extends Controller
 
             $weeklyOffCount = Attendance::where('user_id', $tech->id)
                 ->whereBetween('date', [$startOfWeek, $endOfWeek])
-                ->where('status', 'absent')
-                ->where('reason', 'วันหยุดประจำสัปดาห์')
+                ->where(function($q) {
+                    $q->where('status', 'weekly_off')
+                      ->orWhere(function($sub) {
+                          $sub->where('status', 'absent')
+                              ->where('reason', 'วันหยุดประจำสัปดาห์');
+                      });
+                })
                 ->count();
             
             // Determine status
             $status = 'offline';
             $reason = null;
 
-            if ($todayAttendance && $todayAttendance->status === 'absent') {
-                $status = 'absent';
+            if ($todayAttendance && ($todayAttendance->status === 'absent' || $todayAttendance->status === 'weekly_off')) {
+                $status = $todayAttendance->status;
                 $reason = $todayAttendance->reason;
             } elseif ($activeSession) {
                 $status = 'working';
@@ -173,9 +178,11 @@ class AttendanceController extends Controller
             'user_id' => 'required|exists:users,id',
             'reason' => 'required|string',
             'date' => 'nullable|date',
+            'status' => 'nullable|string|in:absent,weekly_off',
         ]);
 
         $date = $request->date ? Carbon::parse($request->date) : Carbon::today();
+        $status = $request->status ?? 'absent';
 
         // Check if record exists for this date
         $existing = Attendance::where('user_id', $request->user_id)
@@ -186,7 +193,7 @@ class AttendanceController extends Controller
              // If already working/completed, maybe we shouldn't overwrite? 
              // Or assume admin knows best. Let's update it.
              $existing->update([
-                 'status' => 'absent',
+                 'status' => $status,
                  'reason' => $request->reason,
                  'check_in' => $date->startOfDay(), // Placeholder
                  'check_out' => $date->endOfDay(),   // Placeholder
@@ -199,7 +206,7 @@ class AttendanceController extends Controller
             'date' => $date,
             'check_in' => $date->startOfDay(), // Need non-null for constraint? Migration says check_in is timestamp, not nullable.
             'check_out' => $date->endOfDay(),
-            'status' => 'absent',
+            'status' => $status,
             'reason' => $request->reason,
         ]);
 
@@ -251,10 +258,12 @@ class AttendanceController extends Controller
 
         // 2. Absent Days (No Reason / Other Reason)
         // We defined "Absent without reason" as status='absent' AND reason != 'วันหยุดประจำสัปดาห์'
-        $absentRecords = $absentQuery->where('status', 'absent')->get();
+        $absentRecords = $absentQuery->whereIn('status', ['absent', 'weekly_off'])->get();
         
-        $weeklyOffDays = $absentRecords->where('reason', 'วันหยุดประจำสัปดาห์')->count();
-        $absentDays = $absentRecords->where('reason', '!=', 'วันหยุดประจำสัปดาห์')->count();
+        $weeklyOffDays = $absentRecords->where('status', 'weekly_off')->count() 
+                       + $absentRecords->where('status', 'absent')->where('reason', 'วันหยุดประจำสัปดาห์')->count();
+                       
+        $absentDays = $absentRecords->where('status', 'absent')->where('reason', '!=', 'วันหยุดประจำสัปดาห์')->count();
 
         return response()->json([
             'days_worked' => $daysWorked,
@@ -274,6 +283,8 @@ class AttendanceController extends Controller
         $request->validate([
             'check_in' => 'required|date',
             'check_out' => 'nullable|date|after_or_equal:check_in',
+            'status' => 'nullable|string|in:working,completed,absent,weekly_off',
+            'reason' => 'nullable|string',
         ]);
 
         $attendance = Attendance::findOrFail($id);
@@ -281,7 +292,8 @@ class AttendanceController extends Controller
         $attendance->update([
             'check_in' => Carbon::parse($request->check_in),
             'check_out' => $request->check_out ? Carbon::parse($request->check_out) : null,
-            // Update duration or status if needed, but usually derived
+            'status' => $request->status ?? $attendance->status,
+            'reason' => $request->reason,
         ]);
 
         return response()->json($attendance);

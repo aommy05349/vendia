@@ -165,7 +165,8 @@ export const TechnicianDashboard = () => {
       try {
           await api.post('/attendance/absent', {
               user_id: absentTech.user.id,
-              reason: finalReason
+              reason: finalReason,
+              status: absentType // 'weekly_off' or 'absent'
           });
           setShowAbsentModal(false);
           fetchOverview();
@@ -223,7 +224,7 @@ export const TechnicianDashboard = () => {
                             technicians.map((tech) => (
                                 <div className="col-md-4 col-lg-3 col-xl-2" key={tech.user.id}>
                                     <div 
-                                        className={`card h-100 shadow-sm border-${tech.status === 'working' ? 'success' : (tech.status === 'absent' ? 'danger' : 'light')} cursor-pointer`} 
+                                        className={`card h-100 shadow-sm border-${tech.status === 'working' ? 'success' : (tech.status === 'absent' ? 'danger' : (tech.status === 'weekly_off' ? 'warning' : 'light'))} cursor-pointer`} 
                                         style={{ borderLeftWidth: tech.status === 'working' ? '4px' : '1px', cursor: 'pointer', transition: 'transform 0.2s', fontSize: '0.9rem' }}
                                         onClick={() => handleCardClick(tech)}
                                         onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
@@ -231,15 +232,15 @@ export const TechnicianDashboard = () => {
                                     >
                                         <div className="card-header bg-white d-flex justify-content-between align-items-center py-2 px-3">
                                             <div className="d-flex align-items-center" style={{ minWidth: 0 }}>
-                                                <div className={`rounded-circle d-flex align-items-center justify-content-center text-white me-2 fw-bold ${tech.status === 'working' ? 'bg-success' : (tech.status === 'absent' ? 'bg-danger' : 'bg-secondary')}`} style={{ width: '32px', height: '32px', minWidth: '32px', fontSize: '0.85rem' }}>
+                                                <div className={`rounded-circle d-flex align-items-center justify-content-center text-white me-2 fw-bold ${tech.status === 'working' ? 'bg-success' : (tech.status === 'absent' ? 'bg-danger' : (tech.status === 'weekly_off' ? 'bg-warning text-dark' : 'bg-secondary'))}`} style={{ width: '32px', height: '32px', minWidth: '32px', fontSize: '0.85rem' }}>
                                                     {tech.user.first_name.charAt(0)}
                                                 </div>
                                                 <div className="text-truncate">
                                                     <h6 className="mb-0 text-truncate fw-bold" style={{ fontSize: '0.9rem' }}>{tech.user.first_name}</h6>
                                                 </div>
                                             </div>
-                                            <span className={`badge ${tech.status === 'working' ? 'bg-success' : (tech.status === 'absent' ? 'bg-danger' : 'bg-secondary')}`} style={{ fontSize: '0.7rem' }}>
-                                                {tech.status === 'working' ? 'ON' : (tech.status === 'absent' ? 'ABS' : 'OFF')}
+                                            <span className={`badge ${tech.status === 'working' ? 'bg-success' : (tech.status === 'absent' ? 'bg-danger' : (tech.status === 'weekly_off' ? 'bg-warning text-dark' : 'bg-secondary'))}`} style={{ fontSize: '0.7rem' }}>
+                                                {tech.status === 'working' ? 'ON' : (tech.status === 'absent' ? 'ABS' : (tech.status === 'weekly_off' ? 'OFF' : 'OFF'))}
                                             </span>
                                         </div>
                                         <div className="card-body text-center d-flex flex-column justify-content-center p-2">
@@ -254,10 +255,12 @@ export const TechnicianDashboard = () => {
                                                         <LiveDuration startTime={tech.check_in} />
                                                     </div>
                                                 </div>
-                                            ) : tech.status === 'absent' ? (
-                                                <div className="text-danger py-2">
-                                                    <div className="fw-bold mb-1" style={{ fontSize: '1rem' }}>{t('attendance.dashboard.absent')}</div>
-                                                    <div className="text-muted fst-italic text-truncate" style={{ fontSize: '0.8rem', maxWidth: '100%' }}>{tech.reason || t('attendance.dashboard.no_reason')}</div>
+                                            ) : tech.status === 'absent' || tech.status === 'weekly_off' ? (
+                                                <div className={`${tech.status === 'absent' ? 'text-danger' : 'text-warning'} py-2`}>
+                                                    <div className="fw-bold mb-1" style={{ fontSize: '1rem' }}>
+                                                        {tech.status === 'weekly_off' ? t('attendance.dashboard.weekly_off') : t('attendance.dashboard.absent')}
+                                                    </div>
+                                                    <div className={`text-muted fst-italic text-truncate`} style={{ fontSize: '0.8rem', maxWidth: '100%' }}>{tech.reason || t('attendance.dashboard.no_reason')}</div>
                                                 </div>
                                             ) : (
                                                 <div className="text-muted py-2">

@@ -335,7 +335,8 @@
       "absent": "Absent",
       "working": "Working",
       "checked_in": "Checked In",
-      "checked_out": "Checked Out"
+      "checked_out": "Checked Out",
+      "weekly_off": "Weekly Off"
     },
     "history": {
       "title": "Attendance History",
@@ -376,37 +377,32 @@
       "update_failed": "Failed to update attendance"
     },
     "dashboard": {
-      "title": "Technician Attendance Overview",
-      "view_history": "History",
-      "technician_status": "Technician Status",
-      "no_technicians": "No technicians found.",
-      "checked_in": "Checked in",
+      "title": "Dashboard",
+      "no_technicians": "No technicians found",
+      "checked_in": "Checked In At",
       "duration": "Duration",
-      "absent": "ABSENT",
-      "no_reason": "No reason",
-      "last_seen": "Last seen",
-      "no_activity": "No activity",
-      "mark_absent": "Mark Absent",
-      "weekly_off": "W-Off",
+      "absent": "Absent",
+      "weekly_off": "Weekly Off",
+      "no_reason": "No reason provided",
+      "last_seen": "Last Seen",
+      "no_activity": "No activity today",
+      "mark_absent": "Mark Absent/Off",
       "check_in_failed": "Check-in failed",
       "check_out_failed": "Check-out failed",
       "mark_absent_modal": {
-        "title": "Mark Absent: {{name}}",
-        "type": "Absence Type",
-        "reason": "Reason Detail",
-        "reason_placeholder": "e.g., Sick leave, Personal leave, etc.",
-        "confirm": "Confirm Absent",
-        "cancel": "Cancel",
-        "please_provide_reason": "Please provide a reason",
-        "failed": "Failed to mark absent",
+        "title": "Set Status: {{name}}",
+        "type": "Type",
         "types": {
-          "weekly_off": "Weekly Day Off",
+          "weekly_off": "Weekly Off",
           "absent": "Absent"
-        }
+        },
+        "reason": "Reason",
+        "reason_placeholder": "Enter reason...",
+        "cancel": "Cancel",
+        "confirm": "Confirm"
       },
       "history_modal": {
-        "title": "Attendance History: {{name}}",
-        "page_info": "Page {{current}} of {{total}}"
+        "title": "History: {{name}}"
       }
     },
     "technician_view": {

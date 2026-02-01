@@ -45,6 +45,8 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
     const [editingAttendance, setEditingAttendance] = useState<Attendance | null>(null);
     const [editCheckIn, setEditCheckIn] = useState('');
     const [editCheckOut, setEditCheckOut] = useState('');
+    const [editStatus, setEditStatus] = useState('');
+    const [editReason, setEditReason] = useState('');
 
     useEffect(() => {
         fetchUsers();
@@ -102,6 +104,8 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
         // Format for datetime-local input: YYYY-MM-DDTHH:mm
         setEditCheckIn(format(new Date(attendance.check_in), "yyyy-MM-dd'T'HH:mm"));
         setEditCheckOut(attendance.check_out ? format(new Date(attendance.check_out), "yyyy-MM-dd'T'HH:mm") : '');
+        setEditStatus(attendance.status);
+        setEditReason(attendance.reason || '');
         setShowEditModal(true);
     };
 
@@ -112,7 +116,9 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
         try {
             await api.put(`/attendance/${editingAttendance.id}`, {
                 check_in: editCheckIn,
-                check_out: editCheckOut || null
+                check_out: editCheckOut || null,
+                status: editStatus,
+                reason: editReason
             });
             setShowEditModal(false);
             fetchAttendance();
@@ -293,11 +299,15 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                                             </td>
                                             <td>{calculateDuration(record.check_in, record.check_out)}</td>
                                             <td>
-                                                <span className={`badge ${record.status === 'completed' ? 'bg-success' : (record.status === 'absent' ? 'bg-danger' : 'bg-primary')}`}>
+                                                <span className={`badge ${
+                                                    record.status === 'completed' ? 'bg-success' : 
+                                                    (record.status === 'absent' ? 'bg-danger' : 
+                                                    (record.status === 'weekly_off' ? 'bg-warning text-dark' : 'bg-primary'))
+                                                }`}>
                                                     {t(`attendance.status.${record.status}`, { defaultValue: record.status })}
                                                 </span>
-                                                {record.status === 'absent' && record.reason && (
-                                                    <div className="small text-danger mt-1">
+                                                {(record.status === 'absent' || record.status === 'weekly_off') && record.reason && (
+                                                    <div className={`small mt-1 ${record.status === 'absent' ? 'text-danger' : 'text-muted'}`}>
                                                         {t('attendance.history.table.note')}: {record.reason}
                                                     </div>
                                                 )}
@@ -377,6 +387,32 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                                         />
                                         <div className="form-text">{t('attendance.history.edit_modal.leave_empty')}</div>
                                     </div>
+                                    
+                                    <div className="mb-3">
+                                        <label className="form-label">{t('attendance.history.table.status')}</label>
+                                        <select 
+                                            className="form-select"
+                                            value={editStatus}
+                                            onChange={(e) => setEditStatus(e.target.value)}
+                                        >
+                                            <option value="working">{t('attendance.status.working')}</option>
+                                            <option value="completed">{t('attendance.status.completed')}</option>
+                                            <option value="absent">{t('attendance.status.absent')}</option>
+                                            <option value="weekly_off">{t('attendance.status.weekly_off')}</option>
+                                        </select>
+                                    </div>
+
+                                    {(editStatus === 'absent' || editStatus === 'weekly_off') && (
+                                        <div className="mb-3">
+                                            <label className="form-label">{t('attendance.dashboard.mark_absent_modal.reason')}</label>
+                                            <textarea 
+                                                className="form-control"
+                                                value={editReason}
+                                                onChange={(e) => setEditReason(e.target.value)}
+                                                rows={2}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="modal-footer">
                                     <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>{t('attendance.history.edit_modal.cancel')}</button>

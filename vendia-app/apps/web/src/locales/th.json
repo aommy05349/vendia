@@ -335,7 +335,8 @@
       "absent": "ขาดงาน",
       "working": "กำลังทำงาน",
       "checked_in": "เข้างานแล้ว",
-      "checked_out": "ออกงานแล้ว"
+      "checked_out": "ออกงานแล้ว",
+      "weekly_off": "วันหยุดประจำสัปดาห์"
     },
     "history": {
       "title": "ประวัติการลงเวลา",
@@ -376,37 +377,32 @@
       "update_failed": "ไม่สามารถอัปเดตข้อมูลได้"
     },
     "dashboard": {
-      "title": "ภาพรวมการลงเวลาช่างเทคนิค",
-      "view_history": "ดูประวัติ",
-      "technician_status": "สถานะช่างเทคนิค",
-      "no_technicians": "ไม่พบข้อมูลช่างเทคนิค",
-      "checked_in": "เข้างานแล้ว",
+      "title": "แดชบอร์ด",
+      "no_technicians": "ไม่พบช่างเทคนิค",
+      "checked_in": "เข้างานเมื่อ",
       "duration": "ระยะเวลา",
       "absent": "ขาดงาน",
+      "weekly_off": "วันหยุดประจำสัปดาห์",
       "no_reason": "ไม่ระบุเหตุผล",
       "last_seen": "ออนไลน์ล่าสุด",
-      "no_activity": "ไม่มีความเคลื่อนไหว",
-      "mark_absent": "แจ้งขาดงาน",
-      "weekly_off": "วันหยุด",
-      "check_in_failed": "ไม่สามารถลงเวลาเข้างานได้",
-      "check_out_failed": "ไม่สามารถลงเวลาออกงานได้",
+      "no_activity": "ไม่มีกิจกรรมวันนี้",
+      "mark_absent": "แจ้งขาดงาน/วันหยุด",
+      "check_in_failed": "ลงเวลาเข้างานล้มเหลว",
+      "check_out_failed": "ลงเวลาออกงานล้มเหลว",
       "mark_absent_modal": {
-        "title": "แจ้งขาดงาน: {{name}}",
-        "type": "ประเภทการลา",
-        "reason": "รายละเอียดเหตุผล",
-        "reason_placeholder": "เช่น ป่วย, ลากิจ ฯลฯ",
-        "confirm": "ยืนยันแจ้งขาดงาน",
-        "cancel": "ยกเลิก",
-        "please_provide_reason": "กรุณาระบุเหตุผล",
-        "failed": "ไม่สามารถบันทึกการขาดงานได้",
+        "title": "ลงสถานะ: {{name}}",
+        "type": "ประเภท",
         "types": {
           "weekly_off": "วันหยุดประจำสัปดาห์",
-          "absent": "ไม่มาทำงาน / ลา"
-        }
+          "absent": "ขาดงาน"
+        },
+        "reason": "เหตุผล",
+        "reason_placeholder": "ระบุเหตุผล...",
+        "cancel": "ยกเลิก",
+        "confirm": "ยืนยัน"
       },
       "history_modal": {
-        "title": "ประวัติการลงเวลา: {{name}}",
-        "page_info": "หน้า {{current}} จาก {{total}}"
+        "title": "ประวัติ: {{name}}"
       }
     },
     "technician_view": {
