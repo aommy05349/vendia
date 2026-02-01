@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useAuxStore } from '@vendia/shared';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const EditBrand = () => {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { brands, fetchBrands, updateBrand, loading } = useAuxStore();
@@ -30,7 +32,7 @@ export const EditBrand = () => {
         setName(brand.name);
         setCurrentImageUrl(brand.image || null);
       } else {
-        setError('Brand not found');
+        setError(t('brands.alerts.not_found'));
       }
     }
   }, [initialLoading, id, brands]);
@@ -49,9 +51,9 @@ export const EditBrand = () => {
 
     try {
       await updateBrand(parseInt(id), name, image || undefined);
-      navigate('/brands', { state: { success: 'Brand updated successfully!' } });
+      navigate('/brands', { state: { success: t('brands.alerts.update_success') } });
     } catch (err: any) {
-      setError(err.message || 'Failed to update brand');
+      setError(err.message || t('brands.alerts.update_error'));
     }
   };
 
@@ -59,7 +61,7 @@ export const EditBrand = () => {
 
   return (
     <div className="container mt-5" style={{ maxWidth: '600px' }}>
-      <h1 className="mb-4">Edit Brand</h1>
+      <h1 className="mb-4">{t('brands.edit_title')}</h1>
       
       {error && <div className="alert alert-danger">{error}</div>}
 
@@ -67,7 +69,7 @@ export const EditBrand = () => {
         <div className="card-body p-4">
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
-              <label className="form-label fw-bold">Name</label>
+              <label className="form-label fw-bold">{t('brands.form.name')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -78,7 +80,7 @@ export const EditBrand = () => {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Brand Image</label>
+              <label className="form-label fw-bold">{t('brands.form.image')}</label>
               {currentImageUrl && (
                 <div className="mb-2">
                   <img 
@@ -94,7 +96,7 @@ export const EditBrand = () => {
                 accept="image/*"
                 onChange={handleImageChange}
               />
-              <small className="text-muted">Leave empty to keep current image</small>
+              <small className="text-muted">{t('brands.form.image_hint')}</small>
             </div>
 
             <div className="d-flex justify-content-between">
@@ -103,14 +105,14 @@ export const EditBrand = () => {
                 className="btn btn-secondary"
                 onClick={() => navigate('/brands')}
               >
-                Cancel
+                {t('brands.form.cancel')}
               </button>
               <button 
                 type="submit" 
                 className="btn btn-primary"
                 disabled={loading}
               >
-                {loading ? 'Updating...' : 'Update Brand'}
+                {loading ? t('brands.form.updating') : t('brands.form.submit_update')}
               </button>
             </div>
           </form>

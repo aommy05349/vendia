@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useProductStore, useCategoryStore, useAuxStore, Product } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const CreateProduct = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { createProduct, loading, products: searchResults, fetchProducts: searchProducts } = useProductStore();
   const { categories, fetchCategories } = useCategoryStore();
@@ -74,7 +76,7 @@ export const CreateProduct = () => {
     setError('');
 
     if (productType === 'bundle' && bundleItems.length === 0) {
-      setError('Please add at least one item to the bundle.');
+      setError(t('products.form.bundle.error_empty'));
       window.scrollTo(0, 0);
       return;
     }
@@ -121,18 +123,18 @@ export const CreateProduct = () => {
       }
 
       await createProduct(formData);
-      navigate('/products', { state: { success: 'Product created successfully!' } });
+      navigate('/products', { state: { success: t('products.alerts.create_success') } });
     } catch (err: any) {
-      setError(err.message || 'Failed to create product');
+      setError(err.message || t('products.alerts.create_error'));
     }
   };
 
   return (
     <div className="container-fluid p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>Create Product</h2>
+        <h2>{t('products.create_title')}</h2>
         <button className="btn btn-secondary" onClick={() => navigate('/products')}>
-          Back to List
+          {t('products.form.buttons.back_to_list')}
         </button>
       </div>
 
@@ -144,27 +146,27 @@ export const CreateProduct = () => {
           <div className="col-lg-8">
             <div className="card shadow-sm mb-4">
               <div className="card-header bg-white py-3">
-                <h5 className="mb-0">Product Information</h5>
+                <h5 className="mb-0">{t('products.form.sections.info')}</h5>
               </div>
               <div className="card-body">
                 <div className="row mb-3">
                   <div className="col-md-6">
-                    <label className="form-label">Product Name <span className="text-danger">*</span></label>
+                    <label className="form-label">{t('products.form.fields.name')} <span className="text-danger">*</span></label>
                     <input type="text" className="form-control" value={name} onChange={e => setName(e.target.value)} required />
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label">Slug</label>
-                    <input type="text" className="form-control" value={slug} onChange={e => setSlug(e.target.value)} placeholder="Auto-generated if empty" />
+                    <label className="form-label">{t('products.form.fields.slug')}</label>
+                    <input type="text" className="form-control" value={slug} onChange={e => setSlug(e.target.value)} placeholder={t('products.form.fields.slug_placeholder')} />
                   </div>
                 </div>
 
                 <div className="row mb-3">
                   <div className="col-md-4">
-                    <label className="form-label">SKU <span className="text-danger">*</span></label>
+                    <label className="form-label">{t('products.form.fields.sku')} <span className="text-danger">*</span></label>
                     <input type="text" className="form-control" value={sku} onChange={e => setSku(e.target.value)} required />
                   </div>
                   <div className="col-md-4">
-                    <label className="form-label">Barcode Symbology</label>
+                    <label className="form-label">{t('products.form.fields.barcode_symbology')}</label>
                     <select className="form-select" value={barcodeSymbology} onChange={e => setBarcodeSymbology(e.target.value)}>
                       <option value="Code128">Code 128</option>
                       <option value="Code39">Code 39</option>
@@ -174,23 +176,23 @@ export const CreateProduct = () => {
                     </select>
                   </div>
                   <div className="col-md-4">
-                    <label className="form-label">Item Barcode</label>
+                    <label className="form-label">{t('products.form.fields.item_barcode')}</label>
                     <input type="text" className="form-control" value={barcode} onChange={e => setBarcode(e.target.value)} />
                   </div>
                 </div>
 
                 <div className="row mb-3">
                   <div className="col-md-6">
-                    <label className="form-label">Category <span className="text-danger">*</span></label>
+                    <label className="form-label">{t('products.form.fields.category')} <span className="text-danger">*</span></label>
                     <select className="form-select" value={categoryId} onChange={e => setCategoryId(e.target.value)} required>
-                      <option value="">Select Category</option>
+                      <option value="">{t('products.form.fields.select_category')}</option>
                       {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label">Brand</label>
+                    <label className="form-label">{t('products.form.fields.brand')}</label>
                     <select className="form-select" value={brandId} onChange={e => setBrandId(e.target.value)}>
-                      <option value="">Select Brand</option>
+                      <option value="">{t('products.form.fields.select_brand')}</option>
                       {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
                   </div>
@@ -198,23 +200,23 @@ export const CreateProduct = () => {
 
                 <div className="row mb-3">
                   <div className="col-md-6">
-                    <label className="form-label">Unit</label>
+                    <label className="form-label">{t('products.form.fields.unit')}</label>
                     <select className="form-select" value={unitId} onChange={e => setUnitId(e.target.value)}>
-                      <option value="">Select Unit</option>
+                      <option value="">{t('products.form.fields.select_unit')}</option>
                       {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </select>
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label">Warehouse</label>
+                    <label className="form-label">{t('products.form.fields.warehouse')}</label>
                     <select className="form-select" value={warehouseId} onChange={e => setWarehouseId(e.target.value)}>
-                      <option value="">Select Warehouse</option>
+                      <option value="">{t('products.form.fields.select_warehouse')}</option>
                       {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                     </select>
                   </div>
                 </div>
 
                 <div className="mb-3">
-                  <label className="form-label">Description</label>
+                  <label className="form-label">{t('products.form.fields.description')}</label>
                   <textarea className="form-control" rows={4} value={description} onChange={e => setDescription(e.target.value)}></textarea>
                 </div>
               </div>
@@ -222,34 +224,34 @@ export const CreateProduct = () => {
 
             <div className="card shadow-sm mb-4">
               <div className="card-header bg-white py-3">
-                <h5 className="mb-0">Pricing & Stocks</h5>
+                <h5 className="mb-0">{t('products.form.sections.pricing')}</h5>
               </div>
               <div className="card-body">
                 <div className="row mb-3">
                   <div className="col-md-6">
-                    <label className="form-label">Product Type</label>
+                    <label className="form-label">{t('products.form.fields.product_type')}</label>
                     <select className="form-select" value={productType} onChange={e => setProductType(e.target.value)}>
-                      <option value="single">Single Product</option>
-                      <option value="variable">Variable Product</option>
-                      <option value="bundle">Bundle/Set Product</option>
-                      <option value="service">Service</option>
+                      <option value="single">{t('products.form.fields.types.single')}</option>
+                      <option value="variable">{t('products.form.fields.types.variable')}</option>
+                      <option value="bundle">{t('products.form.fields.types.bundle')}</option>
+                      <option value="service">{t('products.form.fields.types.service')}</option>
                     </select>
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label">Quantity Alert</label>
+                    <label className="form-label">{t('products.form.fields.quantity_alert')}</label>
                     <input type="number" className="form-control" value={quantityAlert} onChange={e => setQuantityAlert(e.target.value)} />
                   </div>
                 </div>
 
                 {productType === 'bundle' && (
                   <div className="mb-3">
-                    <label className="form-label">Bundle Items</label>
+                    <label className="form-label">{t('products.form.bundle.title')}</label>
                     <div className="card bg-light border-0 p-3">
                       <div className="mb-3 position-relative">
                         <input
                           type="text"
                           className="form-control"
-                          placeholder="Search by Name, SKU, Barcode, or Description..."
+                          placeholder={t('products.form.bundle.search_placeholder')}
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -275,8 +277,8 @@ export const CreateProduct = () => {
                           <table className="table mb-0">
                             <thead>
                               <tr>
-                                <th>Product</th>
-                                <th style={{ width: '100px' }}>Qty</th>
+                                <th>{t('products.form.bundle.table.product')}</th>
+                                <th style={{ width: '100px' }}>{t('products.form.bundle.table.qty')}</th>
                                 <th style={{ width: '50px' }}></th>
                               </tr>
                             </thead>
@@ -308,7 +310,7 @@ export const CreateProduct = () => {
                           </table>
                         </div>
                       ) : (
-                        <p className="text-muted small mb-0 text-center">No items added to bundle yet.</p>
+                        <p className="text-muted small mb-0 text-center">{t('products.form.bundle.no_items')}</p>
                       )}
                     </div>
                   </div>
@@ -316,12 +318,12 @@ export const CreateProduct = () => {
 
                 <div className="row mb-3">
                   <div className="col-md-6">
-                    <label className="form-label">Price <span className="text-danger">*</span></label>
+                    <label className="form-label">{t('products.form.fields.price')} <span className="text-danger">*</span></label>
                     <input type="number" step="0.01" className="form-control" value={price} onChange={e => setPrice(e.target.value)} required />
                   </div>
                   {productType !== 'service' && (
                   <div className="col-md-6">
-                    <label className="form-label">Quantity <span className="text-danger">*</span></label>
+                    <label className="form-label">{t('products.form.fields.quantity')} <span className="text-danger">*</span></label>
                     <input type="number" className="form-control" value={stock} onChange={e => setStock(e.target.value)} required />
                   </div>
                   )}
@@ -329,28 +331,28 @@ export const CreateProduct = () => {
 
                 <div className="row mb-3">
                   <div className="col-md-6">
-                    <label className="form-label">Tax Type</label>
+                    <label className="form-label">{t('products.form.fields.tax_type')}</label>
                     <select className="form-select" value={taxType} onChange={e => setTaxType(e.target.value)}>
-                      <option value="exclusive">Exclusive</option>
-                      <option value="inclusive">Inclusive</option>
+                      <option value="exclusive">{t('products.form.fields.tax_types.exclusive')}</option>
+                      <option value="inclusive">{t('products.form.fields.tax_types.inclusive')}</option>
                     </select>
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label">Tax (%)</label>
+                    <label className="form-label">{t('products.form.fields.tax_amount')}</label>
                     <input type="number" step="0.01" className="form-control" value={taxAmount} onChange={e => setTaxAmount(e.target.value)} />
                   </div>
                 </div>
 
                 <div className="row mb-3">
                   <div className="col-md-6">
-                    <label className="form-label">Discount Type</label>
+                    <label className="form-label">{t('products.form.fields.discount_type')}</label>
                     <select className="form-select" value={discountType} onChange={e => setDiscountType(e.target.value)}>
-                      <option value="fixed">Fixed</option>
-                      <option value="percentage">Percentage</option>
+                      <option value="fixed">{t('products.form.fields.discount_types.fixed')}</option>
+                      <option value="percentage">{t('products.form.fields.discount_types.percentage')}</option>
                     </select>
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label">Discount Value</label>
+                    <label className="form-label">{t('products.form.fields.discount_value')}</label>
                     <input type="number" step="0.01" className="form-control" value={discountValue} onChange={e => setDiscountValue(e.target.value)} />
                   </div>
                 </div>
@@ -362,11 +364,11 @@ export const CreateProduct = () => {
           <div className="col-lg-4">
             <div className="card shadow-sm mb-4">
               <div className="card-header bg-white py-3">
-                <h5 className="mb-0">Product Images</h5>
+                <h5 className="mb-0">{t('products.form.sections.images')}</h5>
               </div>
               <div className="card-body">
                 <div className="mb-3">
-                  <label className="form-label">Upload Images</label>
+                  <label className="form-label">{t('products.form.fields.upload_images')}</label>
                   <input 
                     type="file" 
                     className="form-control" 
@@ -374,7 +376,7 @@ export const CreateProduct = () => {
                     accept="image/*"
                     onChange={e => setImages(e.target.files)} 
                   />
-                  <div className="form-text">Allowed: jpg, jpeg, png, gif</div>
+                  <div className="form-text">{t('products.form.fields.upload_hint')}</div>
                 </div>
                 {/* Preview could go here */}
               </div>
@@ -383,10 +385,10 @@ export const CreateProduct = () => {
             <div className="card shadow-sm">
               <div className="card-body">
                 <button type="submit" className="btn btn-primary w-100 mb-2" disabled={loading}>
-                  {loading ? 'Creating...' : 'Create Product'}
+                  {loading ? t('products.form.buttons.creating') : t('products.form.buttons.create')}
                 </button>
                 <button type="button" className="btn btn-outline-secondary w-100" onClick={() => navigate('/products')}>
-                  Cancel
+                  {t('products.form.buttons.cancel')}
                 </button>
               </div>
             </div>

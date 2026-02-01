@@ -23,7 +23,7 @@ export const DashboardLayout = () => {
   };
 
   if (!user) {
-    return <div className="container mt-5"><div className="alert alert-warning">Please login</div></div>;
+    return <div className="container mt-5"><div className="alert alert-warning">{t('common.please_login')}</div></div>;
   }
 
   return (
@@ -91,7 +91,7 @@ export const DashboardLayout = () => {
 
             {(user.role === 'technician' || user.role === 'admin') && (
               <>
-                <div className=" text-muted fw-bold small ps-2">TECHNICIAN</div>
+                <div className=" text-muted fw-bold small ps-2">{t('common.technician_section')}</div>
                 <Link to="/technician" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/technician' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⏱️ {t('common.attendance')}</Link>
                 {user.role === 'technician' && (
                   <Link to="/technician/jobs" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/technician/jobs') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 {t('common.my_jobs')}</Link>
@@ -101,7 +101,7 @@ export const DashboardLayout = () => {
 
             {user.role === 'admin' && (
               <>
-                <div className="text-muted fw-bold small ps-2">ADMIN</div>
+                <div className="text-muted fw-bold small ps-2">{t('common.admin_section')}</div>
                 {/* <Link to="/attendance/history" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/attendance/history' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 Attendance History</Link> */}
                 <Link to="/users" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/users' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 {t('common.users')}</Link>
                 <Link to="/categories" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/categories' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📁 {t('common.categories')}</Link>

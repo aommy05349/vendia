@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '@vendia/shared';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface User {
   id: number;
@@ -16,6 +17,7 @@ interface User {
 }
 
 export const CustomerList = () => {
+  const { t } = useTranslation();
   const [customers, setCustomers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -45,21 +47,21 @@ export const CustomerList = () => {
       setTotalPages(response.data.last_page);
     } catch (error) {
       console.error('Failed to fetch customers:', error);
-      setAlertMessage({ type: 'danger', text: 'Failed to fetch customers' });
+      setAlertMessage({ type: 'danger', text: t('customers.fetch_failed') });
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this customer?')) return;
+    if (!window.confirm(t('customers.delete_confirm'))) return;
     try {
       await api.delete(`/users/${id}`);
-      setAlertMessage({ type: 'success', text: 'Customer deleted successfully' });
+      setAlertMessage({ type: 'success', text: t('customers.delete_success') });
       fetchCustomers(page);
     } catch (error) {
       console.error('Failed to delete customer:', error);
-      setAlertMessage({ type: 'danger', text: 'Failed to delete customer' });
+      setAlertMessage({ type: 'danger', text: t('customers.delete_failed') });
     }
   };
 
@@ -68,12 +70,12 @@ export const CustomerList = () => {
   return (
     <div className="container-fluid p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="h3">Customer Management</h1>
+        <h1 className="h3">{t('customers.management_title')}</h1>
         <button
           onClick={() => navigate('/customers/create')}
           className="btn btn-success"
         >
-          Create New Customer
+          {t('customers.create_new')}
         </button>
       </div>
 
@@ -81,7 +83,7 @@ export const CustomerList = () => {
         <input
           type="text"
           className="form-control"
-          placeholder="Search by name, email, or phone..."
+          placeholder={t('customers.search_placeholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -99,13 +101,13 @@ export const CustomerList = () => {
           <table className="table table-hover mb-0">
             <thead className="table-light">
               <tr>
-                <th className="p-3 border-bottom-2">ID</th>
-                <th className="p-3 border-bottom-2">Name</th>
-                <th className="p-3 border-bottom-2">Company</th>
-                <th className="p-3 border-bottom-2">Phone</th>
-                <th className="p-3 border-bottom-2">Email</th>
-                <th className="p-3 border-bottom-2">Tax ID</th>
-                <th className="p-3 border-bottom-2 text-end">Actions</th>
+                <th className="p-3 border-bottom-2">{t('customers.fields.id')}</th>
+                <th className="p-3 border-bottom-2">{t('customers.fields.name')}</th>
+                <th className="p-3 border-bottom-2">{t('customers.company')}</th>
+                <th className="p-3 border-bottom-2">{t('customers.phone')}</th>
+                <th className="p-3 border-bottom-2">{t('customers.email')}</th>
+                <th className="p-3 border-bottom-2">{t('customers.tax_id')}</th>
+                <th className="p-3 border-bottom-2 text-end">{t('customers.fields.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -133,7 +135,7 @@ export const CustomerList = () => {
                         }}
                         className="btn btn-sm btn-outline-primary me-2"
                       >
-                        Edit
+                        {t('actions.edit')}
                       </button>
                       <button
                         onClick={(e) => {
@@ -142,7 +144,7 @@ export const CustomerList = () => {
                         }}
                         className="btn btn-sm btn-outline-danger"
                       >
-                        Delete
+                        {t('actions.delete')}
                       </button>
                     </td>
                   </tr>
@@ -150,7 +152,7 @@ export const CustomerList = () => {
               ) : (
                 <tr>
                   <td colSpan={7} className="text-center p-4 text-muted">
-                    No customers found
+                    {t('customers.no_customers')}
                   </td>
                 </tr>
               )}
@@ -167,7 +169,7 @@ export const CustomerList = () => {
                     onClick={() => setPage(prev => Math.max(prev - 1, 1))}
                     disabled={page === 1}
                   >
-                    Previous
+                    {t('common.previous')}
                   </button>
                 </li>
                 {[...Array(totalPages)].map((_, i) => (
@@ -186,7 +188,7 @@ export const CustomerList = () => {
                     onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={page === totalPages}
                   >
-                    Next
+                    {t('common.next')}
                   </button>
                 </li>
               </ul>

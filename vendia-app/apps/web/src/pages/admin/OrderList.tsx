@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api, User } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface BundleItemSnapshot {
   id: number;
@@ -63,6 +64,7 @@ interface PaginatedResponse<T> {
 }
 
 export const OrderList = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -134,12 +136,12 @@ export const OrderList = () => {
 
   const handleConvertQuotation = async (e: React.MouseEvent, orderId: number) => {
     e.stopPropagation();
-    if (!confirm('Convert this quotation to an order? Stock will be deducted.')) return;
+    if (!confirm(t('orders.confirm_convert_quotation'))) return;
     try {
       await api.put(`/orders/${orderId}`, { status: 'pending' });
       fetchOrders(currentPage);
     } catch (err) {
-        setAlertMessage({ type: 'danger', text: 'Failed to convert quotation' });
+        setAlertMessage({ type: 'danger', text: t('orders.convert_failed') });
     }
   };
 
@@ -163,10 +165,10 @@ export const OrderList = () => {
       handlePaymentSuccess();
       
       setSelectedOrder(null);
-      setAlertMessage({ type: 'success', text: 'Payment successful!' });
+      setAlertMessage({ type: 'success', text: t('orders.payment_success') });
     } catch (error) {
       console.error('Payment failed:', error);
-      setAlertMessage({ type: 'danger', text: 'Payment failed. Please try again.' });
+      setAlertMessage({ type: 'danger', text: t('orders.payment_failed') });
     }
   };
 
@@ -180,7 +182,7 @@ export const OrderList = () => {
     }
   }, [receivedAmount, paymentMethod, selectedOrder]);
 
-  if (loading) return <div className="p-4 text-center">Loading orders...</div>;
+  if (loading) return <div className="p-4 text-center">{t('common.loading')}</div>;
 
   return (
     <div className="container-fluid p-4">
@@ -195,11 +197,11 @@ export const OrderList = () => {
           <div className="col-md-4">
             <div className="card bg-primary text-white h-100">
               <div className="card-body">
-                <h5 className="card-title">Today's Sales</h5>
+                <h5 className="card-title">{t('orders.todays_sales')}</h5>
                 <h2 className="display-6 fw-bold">฿{dailySales.total.toLocaleString()}</h2>
                 <div className="mt-2 small">
-                  <span className="me-3">Cash: ฿{dailySales.breakdown.cash.toLocaleString()}</span>
-                  <span>Transfer: ฿{dailySales.breakdown.transfer.toLocaleString()}</span>
+                  <span className="me-3">{t('pos.cash')}: ฿{dailySales.breakdown.cash.toLocaleString()}</span>
+                  <span>{t('pos.transfer')}: ฿{dailySales.breakdown.transfer.toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -207,9 +209,9 @@ export const OrderList = () => {
           <div className="col-md-4">
             <div className="card bg-success text-white h-100">
               <div className="card-body">
-                <h5 className="card-title">Today's Orders</h5>
+                <h5 className="card-title">{t('orders.todays_orders')}</h5>
                 <h2 className="display-6 fw-bold">{dailySales.count}</h2>
-                <p className="card-text small">Completed orders today</p>
+                <p className="card-text small">{t('orders.completed_orders_today')}</p>
               </div>
             </div>
           </div>
@@ -217,8 +219,8 @@ export const OrderList = () => {
       )}
 
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>Orders & Bills</h2>
-        <button className="btn btn-primary" onClick={() => fetchOrders(1)}>Refresh</button>
+        <h2>{t('orders.title_bills')}</h2>
+        <button className="btn btn-primary" onClick={() => fetchOrders(1)}>{t('orders.refresh')}</button>
       </div>
 
       <ul className="nav nav-tabs mb-3">
@@ -228,7 +230,7 @@ export const OrderList = () => {
                     className={`nav-link ${filterStatus === status ? 'active' : ''} text-capitalize`}
                     onClick={() => { setFilterStatus(status); setCurrentPage(1); }}
                 >
-                    {status}
+                    {t(`status.${status}`)}
                 </button>
             </li>
         ))}
@@ -240,13 +242,13 @@ export const OrderList = () => {
             <table className="table table-hover mb-0">
               <thead className="bg-light">
                 <tr>
-                  <th className="p-3">Order ID</th>
-                  <th className="p-3">Date</th>
-                  <th className="p-3">Customer</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">Total</th>
-                  <th className="p-3">Items</th>
-                  <th className="p-3">Action</th>
+                  <th className="p-3">{t('orders.id')}</th>
+                  <th className="p-3">{t('orders.date')}</th>
+                  <th className="p-3">{t('orders.customer')}</th>
+                  <th className="p-3">{t('orders.status')}</th>
+                  <th className="p-3">{t('orders.total')}</th>
+                  <th className="p-3">{t('orders.items')}</th>
+                  <th className="p-3">{t('orders.action')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -257,16 +259,16 @@ export const OrderList = () => {
                         #{order.id}
                         {order.parent && (
                             <div className="mt-1">
-                                <span className="badge bg-secondary" style={{ fontSize: '0.7em' }} title="Supplementary Order">
-                                    Ref: #{order.parent.id}
+                                <span className="badge bg-secondary" style={{ fontSize: '0.7em' }} title={t('orders.supplementary_order')}>
+                                    {t('orders.ref')}: #{order.parent.id}
                                 </span>
                             </div>
                         )}
                       </td>
                       <td className="p-3">{new Date(order.created_at).toLocaleString()}</td>
                       <td className="p-3">
-                        <div className="fw-bold">{order.customer?.name || 'Walk-in'}</div>
-                        <div className="small text-muted">Staff: {order.user?.name || 'Unknown'}</div>
+                        <div className="fw-bold">{order.customer?.name || t('pos.walk_in')}</div>
+                        <div className="small text-muted">{t('orders.staff')}: {order.user?.name || t('orders.unknown')}</div>
                       </td>
                       <td className="p-3">
                         <span className={`badge bg-${
@@ -274,11 +276,11 @@ export const OrderList = () => {
                             order.status === 'pending' ? 'warning' : 
                             order.status === 'quotation' ? 'info' : 'danger'
                         }`}>
-                          {order.status.toUpperCase()}
+                          {t(`status.${order.status}`)}
                         </span>
                       </td>
                       <td className="p-3 fw-bold">฿{parseFloat(order.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td className="p-3">{order.items.length} items</td>
+                      <td className="p-3">{order.items.length} {t('orders.items')}</td>
                       <td className="p-3">
                         {order.status === 'quotation' && (
                             <>
@@ -286,13 +288,13 @@ export const OrderList = () => {
                                     className="btn btn-info btn-sm me-2 text-white"
                                     onClick={(e) => handlePrint(e, order.id, 'quotation')}
                                 >
-                                    Print Quote
+                                    {t('orders.print_quote')}
                                 </button>
                                 <button 
                                     className="btn btn-success btn-sm me-2"
                                     onClick={(e) => handleConvertQuotation(e, order.id)}
                                 >
-                                    To Order
+                                    {t('orders.to_order')}
                                 </button>
                                 <button 
                                     className="btn btn-warning btn-sm me-2"
@@ -301,7 +303,7 @@ export const OrderList = () => {
                                     navigate(`/pos?order_id=${order.id}`);
                                     }}
                                 >
-                                    Edit
+                                    {t('actions.edit')}
                                 </button>
                             </>
                         )}
@@ -311,19 +313,19 @@ export const OrderList = () => {
                               className="btn btn-success btn-sm me-2"
                               onClick={(e) => handlePayClick(order, e)}
                             >
-                              Pay Now
+                              {t('orders.pay_now')}
                             </button>
                             <button 
                                 className="btn btn-info btn-sm me-2 text-white"
                                 onClick={(e) => handlePrint(e, order.id, 'billing_note')}
                             >
-                                Billing Note
+                                {t('orders.billing_note')}
                             </button>
                             <button 
                                 className="btn btn-secondary btn-sm me-2"
                                 onClick={(e) => handlePrint(e, order.id, 'receipt')}
                             >
-                                Receipt
+                                {t('orders.receipt')}
                             </button>
                             <button 
                                 className="btn btn-warning btn-sm me-2"
@@ -332,7 +334,7 @@ export const OrderList = () => {
                                 navigate(`/pos?order_id=${order.id}`);
                                 }}
                             >
-                                Edit
+                                {t('actions.edit')}
                             </button>
                             <button 
                                 className="btn btn-primary btn-sm me-2"
@@ -341,7 +343,7 @@ export const OrderList = () => {
                                 navigate(`/appointments/create?order_id=${order.id}&customer_id=${order.customer?.id}`);
                                 }}
                             >
-                                Create Appt
+                                {t('orders.create_appt')}
                             </button>
                           </>
                         )}
@@ -351,7 +353,7 @@ export const OrderList = () => {
                                 className="btn btn-secondary btn-sm me-2"
                                 onClick={(e) => handlePrint(e, order.id, 'receipt')}
                             >
-                                Print Receipt
+                                {t('orders.receipt')}
                             </button>
                             <button 
                                 className="btn btn-primary btn-sm me-2"
@@ -360,12 +362,12 @@ export const OrderList = () => {
                                 navigate(`/appointments/create?order_id=${order.id}&customer_id=${order.customer?.id}`);
                                 }}
                             >
-                                Create Appt
+                                {t('orders.create_appt')}
                             </button>
                             </>
                         )}
                         <button className="btn btn-sm btn-link text-decoration-none">
-                          {expandedOrderId === order.id ? 'Hide' : 'View'}
+                          {expandedOrderId === order.id ? t('orders.hide') : t('orders.view')}
                         </button>
                       </td>
                     </tr>
@@ -373,23 +375,23 @@ export const OrderList = () => {
                       <tr className="bg-light">
                         <td colSpan={7} className="p-4">
                           <div className="card border-0">
-                            <div className="card-header bg-white fw-bold">Order Items Breakdown</div>
+                            <div className="card-header bg-white fw-bold">{t('orders.order_items_breakdown')}</div>
                             <div className="card-body p-0">
                               <table className="table table-sm table-bordered mb-0">
                                 <thead>
                                   <tr>
-                                    <th>Product</th>
-                                    <th>SKU</th>
-                                    <th>Price</th>
-                                    <th>Qty</th>
-                                    <th>Subtotal</th>
-                                    <th>Details</th>
+                                    <th>{t('orders.product')}</th>
+                                    <th>{t('orders.sku')}</th>
+                                    <th>{t('orders.price')}</th>
+                                    <th>{t('orders.qty')}</th>
+                                    <th>{t('orders.subtotal')}</th>
+                                    <th>{t('orders.details')}</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {order.items.map((item) => (
                                     <tr key={item.id}>
-                                      <td>{item.product?.name || 'Unknown Product'}</td>
+                                      <td>{item.product?.name || t('orders.unknown_product')}</td>
                                       <td>{item.product?.sku}</td>
                                       <td>฿{Number(item.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                       <td>{item.quantity}</td>
@@ -397,7 +399,7 @@ export const OrderList = () => {
                                       <td>
                                         {item.metadata?.bundle_items ? (
                                           <div className="small text-muted">
-                                            <strong>Bundle Contents:</strong>
+                                            <strong>{t('orders.bundle_contents')}:</strong>
                                             <ul className="mb-0 ps-3">
                                               {item.metadata.bundle_items.map((bItem, idx) => (
                                                 <li key={idx}>
@@ -429,17 +431,17 @@ export const OrderList = () => {
                 disabled={currentPage === 1}
                 onClick={() => fetchOrders(currentPage - 1)}
             >
-                &laquo; Previous
+                &laquo; {t('common.previous')}
             </button>
             <span className="text-muted small">
-                Page <strong>{currentPage}</strong> of <strong>{lastPage}</strong>
+                {t('common.page_of', { current: currentPage, total: lastPage })}
             </span>
             <button 
                 className="btn btn-outline-secondary btn-sm"
                 disabled={currentPage === lastPage}
                 onClick={() => fetchOrders(currentPage + 1)}
             >
-                Next &raquo;
+                {t('common.next')} &raquo;
             </button>
         </div>
       </div>
@@ -450,18 +452,18 @@ export const OrderList = () => {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Pay for Order #{selectedOrder.id}</h5>
+                <h5 className="modal-title">{t('orders.pay_for_order', { id: selectedOrder.id })}</h5>
                 <button type="button" className="btn-close" onClick={() => setSelectedOrder(null)}></button>
               </div>
               <form onSubmit={processPayment}>
                 <div className="modal-body">
                   <div className="text-center mb-4">
-                    <div className="text-muted mb-1">Total Amount</div>
+                    <div className="text-muted mb-1">{t('orders.total')}</div>
                     <div className="display-4 fw-bold text-primary">฿{parseFloat(selectedOrder.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                   </div>
 
                   <div className="mb-3">
-                    <label className="form-label fw-bold">Payment Method</label>
+                    <label className="form-label fw-bold">{t('pos.payment_method')}</label>
                     <div className="btn-group w-100" role="group">
                       <input 
                         type="radio" 
@@ -472,7 +474,7 @@ export const OrderList = () => {
                         checked={paymentMethod === 'cash'}
                         onChange={() => setPaymentMethod('cash')}
                       />
-                      <label className="btn btn-outline-primary" htmlFor="cash">Cash (เงินสด)</label>
+                      <label className="btn btn-outline-primary" htmlFor="cash">{t('pos.cash')}</label>
 
                       <input 
                         type="radio" 
@@ -483,13 +485,13 @@ export const OrderList = () => {
                         checked={paymentMethod === 'transfer'}
                         onChange={() => setPaymentMethod('transfer')}
                       />
-                      <label className="btn btn-outline-primary" htmlFor="transfer">Transfer (โอนเงิน)</label>
+                      <label className="btn btn-outline-primary" htmlFor="transfer">{t('pos.transfer')}</label>
                     </div>
                   </div>
 
                   {paymentMethod === 'cash' && (
                     <div className="mb-3">
-                      <label className="form-label fw-bold">Received Amount (รับเงินมา)</label>
+                      <label className="form-label fw-bold">{t('pos.received_amount')}</label>
                       <input
                         type="number"
                         step="0.01"
@@ -502,7 +504,7 @@ export const OrderList = () => {
                       />
                       {change !== null && (
                         <div className={`mt-3 p-3 rounded text-center ${change >= 0 ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger'}`}>
-                          <div className="small fw-bold text-uppercase">Change (เงินทอน)</div>
+                          <div className="small fw-bold text-uppercase">{t('pos.change')}</div>
                           <div className="fs-2 fw-bold">฿{change.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                         </div>
                       )}
@@ -510,13 +512,13 @@ export const OrderList = () => {
                   )}
                 </div>
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => setSelectedOrder(null)}>Cancel</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setSelectedOrder(null)}>{t('common.cancel')}</button>
                   <button 
                     type="submit" 
                     className="btn btn-success btn-lg px-4"
                     disabled={paymentMethod === 'cash' && (!receivedAmount || parseFloat(receivedAmount) < parseFloat(selectedOrder.total))}
                   >
-                    Confirm Payment
+                    {t('pos.confirm_payment')}
                   </button>
                 </div>
               </form>

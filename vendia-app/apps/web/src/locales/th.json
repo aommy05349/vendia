@@ -21,12 +21,20 @@
     "no_data": "ไม่พบข้อมูล",
     "confirm": "ยืนยัน",
     "back": "กลับ",
+    "previous": "ก่อนหน้า",
+    "next": "ถัดไป",
+    "page_of": "หน้า {{current}} จาก {{total}}",
     "attendance": "ลงเวลาทำงาน",
     "my_jobs": "งานของฉัน",
     "categories": "หมวดหมู่",
     "brands": "ยี่ห้อ",
     "units": "หน่วย",
-    "warehouses": "คลังสินค้า"
+    "warehouses": "คลังสินค้า",
+    "cancel": "ยกเลิก",
+    "save": "บันทึก",
+    "technician_section": "ช่างเทคนิค",
+    "admin_section": "ผู้ดูแลระบบ",
+    "please_login": "กรุณาเข้าสู่ระบบ"
   },
   "login": {
     "title": "เข้าสู่ระบบ",
@@ -67,7 +75,38 @@
     "transfer": "โอนเงิน",
     "save_unpaid": "บันทึกเป็นค้างชำระ",
     "create_quotation": "สร้างใบเสนอราคา",
-    "confirm_payment": "ยืนยันการชำระเงิน"
+    "confirm_payment": "ยืนยันการชำระเงิน",
+    "out_of_stock": "สินค้าหมด",
+    "cart_empty": "ตะกร้าว่างเปล่า",
+    "services_fees": "บริการ & ค่าธรรมเนียม",
+    "insufficient": "ยอดเงินไม่พอ",
+    "enter_amount": "ระบุจำนวนเงิน",
+    "default": "ค่าเริ่มต้น",
+    "no_customers_found": "ไม่พบข้อมูลลูกค้า",
+    "enter_price": "ระบุราคา",
+    "price_thb": "ราคา (฿)",
+    "price_deduction_hint": "ใส่เครื่องหมายลบสำหรับส่วนลด (เช่น -100)",
+    "order_updated": "อัปเดตออเดอร์สำเร็จ",
+    "order_placed": "สร้างออเดอร์สำเร็จ",
+    "order_saved_unpaid": "บันทึกเป็นยอดค้างชำระสำเร็จ",
+    "quotation_created": "สร้างใบเสนอราคาสำเร็จ",
+    "checkout_failed": "การชำระเงินล้มเหลว",
+    "warning_items_skipped": "คำเตือน: ข้ามสินค้า {{count}} รายการเนื่องจากไม่พบข้อมูลสินค้า",
+    "error_load_order": "ไม่สามารถโหลดข้อมูลออเดอร์ได้: "
+  },
+  "actions": {
+    "add": "เพิ่ม",
+    "edit": "แก้ไข",
+    "delete": "ลบ",
+    "update": "อัปเดต",
+    "cancel": "ยกเลิก",
+    "save": "บันทึก",
+    "change": "เปลี่ยน",
+    "select": "เลือก",
+    "view": "ดู",
+    "create": "สร้าง",
+    "print": "พิมพ์",
+    "close": "ปิด"
   },
   "orders": {
     "title": "รายการสั่งซื้อ",
@@ -93,7 +132,26 @@
     "hide": "ซ่อน",
     "view": "ดู",
     "pay_now": "ชำระเงิน",
-    "ref": "อ้างอิง"
+    "ref": "อ้างอิง",
+    "title_bills": "รายการสั่งซื้อ & บิล",
+    "todays_orders": "ออเดอร์วันนี้",
+    "completed_orders_today": "ออเดอร์ที่สำเร็จวันนี้",
+    "refresh": "รีเฟรช",
+    "supplementary_order": "ออเดอร์เพิ่มเติม",
+    "order_items_breakdown": "รายละเอียดรายการสินค้า",
+    "product": "สินค้า",
+    "sku": "SKU",
+    "price": "ราคา",
+    "qty": "จำนวน",
+    "subtotal": "รวม",
+    "details": "รายละเอียด",
+    "bundle_contents": "สินค้าในชุด",
+    "pay_for_order": "ชำระเงินสำหรับออเดอร์ #{{id}}",
+    "confirm_convert_quotation": "เปลี่ยนใบเสนอราคาเป็นออเดอร์ใช่หรือไม่? สต็อกสินค้าจะถูกตัด",
+    "convert_failed": "ไม่สามารถเปลี่ยนสถานะใบเสนอราคาได้",
+    "payment_success": "ชำระเงินสำเร็จ!",
+    "payment_failed": "การชำระเงินล้มเหลว กรุณาลองใหม่อีกครั้ง",
+    "unknown_product": "สินค้าไม่ระบุชื่อ"
   },
   "customers": {
     "title": "ลูกค้า",
@@ -108,7 +166,50 @@
     "selected": "เลือกแล้ว",
     "no_customers": "ไม่พบลูกค้า",
     "create_btn": "สร้างลูกค้า",
-    "create_failed": "ไม่สามารถสร้างลูกค้าได้"
+    "create_failed": "ไม่สามารถสร้างลูกค้าได้",
+    "management_title": "จัดการลูกค้า",
+    "create_new": "สร้างลูกค้าใหม่",
+    "search_placeholder": "ค้นหาด้วยชื่อ, อีเมล หรือเบอร์โทร...",
+    "delete_confirm": "คุณแน่ใจหรือไม่ว่าต้องการลบลูกค้ารายนี้?",
+    "delete_success": "ลบลูกค้าสำเร็จ",
+    "delete_failed": "ไม่สามารถลบลูกค้าได้",
+    "fetch_failed": "ไม่สามารถดึงข้อมูลลูกค้าได้",
+    "create_title": "สร้างลูกค้าใหม่",
+    "edit_title": "แก้ไขข้อมูลลูกค้า",
+    "create_success": "สร้างลูกค้าสำเร็จ",
+    "update_success": "อัปเดตลูกค้าสำเร็จ",
+    "update_btn": "อัปเดตลูกค้า",
+    "update_failed": "ไม่สามารถอัปเดตลูกค้าได้",
+    "order_history": "ประวัติการสั่งซื้อ",
+    "no_orders": "ไม่พบประวัติการสั่งซื้อ",
+    "locations": {
+      "title": "ที่อยู่จัดส่ง",
+      "add_btn": "เพิ่มที่อยู่",
+      "edit_title": "แก้ไขที่อยู่",
+      "add_title": "เพิ่มที่อยู่",
+      "name_label": "ชื่อสถานที่ (เช่น บ้าน, ออฟฟิศ)",
+      "name_placeholder": "บ้าน",
+      "address_label": "ที่อยู่",
+      "google_maps_link": "ลิงก์ Google Maps",
+      "contact_person": "ชื่อผู้ติดต่อ (ไม่บังคับ)",
+      "contact_phone": "เบอร์โทรผู้ติดต่อ (ไม่บังคับ)",
+      "set_default": "ตั้งเป็นที่อยู่หลัก",
+      "get_current_location": "ระบุตำแหน่งปัจจุบัน",
+      "delete_confirm": "คุณแน่ใจหรือไม่ว่าต้องการลบที่อยู่นี้?",
+      "save_failed": "บันทึกที่อยู่ไม่สำเร็จ",
+      "no_locations": "ยังไม่ได้เพิ่มที่อยู่"
+    },
+    "fields": {
+      "id": "รหัส",
+      "name": "ชื่อ",
+      "address": "ที่อยู่",
+      "actions": "จัดการ",
+      "latitude": "ละติจูด",
+      "longitude": "ลองจิจูด",
+      "map": "แผนที่",
+      "contact": "ข้อมูลติดต่อ",
+      "default": "หลัก"
+    }
   },
   "status": {
     "pending": "รอชำระ",
@@ -117,16 +218,597 @@
     "quotation": "ใบเสนอราคา",
     "all": "ทั้งหมด"
   },
-  "actions": {
-    "edit": "แก้ไข",
-    "delete": "ลบ",
-    "view": "ดู",
-    "save": "บันทึก",
+  "appointments": {
+    "title": "นัดหมายบริการ",
+    "create_btn": "สร้างนัดหมาย",
+    "filter_status": "สถานะ",
+    "start_date": "วันที่เริ่ม",
+    "end_date": "วันที่สิ้นสุด",
+    "clear_filters": "ล้างตัวกรอง",
+    "loading": "กำลังโหลด...",
+    "no_appointments": "ไม่พบนัดหมาย",
+    "view": "ดูรายละเอียด",
+    "table": {
+      "date_time": "วัน/เวลา",
+      "title": "หัวข้อ",
+      "customer": "ลูกค้า",
+      "location": "สถานที่",
+      "technicians": "ช่างเทคนิค",
+      "status": "สถานะ",
+      "actions": "จัดการ",
+      "lead": "หัวหน้าทีม"
+    },
+    "status": {
+      "all": "ทุกสถานะ",
+      "scheduled": "นัดหมายแล้ว",
+      "en_route": "กำลังเดินทาง",
+      "in_progress": "กำลังดำเนินการ",
+      "completed": "เสร็จสิ้น",
+      "cancelled": "ยกเลิก"
+    },
+    "create": {
+      "title": "สร้างนัดหมายบริการ",
+      "customer": "ลูกค้า",
+      "link_order": "อ้างอิงออเดอร์ (ไม่บังคับ)",
+      "select_order": "เลือกออเดอร์",
+      "title_label": "หัวข้อ",
+      "title_placeholder": "เช่น ติดตั้งแอร์, ซ่อมบำรุง",
+      "description": "รายละเอียด",
+      "start_time": "เวลาเริ่ม",
+      "end_time": "เวลาสิ้นสุด (ไม่บังคับ)",
+      "location_details": "รายละเอียดสถานที่",
+      "select_location": "เลือกสถานที่",
+      "manual_location": "กรอกเอง / สถานที่ใหม่",
+      "address": "ที่อยู่",
+      "google_maps_link": "ลิงก์ Google Maps",
+      "location_name": "ชื่อสถานที่ (เช่น บ้าน)",
+      "contact_person": "ชื่อผู้ติดต่อ",
+      "contact_phone": "เบอร์โทรศัพท์",
+      "assign_team": "มอบหมายทีม",
+      "select_technicians": "เลือกช่างเทคนิค",
+      "team_lead": "หัวหน้าทีม",
+      "select_lead_header": "กำหนดหัวหน้าทีม",
+      "lead_role": "เป็นหัวหน้าทีม",
+      "admin_notes": "บันทึกภายใน (Admin)",
+      "cancel": "ยกเลิก",
+      "submit": "สร้างนัดหมาย",
+      "submitting": "กำลังสร้าง...",
+      "success": "สร้างนัดหมายสำเร็จ",
+      "failed": "สร้างนัดหมายไม่สำเร็จ",
+      "search_customer_placeholder": "ค้นหาด้วยชื่อ หรือเบอร์โทร..."
+    },
+    "edit": {
+      "title": "แก้ไขนัดหมาย #{{id}}",
+      "save": "บันทึกการแก้ไข",
+      "saving": "กำลังบันทึก...",
+      "failed_load": "ไม่สามารถโหลดข้อมูลนัดหมายได้",
+      "failed_update": "บันทึกไม่สำเร็จ",
+      "team_members_lead": "สมาชิกในทีม & หัวหน้าทีม"
+    },
+    "detail": {
+      "title": "นัดหมาย #{{id}}",
+      "back": "กลับ",
+      "job_details": "รายละเอียดงาน",
+      "no_description": "ไม่มีรายละเอียด",
+      "start_time": "เวลาเริ่ม",
+      "end_time": "เวลาสิ้นสุด (โดยประมาณ)",
+      "products_materials": "สินค้า & อุปกรณ์ (ออเดอร์ #{{code}})",
+      "edit_order": "แก้ไขออเดอร์",
+      "add_extra_charge": "เพิ่มค่าใช้จ่าย",
+      "product": "สินค้า",
+      "qty": "จำนวน",
+      "location": "สถานที่",
+      "customer_location": "สถานที่ลูกค้า",
+      "open_maps": "เปิดใน Google Maps",
+      "customer_info": "ข้อมูลลูกค้า",
+      "main_address": "ที่อยู่หลัก",
+      "assigned_team": "ทีมที่ได้รับมอบหมาย",
+      "manage_team": "จัดการทีม",
+      "no_technicians": "ยังไม่ได้ระบุช่างเทคนิค",
+      "team_lead": "หัวหน้าทีม",
+      "danger_zone": "พื้นที่อันตราย",
+      "cancel_warning": "การยกเลิกนัดหมายนี้จะหยุดการดำเนินการทั้งหมดและแจ้งเตือนทีมงาน",
+      "cancel_btn": "ยกเลิกนัดหมาย",
+      "manage_team_modal": "จัดการทีมช่าง",
+      "select_technicians": "เลือกช่างเทคนิค",
+      "select_lead": "เลือกหัวหน้าทีม",
+      "save_team": "บันทึกทีม",
+      "saving": "กำลังบันทึก...",
+      "update_success": "อัปเดตทีมสำเร็จ",
+      "update_failed": "ไม่สามารถอัปเดตทีมได้",
+      "status_update_failed": "ไม่สามารถอัปเดตสถานะได้",
+      "load_failed": "ไม่สามารถโหลดข้อมูลนัดหมายได้",
+      "unpaid_warning": "ออเดอร์ยังมียอดค้างชำระ!",
+      "unpaid_confirm": "ออเดอร์ยังมียอดค้างชำระ (รอชำระ) คุณต้องการปิดงานนี้หรือไม่?",
+      "unknown_product": "สินค้าไม่ระบุชื่อ",
+      "actions": {
+        "start_travel": "เริ่มเดินทาง",
+        "arrived": "ถึงสถานที่ / เริ่มงาน",
+        "complete": "จบงาน",
+        "force_complete": "บังคับจบงาน"
+      }
+    }
+  },
+  "attendance": {
+    "status": {
+      "completed": "เสร็จสิ้น",
+      "absent": "ขาดงาน",
+      "working": "กำลังทำงาน",
+      "checked_in": "เข้างานแล้ว",
+      "checked_out": "ออกงานแล้ว"
+    },
+    "history": {
+      "title": "ประวัติการลงเวลา",
+      "filter": {
+        "technician": "ช่างเทคนิค",
+        "all_technicians": "ช่างเทคนิคทั้งหมด",
+        "start_date": "วันที่เริ่มต้น",
+        "end_date": "วันที่สิ้นสุด",
+        "clear": "ล้างตัวกรอง"
+      },
+      "summary": {
+        "days_worked": "วันที่มาทำงาน",
+        "total_hours": "ชั่วโมงรวม",
+        "weekly_off": "วันหยุดประจำสัปดาห์",
+        "absent": "ขาดงาน (ไม่ระบุเหตุผล)"
+      },
+      "table": {
+        "technician": "ช่างเทคนิค",
+        "date": "วันที่",
+        "check_in": "เวลาเข้างาน",
+        "check_out": "เวลาออกงาน",
+        "duration": "ระยะเวลา",
+        "status": "สถานะ",
+        "actions": "จัดการ",
+        "no_records": "ไม่พบข้อมูลการลงเวลา",
+        "active": "กำลังทำงาน",
+        "edit": "แก้ไข",
+        "note": "หมายเหตุ"
+      },
+      "edit_modal": {
+        "title": "แก้ไขการลงเวลา",
+        "check_in_time": "เวลาเข้างาน",
+        "check_out_time": "เวลาออกงาน",
+        "leave_empty": "เว้นว่างไว้หากยังทำงานอยู่",
+        "cancel": "ยกเลิก",
+        "save": "บันทึก"
+      },
+      "update_failed": "ไม่สามารถอัปเดตข้อมูลได้"
+    },
+    "dashboard": {
+      "title": "ภาพรวมการลงเวลาช่างเทคนิค",
+      "view_history": "ดูประวัติ",
+      "technician_status": "สถานะช่างเทคนิค",
+      "no_technicians": "ไม่พบข้อมูลช่างเทคนิค",
+      "checked_in": "เข้างานแล้ว",
+      "duration": "ระยะเวลา",
+      "absent": "ขาดงาน",
+      "no_reason": "ไม่ระบุเหตุผล",
+      "last_seen": "ออนไลน์ล่าสุด",
+      "no_activity": "ไม่มีความเคลื่อนไหว",
+      "mark_absent": "แจ้งขาดงาน",
+      "weekly_off": "วันหยุด",
+      "check_in_failed": "ไม่สามารถลงเวลาเข้างานได้",
+      "check_out_failed": "ไม่สามารถลงเวลาออกงานได้",
+      "mark_absent_modal": {
+        "title": "แจ้งขาดงาน: {{name}}",
+        "type": "ประเภทการลา",
+        "reason": "รายละเอียดเหตุผล",
+        "reason_placeholder": "เช่น ป่วย, ลากิจ ฯลฯ",
+        "confirm": "ยืนยันแจ้งขาดงาน",
+        "cancel": "ยกเลิก",
+        "please_provide_reason": "กรุณาระบุเหตุผล",
+        "failed": "ไม่สามารถบันทึกการขาดงานได้",
+        "types": {
+          "weekly_off": "วันหยุดประจำสัปดาห์",
+          "absent": "ไม่มาทำงาน / ลา"
+        }
+      },
+      "history_modal": {
+        "title": "ประวัติการลงเวลา: {{name}}",
+        "page_info": "หน้า {{current}} จาก {{total}}"
+      }
+    },
+    "technician_view": {
+      "title": "ลงเวลาทำงาน",
+      "status_label": "สถานะ: {{status}}",
+      "status_working": "กำลังทำงาน",
+      "status_off_duty": "ออกงานแล้ว",
+      "checked_in_at": "เข้างานเมื่อ: {{time}}",
+      "duration": "ระยะเวลาทำงาน",
+      "last_shift": "กะล่าสุด: {{start}} - {{end}}",
+      "check_in_button": "CHECK IN (เข้างาน)",
+      "check_out_button": "CHECK OUT (ออกงาน)",
+      "processing": "กำลังดำเนินการ...",
+      "my_jobs_button": "MY JOBS (งานของฉัน)"
+    }
+  },
+  "users": {
+    "title": "จัดการผู้ใช้งาน",
+    "create_title": "สร้างผู้ใช้งานใหม่",
+    "edit_title": "แก้ไขผู้ใช้งาน",
+    "create": "สร้างผู้ใช้งาน",
+    "table": {
+      "id": "รหัส",
+      "name": "ชื่อ",
+      "username": "ชื่อผู้ใช้",
+      "email": "อีเมล",
+      "role": "สิทธิ์",
+      "actions": "จัดการ"
+    },
+    "form": {
+      "first_name": "ชื่อจริง",
+      "last_name": "นามสกุล",
+      "username": "ชื่อผู้ใช้",
+      "email": "อีเมล",
+      "password": "รหัสผ่าน",
+      "password_edit_hint": "รหัสผ่าน (เว้นว่างหากไม่ต้องการเปลี่ยน)",
+      "phone": "เบอร์โทรศัพท์",
+      "phone_placeholder": "เช่น 0812345678",
+      "role": "สิทธิ์การใช้งาน",
+      "profile_image": "รูปโปรไฟล์ (ไม่บังคับ)",
+      "submit_create": "สร้างผู้ใช้งาน",
+      "submit_update": "อัปเดตข้อมูล",
+      "submitting": "กำลังสร้าง...",
+      "updating": "กำลังอัปเดต..."
+    },
+    "roles": {
+      "admin": "ผู้ดูแลระบบ",
+      "staff": "พนักงาน",
+      "technician": "ช่างเทคนิค"
+    },
+    "alerts": {
+      "fetch_error": "ไม่สามารถดึงข้อมูลผู้ใช้งานได้",
+      "fetch_single_error": "ไม่สามารถดึงข้อมูลผู้ใช้งานได้",
+      "delete_confirm": "คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้งานรายนี้?",
+      "delete_success": "ลบผู้ใช้งานสำเร็จ",
+      "delete_error": "ลบผู้ใช้งานไม่สำเร็จ",
+      "create_success": "สร้างผู้ใช้งานสำเร็จ",
+      "create_error": "สร้างผู้ใช้งานไม่สำเร็จ",
+      "update_success": "อัปเดตข้อมูลสำเร็จ",
+      "update_error": "อัปเดตข้อมูลไม่สำเร็จ"
+    }
+  },
+  "warehouses": {
+    "title": "จัดการคลังสินค้า",
+    "create_title": "สร้างคลังสินค้าใหม่",
+    "edit_title": "แก้ไขคลังสินค้า",
+    "table": {
+      "id": "รหัส",
+      "name": "ชื่อคลังสินค้า",
+      "address": "ที่อยู่",
+      "phone": "เบอร์โทรศัพท์",
+      "email": "อีเมล",
+      "actions": "จัดการ"
+    },
+    "form": {
+      "name": "ชื่อคลังสินค้า",
+      "address": "ที่อยู่",
+      "phone": "เบอร์โทรศัพท์",
+      "email": "อีเมล",
+      "submit_create": "สร้างคลังสินค้า",
+      "submit_update": "อัปเดตคลังสินค้า",
+      "submitting": "กำลังสร้าง...",
+      "updating": "กำลังอัปเดต...",
+      "cancel": "ยกเลิก"
+    },
+    "alerts": {
+      "delete_confirm": "คุณแน่ใจหรือไม่ว่าต้องการลบคลังสินค้านี้?",
+      "delete_success": "ลบคลังสินค้าสำเร็จ",
+      "create_success": "สร้างคลังสินค้าสำเร็จ",
+      "create_error": "ไม่สามารถสร้างคลังสินค้าได้",
+      "update_success": "อัปเดตคลังสินค้าสำเร็จ",
+      "update_error": "ไม่สามารถอัปเดตคลังสินค้าได้",
+      "not_found": "ไม่พบคลังสินค้า",
+      "no_warehouses": "ไม่พบข้อมูลคลังสินค้า"
+    }
+  },
+  "settings": {
+    "title": "ตั้งค่าร้านค้า",
+    "shop_info": "ข้อมูลร้านค้า",
+    "name": "ชื่อร้าน",
+    "company_name": "ชื่อบริษัท",
+    "bank_details": "รายละเอียดบัญชีธนาคาร",
+    "address": "ที่อยู่",
+    "phone": "เบอร์โทรศัพท์",
+    "tax_id": "เลขผู้เสียภาษี",
+    "email": "อีเมล",
+    "website": "เว็บไซต์",
+    "footer_text": "ข้อความท้ายใบเสร็จ",
+    "remarks": "หมายเหตุ",
+    "logo": "โลโก้ร้าน",
+    "signature": "ลายเซ็นผู้มีอำนาจ",
+    "upload_help": "อัปโหลดรูปภาพใหม่เพื่อเปลี่ยน",
+    "preview": "ตัวอย่าง",
+    "save": "บันทึกการตั้งค่า",
+    "saving": "กำลังบันทึก...",
     "cancel": "ยกเลิก",
-    "add": "เพิ่ม",
-    "create": "สร้าง",
-    "update": "อัปเดต",
-    "print": "พิมพ์",
-    "close": "ปิด"
+    "logo_help": "อนุญาตเฉพาะไฟล์ JPG, PNG, GIF ขนาดไม่เกิน 2MB",
+    "signature_help": "จะแสดงในใบเสนอราคา/ใบวางบิล/ใบเสร็จรับเงิน",
+    "bank_placeholder": "ใส่ข้อมูลบัญชีธนาคารที่จะแสดงในใบเสนอราคา/ใบแจ้งหนี้",
+    "bank_help": "ข้อความนี้จะแสดงในตารางรายการสินค้า",
+    "footer_placeholder": "เช่น ขอบคุณที่ใช้บริการ",
+    "footer_help": "ข้อความนี้จะแสดงด้านล่างของราคารวม (Net Total)",
+    "remarks_placeholder": "เช่น สินค้าซื้อแล้วไม่รับเปลี่ยนคืน...",
+    "remarks_help": "ข้อความนี้จะแสดงในกล่องหมายเหตุ (Remarks box)",
+    "no_logo": "ไม่มีโลโก้",
+    "no_signature": "ไม่มีลายเซ็น",
+    "company_placeholder": "เช่น ห้างหุ้นส่วนจำกัด...",
+    "alerts": {
+      "success": "บันทึกข้อมูลร้านค้าเรียบร้อยแล้ว",
+      "error": "ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง"
+    }
+  },
+  "categories": {
+    "title": "จัดการหมวดหมู่สินค้า",
+    "create": "สร้างหมวดหมู่",
+    "create_title": "สร้างหมวดหมู่ใหม่",
+    "edit_title": "แก้ไขหมวดหมู่",
+    "table": {
+      "id": "รหัส",
+      "name": "ชื่อหมวดหมู่",
+      "description": "รายละเอียด",
+      "actions": "จัดการ"
+    },
+    "form": {
+      "name": "ชื่อหมวดหมู่",
+      "description": "รายละเอียด",
+      "submit_create": "สร้างหมวดหมู่",
+      "submit_update": "อัปเดตข้อมูล",
+      "submitting": "กำลังสร้าง...",
+      "updating": "กำลังอัปเดต..."
+    },
+    "alerts": {
+      "delete_confirm": "คุณแน่ใจหรือไม่ว่าต้องการลบหมวดหมู่นี้?",
+      "delete_success": "ลบหมวดหมู่สำเร็จ",
+      "create_success": "สร้างหมวดหมู่สำเร็จ",
+      "create_error": "สร้างหมวดหมู่ไม่สำเร็จ",
+      "update_success": "อัปเดตข้อมูลสำเร็จ",
+      "update_error": "อัปเดตข้อมูลไม่สำเร็จ",
+      "not_found": "ไม่พบหมวดหมู่"
+    }
+  },
+  "products": {
+    "title": "จัดการสินค้า",
+    "create_title": "สร้างสินค้าใหม่",
+    "edit_title": "แก้ไขสินค้า",
+    "list": {
+      "create_button": "สร้างสินค้าใหม่",
+      "filter": {
+        "category": "หมวดหมู่",
+        "all_categories": "ทุกหมวดหมู่",
+        "sort_by": "เรียงตาม",
+        "sort_options": {
+          "newest": "ใหม่ล่าสุด",
+          "oldest": "เก่าที่สุด",
+          "name_az": "ชื่อ (ก-ฮ)",
+          "name_za": "ชื่อ (ฮ-ก)",
+          "price_low_high": "ราคา (ต่ำไปสูง)",
+          "price_high_low": "ราคา (สูงไปต่ำ)",
+          "stock_low_high": "สต็อก (น้อยไปมาก)",
+          "stock_high_low": "สต็อก (มากไปน้อย)"
+        }
+      },
+      "table": {
+        "name": "ชื่อสินค้า",
+        "price": "ราคา",
+        "stock": "สต็อก",
+        "category": "หมวดหมู่",
+        "sku": "รหัส SKU",
+        "value": "มูลค่ารวม",
+        "type": "ประเภท",
+        "actions": "จัดการ",
+        "low_stock": "สินค้าใกล้หมด"
+      }
+    },
+    "form": {
+      "sections": {
+        "info": "ข้อมูลสินค้า",
+        "pricing": "ราคาและสต็อก",
+        "images": "รูปภาพสินค้า"
+      },
+      "fields": {
+        "name": "ชื่อสินค้า",
+        "slug": "Slug (URL)",
+        "slug_placeholder": "สร้างอัตโนมัติหากเว้นว่าง",
+        "sku": "รหัสสินค้า (SKU)",
+        "barcode_symbology": "รูปแบบบาร์โค้ด",
+        "item_barcode": "รหัสบาร์โค้ด",
+        "category": "หมวดหมู่",
+        "select_category": "เลือกหมวดหมู่",
+        "brand": "ยี่ห้อ",
+        "select_brand": "เลือกยี่ห้อ",
+        "unit": "หน่วยนับ",
+        "select_unit": "เลือกหน่วยนับ",
+        "warehouse": "คลังสินค้า",
+        "select_warehouse": "เลือกคลังสินค้า",
+        "description": "รายละเอียด",
+        "product_type": "ประเภทสินค้า",
+        "types": {
+          "single": "สินค้าทั่วไป",
+          "variable": "สินค้ามีตัวเลือก",
+          "bundle": "สินค้าชุด/เซ็ต",
+          "service": "บริการ"
+        },
+        "quantity_alert": "แจ้งเตือนเมื่อเหลือน้อยกว่า",
+        "price": "ราคาขาย",
+        "quantity": "จำนวนสินค้า",
+        "tax_type": "ประเภทภาษี",
+        "tax_types": {
+          "exclusive": "ไม่รวมภาษี",
+          "inclusive": "รวมภาษีแล้ว"
+        },
+        "tax_amount": "อัตราภาษี (%)",
+        "discount_type": "ประเภทส่วนลด",
+        "discount_types": {
+          "fixed": "จำนวนเงิน",
+          "percentage": "เปอร์เซ็นต์"
+        },
+        "discount_value": "มูลค่าส่วนลด",
+        "upload_images": "อัปโหลดรูปภาพ",
+        "upload_new_images": "อัปโหลดรูปภาพใหม่",
+        "upload_hint": "รองรับไฟล์: jpg, jpeg, png, gif"
+      },
+      "bundle": {
+        "title": "รายการสินค้าในชุด",
+        "search_placeholder": "ค้นหาจาก ชื่อ, SKU, บาร์โค้ด หรือ รายละเอียด...",
+        "table": {
+          "product": "สินค้า",
+          "qty": "จำนวน"
+        },
+        "no_items": "ยังไม่มีสินค้าในชุด",
+        "error_empty": "กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการในชุด"
+      },
+      "buttons": {
+        "back_to_list": "กลับหน้ารายการ",
+        "create": "สร้างสินค้า",
+        "creating": "กำลังสร้าง...",
+        "update": "อัปเดตสินค้า",
+        "updating": "กำลังอัปเดต...",
+        "cancel": "ยกเลิก"
+      }
+    },
+    "alerts": {
+      "delete_confirm": "คุณแน่ใจหรือไม่ว่าต้องการลบสินค้านี้?",
+      "delete_success": "ลบสินค้าสำเร็จ",
+      "create_success": "สร้างสินค้าสำเร็จ",
+      "create_error": "สร้างสินค้าไม่สำเร็จ",
+      "update_success": "อัปเดตสินค้าสำเร็จ",
+      "update_error": "อัปเดตสินค้าไม่สำเร็จ",
+      "not_found": "ไม่พบสินค้า"
+    }
+  },
+  "brands": {
+    "title": "จัดการยี่ห้อสินค้า",
+    "create_title": "สร้างยี่ห้อใหม่",
+    "edit_title": "แก้ไขยี่ห้อ",
+    "table": {
+      "id": "รหัส",
+      "image": "รูปภาพ",
+      "name": "ชื่อ",
+      "actions": "จัดการ"
+    },
+    "form": {
+      "name": "ชื่อยี่ห้อ",
+      "image": "รูปภาพยี่ห้อ",
+      "image_hint": "เว้นว่างไว้หากต้องการใช้รูปเดิม",
+      "no_image": "ไม่มีรูปภาพ",
+      "submit_create": "สร้างยี่ห้อ",
+      "submit_update": "อัปเดตยี่ห้อ",
+      "submitting": "กำลังสร้าง...",
+      "updating": "กำลังอัปเดต...",
+      "cancel": "ยกเลิก"
+    },
+    "alerts": {
+      "delete_confirm": "คุณแน่ใจหรือไม่ว่าต้องการลบยี่ห้อนี้?",
+      "delete_success": "ลบยี่ห้อสำเร็จ",
+      "create_success": "สร้างยี่ห้อสำเร็จ",
+      "create_error": "ไม่สามารถสร้างยี่ห้อได้",
+      "update_success": "อัปเดตยี่ห้อสำเร็จ",
+      "update_error": "ไม่สามารถอัปเดตยี่ห้อได้",
+      "not_found": "ไม่พบยี่ห้อ",
+      "no_brands": "ไม่พบข้อมูลยี่ห้อ"
+    }
+  },
+  "units": {
+    "title": "จัดการหน่วยสินค้า",
+    "create_title": "สร้างหน่วยสินค้าใหม่",
+    "edit_title": "แก้ไขหน่วยสินค้า",
+    "table": {
+      "id": "รหัส",
+      "name": "ชื่อ",
+      "short_name": "ชื่อย่อ",
+      "actions": "จัดการ"
+    },
+    "form": {
+      "name": "ชื่อหน่วย",
+      "short_name": "ชื่อย่อ",
+      "submit_create": "สร้างหน่วยสินค้า",
+      "submit_update": "อัปเดตหน่วยสินค้า",
+      "submitting": "กำลังสร้าง...",
+      "updating": "กำลังอัปเดต...",
+      "cancel": "ยกเลิก"
+    },
+    "alerts": {
+      "delete_confirm": "คุณแน่ใจหรือไม่ว่าต้องการลบหน่วยสินค้านี้?",
+      "delete_success": "ลบหน่วยสินค้าสำเร็จ",
+      "create_success": "สร้างหน่วยสินค้าสำเร็จ",
+      "create_error": "ไม่สามารถสร้างหน่วยสินค้าได้",
+      "update_success": "อัปเดตหน่วยสินค้าสำเร็จ",
+      "update_error": "ไม่สามารถอัปเดตหน่วยสินค้าได้",
+      "not_found": "ไม่พบหน่วยสินค้า",
+      "no_units": "ไม่พบข้อมูลหน่วยสินค้า"
+    }
+  },
+  "technician": {
+    "jobs": {
+      "title": "งานของฉัน",
+      "dashboard_btn": "แดชบอร์ด",
+      "filter": {
+        "today": "วันนี้",
+        "upcoming": "เร็วๆ นี้",
+        "history": "ประวัติ"
+      },
+      "loading": "กำลังโหลดข้อมูล...",
+      "no_jobs": "ไม่พบงานในช่วงเวลานี้",
+      "view_details": "ดูรายละเอียด"
+    }
+  },
+  "print": {
+    "receipt": {
+      "title": "ใบเสร็จรับเงิน",
+      "subtitle": "RECEIPT"
+    },
+    "quotation": {
+      "title": "ใบเสนอราคา",
+      "subtitle": "QUOTATION"
+    },
+    "billing_note": {
+      "title": "ใบวางบิล",
+      "subtitle": "BILLING NOTE"
+    },
+    "issuer": {
+      "label_th": "ผู้ออก",
+      "label_en": "Issuer"
+    },
+    "customer": {
+      "label": "ลูกค้า/Customer :",
+      "address": "ที่อยู่/Address :",
+      "tax_id": "เลขผู้เสียภาษี :",
+      "attention": "ผู้ติดต่อ / Attention :"
+    },
+    "document": {
+      "no": "เลขที่/No :",
+      "date": "วันที่ / ISSUE :",
+      "valid": "ใช้ได้ถึง/Valid :",
+      "email": "Email :",
+      "phone": "โทร :"
+    },
+    "table": {
+      "no": "ลำดับที่ (No.)",
+      "description": "รายการ (DESCRIPTION)",
+      "quantity": "จำนวน<br/>Quantity",
+      "unit_price": "ราคาต่อหน่วย<br/>Unit Price",
+      "total": "ราคารวม(บาท)"
+    },
+    "footer": {
+      "baht_text": "บาท / Baht",
+      "remarks": "***หมายเหตุ / Remarks***",
+      "subtotal": "ราคารวม",
+      "subtotal_en": "Sub Total",
+      "net_total": "สุทธิ",
+      "net_total_en": "Net Total"
+    },
+    "signatures": {
+      "approved": "อนุมัติโดย / Approved by",
+      "received_billing": "ผู้รับวางบิล / Received by",
+      "receiver": "ผู้รับสินค้า / Receiver",
+      "accepted": "ยอมรับใบเสนอราคา / Accepted by",
+      "billing": "ผู้วางบิล / Billing by",
+      "collector": "ผู้รับเงิน / Collector",
+      "sign": "ลงชื่อ..........................................................",
+      "date": "วันที่ / Date ........................................"
+    },
+    "button": "พิมพ์เอกสาร"
   }
 }

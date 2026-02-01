@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useCategoryStore } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const CreateCategory = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { createCategory, loading } = useCategoryStore();
   
@@ -16,15 +18,15 @@ export const CreateCategory = () => {
 
     try {
       await createCategory({ name, description });
-      navigate('/categories', { state: { success: 'Category created successfully!' } });
+      navigate('/categories', { state: { success: t('categories.alerts.create_success') } });
     } catch (err: any) {
-      setError(err.message || 'Failed to create category');
+      setError(err.message || t('categories.alerts.create_error'));
     }
   };
 
   return (
     <div className="container mt-5" style={{ maxWidth: '600px' }}>
-      <h1 className="mb-4">Create New Category</h1>
+      <h1 className="mb-4">{t('categories.create_title')}</h1>
       
       {error && <div className="alert alert-danger">{error}</div>}
 
@@ -32,7 +34,7 @@ export const CreateCategory = () => {
         <div className="card-body p-4">
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
-              <label className="form-label fw-bold">Name</label>
+              <label className="form-label fw-bold">{t('categories.form.name')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -43,7 +45,7 @@ export const CreateCategory = () => {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Description</label>
+              <label className="form-label fw-bold">{t('categories.form.description')}</label>
               <textarea 
                 className="form-control" 
                 rows={3}
@@ -58,14 +60,14 @@ export const CreateCategory = () => {
                 className="btn btn-secondary"
                 onClick={() => navigate('/categories')}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button 
                 type="submit" 
                 className="btn btn-success"
                 disabled={loading}
               >
-                {loading ? 'Creating...' : 'Create Category'}
+                {loading ? t('categories.form.submitting') : t('categories.form.submit_create')}
               </button>
             </div>
           </form>

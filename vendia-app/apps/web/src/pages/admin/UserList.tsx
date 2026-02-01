@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '@vendia/shared';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface User {
   id: number;
@@ -13,6 +14,7 @@ interface User {
 }
 
 export const UserList = () => {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
@@ -36,21 +38,21 @@ export const UserList = () => {
       setUsers(response.data.data); // Assuming pagination
     } catch (error) {
       console.error('Failed to fetch users:', error);
-      setAlertMessage({ type: 'danger', text: 'Failed to fetch users' });
+      setAlertMessage({ type: 'danger', text: t('users.alerts.fetch_error') });
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    if (!window.confirm(t('users.alerts.delete_confirm'))) return;
     try {
       await api.delete(`/users/${id}`);
-      setAlertMessage({ type: 'success', text: 'User deleted successfully' });
+      setAlertMessage({ type: 'success', text: t('users.alerts.delete_success') });
       fetchUsers();
     } catch (error) {
       console.error('Failed to delete user:', error);
-      setAlertMessage({ type: 'danger', text: 'Failed to delete user' });
+      setAlertMessage({ type: 'danger', text: t('users.alerts.delete_error') });
     }
   };
 
@@ -59,12 +61,12 @@ export const UserList = () => {
   return (
     <div className="container-fluid p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="h3">User Management</h1>
+        <h1 className="h3">{t('users.title')}</h1>
         <button
           onClick={() => navigate('/users/create')}
           className="btn btn-success"
         >
-          Create New User
+          {t('users.create')}
         </button>
       </div>
 
@@ -80,12 +82,12 @@ export const UserList = () => {
           <table className="table table-hover mb-0">
             <thead className="table-light">
               <tr>
-                <th className="p-3 border-bottom-2">ID</th>
-                <th className="p-3 border-bottom-2">Name</th>
-                <th className="p-3 border-bottom-2">Username</th>
-                <th className="p-3 border-bottom-2">Email</th>
-                <th className="p-3 border-bottom-2">Role</th>
-                <th className="p-3 border-bottom-2">Actions</th>
+                <th className="p-3 border-bottom-2">{t('users.table.id')}</th>
+                <th className="p-3 border-bottom-2">{t('users.table.name')}</th>
+                <th className="p-3 border-bottom-2">{t('users.table.username')}</th>
+                <th className="p-3 border-bottom-2">{t('users.table.email')}</th>
+                <th className="p-3 border-bottom-2">{t('users.table.role')}</th>
+                <th className="p-3 border-bottom-2">{t('users.table.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -101,7 +103,7 @@ export const UserList = () => {
                       user.role === 'technician' ? 'bg-info text-dark' : 
                       'bg-secondary'
                     }`}>
-                      {user.role}
+                      {t(`users.roles.${user.role}`, { defaultValue: user.role })}
                     </span>
                   </td>
                   <td className="p-3">
@@ -110,13 +112,13 @@ export const UserList = () => {
                         onClick={() => navigate(`/users/${user.id}/edit`)}
                         className="btn btn-warning btn-sm"
                       >
-                        Edit
+                        {t('actions.edit')}
                       </button>
                       <button
                         onClick={() => handleDelete(user.id)}
                         className="btn btn-danger btn-sm"
                       >
-                        Delete
+                        {t('actions.delete')}
                       </button>
                     </div>
                   </td>

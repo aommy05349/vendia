@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '@vendia/shared';
 import Select from 'react-select';
+import { useTranslation } from 'react-i18next';
 
 interface User {
   id: number;
@@ -12,6 +13,7 @@ interface User {
 }
 
 export const EditAppointment = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -77,7 +79,7 @@ export const EditAppointment = () => {
       setLoading(false);
     } catch (error) {
       console.error('Failed to fetch appointment', error);
-      alert('Failed to load appointment');
+      alert(t('appointments.edit.failed_load'));
       navigate('/appointments');
     }
   };
@@ -122,22 +124,22 @@ export const EditAppointment = () => {
       navigate(`/appointments/${id}`);
     } catch (error) {
       console.error('Failed to update appointment', error);
-      alert('Failed to update appointment');
+      alert(t('appointments.edit.failed_update'));
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (loading) return <div className="p-4">{t('appointments.loading')}</div>;
 
   return (
     <div className="container mt-4" style={{ maxWidth: '800px' }}>
-      <h2 className="mb-4">Edit Appointment #{id}</h2>
+      <h2 className="mb-4">{t('appointments.edit.title', { id })}</h2>
       
       <form onSubmit={handleSubmit} className="card p-4 shadow-sm">
         
         <div className="mb-3">
-          <label className="form-label">Title <span className="text-danger">*</span></label>
+          <label className="form-label">{t('appointments.create.title_label')} <span className="text-danger">*</span></label>
           <input
             type="text"
             className="form-control"
@@ -148,7 +150,7 @@ export const EditAppointment = () => {
         </div>
 
         <div className="mb-3">
-            <label className="form-label">Description</label>
+            <label className="form-label">{t('appointments.create.description')}</label>
             <textarea
                 className="form-control"
                 rows={2}
@@ -159,7 +161,7 @@ export const EditAppointment = () => {
 
         <div className="row mb-3">
           <div className="col-md-6">
-            <label className="form-label">Start Time <span className="text-danger">*</span></label>
+            <label className="form-label">{t('appointments.create.start_time')} <span className="text-danger">*</span></label>
             <input
               type="datetime-local"
               className="form-control"
@@ -169,7 +171,7 @@ export const EditAppointment = () => {
             />
           </div>
           <div className="col-md-6">
-            <label className="form-label">End Time</label>
+            <label className="form-label">{t('appointments.create.end_time')}</label>
             <input
               type="datetime-local"
               className="form-control"
@@ -182,9 +184,9 @@ export const EditAppointment = () => {
         <hr />
 
         {/* Technicians */}
-        <h5 className="mb-3">Assign Team</h5>
+        <h5 className="mb-3">{t('appointments.create.assign_team')}</h5>
         <div className="mb-3">
-            <label className="form-label">Select Technicians</label>
+            <label className="form-label">{t('appointments.create.select_technicians')}</label>
             <Select
                 isMulti
                 options={technicians.map(t => ({
@@ -205,7 +207,7 @@ export const EditAppointment = () => {
             {selectedTechnicians.length > 0 && (
                 <div className="card">
                     <div className="card-header bg-light py-2">
-                        <small className="fw-bold">Team Members & Lead</small>
+                        <small className="fw-bold">{t('appointments.edit.team_members_lead')}</small>
                     </div>
                     <ul className="list-group list-group-flush">
                         {selectedTechnicians.map(st => {
@@ -223,7 +225,7 @@ export const EditAppointment = () => {
                                             id={`lead-${st.id}`}
                                         />
                                         <label className="form-check-label small" htmlFor={`lead-${st.id}`}>
-                                            Team Lead
+                                            {t('appointments.create.lead_role')}
                                         </label>
                                     </div>
                                 </li>
@@ -235,7 +237,7 @@ export const EditAppointment = () => {
         </div>
         
         <div className="mb-3">
-             <label className="form-label">Admin Notes</label>
+             <label className="form-label">{t('appointments.create.admin_notes')}</label>
              <textarea
                  className="form-control"
                  rows={2}
@@ -246,10 +248,10 @@ export const EditAppointment = () => {
 
         <div className="d-flex justify-content-end gap-2 mt-4">
           <button type="button" className="btn btn-secondary" onClick={() => navigate(`/appointments/${id}`)}>
-            Cancel
+            {t('appointments.create.cancel')}
           </button>
           <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? t('appointments.edit.saving') : t('appointments.edit.save')}
           </button>
         </div>
       </form>

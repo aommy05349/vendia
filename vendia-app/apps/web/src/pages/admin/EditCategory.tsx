@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useCategoryStore } from '@vendia/shared';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const EditCategory = () => {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { categories, fetchCategories, updateCategory, loading } = useCategoryStore();
@@ -29,7 +31,7 @@ export const EditCategory = () => {
         setName(category.name);
         setDescription(category.description || '');
       } else {
-        setError('Category not found');
+        setError(t('categories.alerts.not_found'));
       }
     }
   }, [initialLoading, id, categories]);
@@ -42,9 +44,9 @@ export const EditCategory = () => {
 
     try {
       await updateCategory(parseInt(id), { name, description });
-      navigate('/categories', { state: { success: 'Category updated successfully!' } });
+      navigate('/categories', { state: { success: t('categories.alerts.update_success') } });
     } catch (err: any) {
-      setError(err.message || 'Failed to update category');
+      setError(err.message || t('categories.alerts.update_error'));
     }
   };
 
@@ -52,7 +54,7 @@ export const EditCategory = () => {
 
   return (
     <div className="container mt-5" style={{ maxWidth: '600px' }}>
-      <h1 className="mb-4">Edit Category</h1>
+      <h1 className="mb-4">{t('categories.edit_title')}</h1>
       
       {error && <div className="alert alert-danger">{error}</div>}
 
@@ -60,7 +62,7 @@ export const EditCategory = () => {
         <div className="card-body p-4">
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
-              <label className="form-label fw-bold">Name</label>
+              <label className="form-label fw-bold">{t('categories.form.name')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -71,7 +73,7 @@ export const EditCategory = () => {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Description</label>
+              <label className="form-label fw-bold">{t('categories.form.description')}</label>
               <textarea 
                 className="form-control" 
                 rows={3}
@@ -86,14 +88,14 @@ export const EditCategory = () => {
                 className="btn btn-secondary"
                 onClick={() => navigate('/categories')}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button 
                 type="submit" 
                 className="btn btn-primary"
                 disabled={loading}
               >
-                {loading ? 'Updating...' : 'Update Category'}
+                {loading ? t('categories.form.updating') : t('categories.form.submit_update')}
               </button>
             </div>
           </form>

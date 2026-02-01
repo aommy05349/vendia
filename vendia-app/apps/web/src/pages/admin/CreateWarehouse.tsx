@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useAuxStore } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const CreateWarehouse = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { createWarehouse, loading } = useAuxStore();
   
@@ -18,15 +20,15 @@ export const CreateWarehouse = () => {
 
     try {
       await createWarehouse(name, address, phone, email);
-      navigate('/warehouses', { state: { success: 'Warehouse created successfully!' } });
+      navigate('/warehouses', { state: { success: t('warehouses.alerts.create_success') } });
     } catch (err: any) {
-      setError(err.message || 'Failed to create warehouse');
+      setError(err.message || t('warehouses.alerts.create_error'));
     }
   };
 
   return (
     <div className="container mt-5" style={{ maxWidth: '600px' }}>
-      <h1 className="mb-4">Create New Warehouse</h1>
+      <h1 className="mb-4">{t('warehouses.create_title')}</h1>
       
       {error && <div className="alert alert-danger">{error}</div>}
 
@@ -34,7 +36,7 @@ export const CreateWarehouse = () => {
         <div className="card-body p-4">
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
-              <label className="form-label fw-bold">Name</label>
+              <label className="form-label fw-bold">{t('warehouses.form.name')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -45,7 +47,7 @@ export const CreateWarehouse = () => {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Address</label>
+              <label className="form-label fw-bold">{t('warehouses.form.address')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -55,7 +57,7 @@ export const CreateWarehouse = () => {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Phone</label>
+              <label className="form-label fw-bold">{t('warehouses.form.phone')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -65,7 +67,7 @@ export const CreateWarehouse = () => {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Email</label>
+              <label className="form-label fw-bold">{t('warehouses.form.email')}</label>
               <input 
                 type="email" 
                 className="form-control" 
@@ -80,14 +82,14 @@ export const CreateWarehouse = () => {
                 className="btn btn-secondary"
                 onClick={() => navigate('/warehouses')}
               >
-                Cancel
+                {t('warehouses.form.cancel')}
               </button>
               <button 
                 type="submit" 
                 className="btn btn-success"
                 disabled={loading}
               >
-                {loading ? 'Creating...' : 'Create Warehouse'}
+                {loading ? t('warehouses.form.submitting') : t('warehouses.form.submit_create')}
               </button>
             </div>
           </form>

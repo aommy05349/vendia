@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useAuxStore } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const CreateBrand = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { createBrand, loading } = useAuxStore();
   
@@ -22,15 +24,15 @@ export const CreateBrand = () => {
 
     try {
       await createBrand(name, image || undefined);
-      navigate('/brands', { state: { success: 'Brand created successfully!' } });
+      navigate('/brands', { state: { success: t('brands.alerts.create_success') } });
     } catch (err: any) {
-      setError(err.message || 'Failed to create brand');
+      setError(err.message || t('brands.alerts.create_error'));
     }
   };
 
   return (
     <div className="container mt-5" style={{ maxWidth: '600px' }}>
-      <h1 className="mb-4">Create New Brand</h1>
+      <h1 className="mb-4">{t('brands.create_title')}</h1>
       
       {error && <div className="alert alert-danger">{error}</div>}
 
@@ -38,7 +40,7 @@ export const CreateBrand = () => {
         <div className="card-body p-4">
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
-              <label className="form-label fw-bold">Name</label>
+              <label className="form-label fw-bold">{t('brands.form.name')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -49,7 +51,7 @@ export const CreateBrand = () => {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Brand Image</label>
+              <label className="form-label fw-bold">{t('brands.form.image')}</label>
               <input 
                 type="file" 
                 className="form-control" 
@@ -64,14 +66,14 @@ export const CreateBrand = () => {
                 className="btn btn-secondary"
                 onClick={() => navigate('/brands')}
               >
-                Cancel
+                {t('brands.form.cancel')}
               </button>
               <button 
                 type="submit" 
                 className="btn btn-success"
                 disabled={loading}
               >
-                {loading ? 'Creating...' : 'Create Brand'}
+                {loading ? t('brands.form.submitting') : t('brands.form.submit_create')}
               </button>
             </div>
           </form>

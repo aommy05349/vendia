@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useAuxStore } from '@vendia/shared';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const EditUnit = () => {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { units, fetchUnits, updateUnit, loading } = useAuxStore();
@@ -29,7 +31,7 @@ export const EditUnit = () => {
         setName(unit.name);
         setShortName(unit.short_name);
       } else {
-        setError('Unit not found');
+        setError(t('units.alerts.not_found'));
       }
     }
   }, [initialLoading, id, units]);
@@ -42,9 +44,9 @@ export const EditUnit = () => {
 
     try {
       await updateUnit(parseInt(id), name, shortName);
-      navigate('/units', { state: { success: 'Unit updated successfully!' } });
+      navigate('/units', { state: { success: t('units.alerts.update_success') } });
     } catch (err: any) {
-      setError(err.message || 'Failed to update unit');
+      setError(err.message || t('units.alerts.update_error'));
     }
   };
 
@@ -52,7 +54,7 @@ export const EditUnit = () => {
 
   return (
     <div className="container mt-5" style={{ maxWidth: '600px' }}>
-      <h1 className="mb-4">Edit Unit</h1>
+      <h1 className="mb-4">{t('units.edit_title')}</h1>
       
       {error && <div className="alert alert-danger">{error}</div>}
 
@@ -60,7 +62,7 @@ export const EditUnit = () => {
         <div className="card-body p-4">
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
-              <label className="form-label fw-bold">Name</label>
+              <label className="form-label fw-bold">{t('units.form.name')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -71,7 +73,7 @@ export const EditUnit = () => {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Short Name</label>
+              <label className="form-label fw-bold">{t('units.form.short_name')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -87,14 +89,14 @@ export const EditUnit = () => {
                 className="btn btn-secondary"
                 onClick={() => navigate('/units')}
               >
-                Cancel
+                {t('units.form.cancel')}
               </button>
               <button 
                 type="submit" 
                 className="btn btn-primary"
                 disabled={loading}
               >
-                {loading ? 'Updating...' : 'Update Unit'}
+                {loading ? t('units.form.updating') : t('units.form.submit_update')}
               </button>
             </div>
           </form>

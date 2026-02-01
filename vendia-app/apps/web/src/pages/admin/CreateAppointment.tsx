@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '@vendia/shared';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Select from 'react-select';
+import { useTranslation } from 'react-i18next';
 
 interface User {
   id: number;
@@ -33,6 +34,7 @@ function debounce<T extends (...args: any[]) => any>(func: T, wait: number) {
 }
 
 export const CreateAppointment = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
@@ -209,10 +211,11 @@ export const CreateAppointment = () => {
       };
 
       await api.post('/appointments', payload);
+      alert(t('appointments.create.success'));
       navigate('/appointments');
     } catch (error) {
       console.error('Failed to create appointment', error);
-      alert('Failed to create appointment');
+      alert(t('appointments.create.failed'));
     } finally {
       setLoading(false);
     }
@@ -220,13 +223,13 @@ export const CreateAppointment = () => {
 
   return (
     <div className="container mt-4" style={{ maxWidth: '800px' }}>
-      <h2 className="mb-4">Create Service Appointment</h2>
+      <h2 className="mb-4">{t('appointments.create.title')}</h2>
       
       <form onSubmit={handleSubmit} className="card p-4 shadow-sm">
         {/* Customer & Order */}
         <div className="row mb-3">
           <div className="col-md-6">
-            <label className="form-label">Customer <span className="text-danger">*</span></label>
+            <label className="form-label">{t('appointments.create.customer')} <span className="text-danger">*</span></label>
             <Select
                 options={customers.map(c => ({
                     value: c.id,
@@ -242,21 +245,21 @@ export const CreateAppointment = () => {
                         debouncedFetchCustomers(inputValue);
                     }
                 }}
-                placeholder="Search by name or phone..."
+                placeholder={t('appointments.create.search_customer_placeholder')}
                 isClearable
                 className="react-select-container"
                 classNamePrefix="react-select"
             />
           </div>
           <div className="col-md-6">
-            <label className="form-label">Link Order (Optional)</label>
+            <label className="form-label">{t('appointments.create.link_order')}</label>
             <select
               className="form-select"
               value={formData.order_id}
               onChange={(e) => setFormData({ ...formData, order_id: e.target.value })}
               disabled={!formData.customer_id}
             >
-              <option value="">Select Order</option>
+              <option value="">{t('appointments.create.select_order')}</option>
               {orders.map(o => (
                 <option key={o.id} value={o.id}>
                   #{o.id} - {new Date(o.created_at).toLocaleDateString()} ({o.status}) - {o.total}
@@ -267,19 +270,19 @@ export const CreateAppointment = () => {
         </div>
 
         <div className="mb-3">
-          <label className="form-label">Title <span className="text-danger">*</span></label>
+          <label className="form-label">{t('appointments.create.title_label')} <span className="text-danger">*</span></label>
           <input
             type="text"
             className="form-control"
             required
-            placeholder="e.g. AC Installation, Repair Visit"
+            placeholder={t('appointments.create.title_placeholder')}
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
           />
         </div>
 
         <div className="mb-3">
-            <label className="form-label">Description</label>
+            <label className="form-label">{t('appointments.create.description')}</label>
             <textarea
                 className="form-control"
                 rows={2}
@@ -291,7 +294,7 @@ export const CreateAppointment = () => {
         {/* Date & Time */}
         <div className="row mb-3">
           <div className="col-md-6">
-            <label className="form-label">Start Time <span className="text-danger">*</span></label>
+            <label className="form-label">{t('appointments.create.start_time')} <span className="text-danger">*</span></label>
             <input
               type="datetime-local"
               className="form-control"
@@ -301,7 +304,7 @@ export const CreateAppointment = () => {
             />
           </div>
           <div className="col-md-6">
-            <label className="form-label">End Time (Optional)</label>
+            <label className="form-label">{t('appointments.create.end_time')}</label>
             <input
               type="datetime-local"
               className="form-control"
@@ -314,16 +317,16 @@ export const CreateAppointment = () => {
         <hr />
         
         {/* Location */}
-        <h5 className="mb-3">Location Details</h5>
+        <h5 className="mb-3">{t('appointments.create.location_details')}</h5>
         <div className="mb-3">
-          <label className="form-label">Select Location</label>
+          <label className="form-label">{t('appointments.create.select_location')}</label>
           <select
             className="form-select"
             value={formData.location_id}
             onChange={handleLocationChange}
             disabled={!formData.customer_id}
           >
-            <option value="manual">Enter Manually / New Location</option>
+            <option value="manual">{t('appointments.create.manual_location')}</option>
             {customerLocations.map(l => (
               <option key={l.id} value={l.id}>
                 {l.name ? `${l.name} - ` : ''}{l.address.substring(0, 50)}...
@@ -333,7 +336,7 @@ export const CreateAppointment = () => {
         </div>
 
         <div className="mb-3">
-          <label className="form-label">Address <span className="text-danger">*</span></label>
+          <label className="form-label">{t('appointments.create.address')} <span className="text-danger">*</span></label>
           <textarea
             className="form-control"
             required
@@ -346,7 +349,7 @@ export const CreateAppointment = () => {
 
         <div className="row mb-3">
             <div className="col-md-6">
-                <label className="form-label">Google Maps Link</label>
+                <label className="form-label">{t('appointments.create.google_maps_link')}</label>
                 <input
                     type="text"
                     className="form-control"
@@ -356,7 +359,7 @@ export const CreateAppointment = () => {
                 />
             </div>
             <div className="col-md-6">
-                 <label className="form-label">Location Name (e.g. Home)</label>
+                 <label className="form-label">{t('appointments.create.location_name')}</label>
                  <input
                      type="text"
                      className="form-control"
@@ -369,7 +372,7 @@ export const CreateAppointment = () => {
 
         <div className="row mb-3">
             <div className="col-md-6">
-                <label className="form-label">Contact Person</label>
+                <label className="form-label">{t('appointments.create.contact_person')}</label>
                 <input
                     type="text"
                     className="form-control"
@@ -379,7 +382,7 @@ export const CreateAppointment = () => {
                 />
             </div>
             <div className="col-md-6">
-                <label className="form-label">Contact Phone</label>
+                <label className="form-label">{t('appointments.create.contact_phone')}</label>
                 <input
                     type="text"
                     className="form-control"
@@ -393,9 +396,9 @@ export const CreateAppointment = () => {
         <hr />
 
         {/* Team Assignment */}
-        <h5 className="mb-3">Assign Team</h5>
+        <h5 className="mb-3">{t('appointments.create.assign_team')}</h5>
         <div className="mb-3">
-             <label className="form-label">Select Technicians</label>
+             <label className="form-label">{t('appointments.create.select_technicians')}</label>
              <Select
                  isMulti
                  options={technicians.map(t => ({
@@ -419,7 +422,7 @@ export const CreateAppointment = () => {
         {selectedTechnicians.length > 0 && (
             <div className="card bg-light border-0 mb-3">
                 <div className="card-body p-3">
-                    <small className="d-block mb-2 text-muted fw-bold">Select Team Lead:</small>
+                    <small className="d-block mb-2 text-muted fw-bold">{t('appointments.create.select_lead_header')}:</small>
                     <ul className="list-group">
                         {selectedTechnicians.map(st => {
                             const tech = technicians.find(t => t.id === st.id);
@@ -436,7 +439,7 @@ export const CreateAppointment = () => {
                                             id={`lead-${st.id}`}
                                         />
                                         <label className="form-check-label small" htmlFor={`lead-${st.id}`}>
-                                            Lead
+                                            {t('appointments.create.lead_role')}
                                         </label>
                                     </div>
                                 </li>
@@ -450,7 +453,7 @@ export const CreateAppointment = () => {
         <hr />
         
         <div className="mb-3">
-             <label className="form-label">Admin Notes (Internal)</label>
+             <label className="form-label">{t('appointments.create.admin_notes')}</label>
              <textarea
                  className="form-control"
                  rows={2}
@@ -461,10 +464,10 @@ export const CreateAppointment = () => {
 
         <div className="d-flex justify-content-end gap-2 mt-4">
           <button type="button" className="btn btn-secondary" onClick={() => navigate('/appointments')}>
-            Cancel
+            {t('appointments.create.cancel')}
           </button>
           <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Creating...' : 'Create Appointment'}
+            {loading ? t('appointments.create.submitting') : t('appointments.create.submit')}
           </button>
         </div>
       </form>

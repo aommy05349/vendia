@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useProductStore, useCategoryStore } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const ProductList = () => {
+  const { t } = useTranslation();
   const { products, pagination, fetchProducts, deleteProduct, loading, error } = useProductStore();
   const { categories, fetchCategories } = useCategoryStore();
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
@@ -31,10 +33,10 @@ export const ProductList = () => {
   }, [error]);
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this product?')) return;
+    if (!window.confirm(t('products.alerts.delete_confirm'))) return;
     try {
       await deleteProduct(id);
-      setAlertMessage({ type: 'success', text: 'Product deleted successfully' });
+      setAlertMessage({ type: 'success', text: t('products.alerts.delete_success') });
       setTimeout(() => setAlertMessage(null), 3000);
     } catch (err) {
       // Error is handled by store
@@ -56,12 +58,12 @@ export const ProductList = () => {
   return (
     <div className="container-fluid p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="h3">Product Management</h1>
+        <h1 className="h3">{t('products.title')}</h1>
         <button
           onClick={() => navigate('/products/create')}
           className="btn btn-success"
         >
-          Create New Product
+          {t('products.list.create_button')}
         </button>
       </div>
 
@@ -77,18 +79,18 @@ export const ProductList = () => {
         <div className="card-body">
             <div className="row g-3">
                 <div className="col-md-4">
-                    <label className="form-label">Category</label>
+                    <label className="form-label">{t('products.list.filter.category')}</label>
                     <select 
                         className="form-select" 
                         value={selectedCategory} 
                         onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1); }}
                     >
-                        <option value="">All Categories</option>
+                        <option value="">{t('products.list.filter.all_categories')}</option>
                         {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </div>
                 <div className="col-md-4">
-                    <label className="form-label">Sort By</label>
+                    <label className="form-label">{t('products.list.filter.sort_by')}</label>
                     <select 
                         className="form-select" 
                         value={`${sortBy}-${sortOrder}`} 
@@ -99,14 +101,14 @@ export const ProductList = () => {
                             setCurrentPage(1);
                         }}
                     >
-                        <option value="created_at-desc">Newest First</option>
-                        <option value="created_at-asc">Oldest First</option>
-                        <option value="name-asc">Name (A-Z)</option>
-                        <option value="name-desc">Name (Z-A)</option>
-                        <option value="price-asc">Price (Low to High)</option>
-                        <option value="price-desc">Price (High to Low)</option>
-                        <option value="stock-asc">Stock (Low to High)</option>
-                        <option value="stock-desc">Stock (High to Low)</option>
+                        <option value="created_at-desc">{t('products.list.filter.sort_options.newest')}</option>
+                        <option value="created_at-asc">{t('products.list.filter.sort_options.oldest')}</option>
+                        <option value="name-asc">{t('products.list.filter.sort_options.name_az')}</option>
+                        <option value="name-desc">{t('products.list.filter.sort_options.name_za')}</option>
+                        <option value="price-asc">{t('products.list.filter.sort_options.price_low_high')}</option>
+                        <option value="price-desc">{t('products.list.filter.sort_options.price_high_low')}</option>
+                        <option value="stock-asc">{t('products.list.filter.sort_options.stock_low_high')}</option>
+                        <option value="stock-desc">{t('products.list.filter.sort_options.stock_high_low')}</option>
                     </select>
                 </div>
             </div>
@@ -125,14 +127,14 @@ export const ProductList = () => {
                 <table className="table table-hover mb-0">
                     <thead className="table-light">
                     <tr>
-                        <th className="p-3 border-bottom-2">Name</th>
-                        <th className="p-3 border-bottom-2">Price</th>
-                        <th className="p-3 border-bottom-2">Stock</th>
-                        <th className="p-3 border-bottom-2">Category</th>
-                        <th className="p-3 border-bottom-2">SKU</th>
-                        <th className="p-3 border-bottom-2">Value</th>
-                        <th className="p-3 border-bottom-2">Type</th>
-                        <th className="p-3 border-bottom-2">Actions</th>
+                        <th className="p-3 border-bottom-2">{t('products.list.table.name')}</th>
+                        <th className="p-3 border-bottom-2">{t('products.list.table.price')}</th>
+                        <th className="p-3 border-bottom-2">{t('products.list.table.stock')}</th>
+                        <th className="p-3 border-bottom-2">{t('products.list.table.category')}</th>
+                        <th className="p-3 border-bottom-2">{t('products.list.table.sku')}</th>
+                        <th className="p-3 border-bottom-2">{t('products.list.table.value')}</th>
+                        <th className="p-3 border-bottom-2">{t('products.list.table.type')}</th>
+                        <th className="p-3 border-bottom-2">{t('products.list.table.actions')}</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -156,7 +158,7 @@ export const ProductList = () => {
                                         {product.stock} {product.unit?.name || ''}
                                     </span>
                                     {product.stock <= (product.quantity_alert || 5) && product.stock > 0 && (
-                                        <small className="text-danger mt-1" style={{ fontSize: '0.7em' }}>Low Stock</small>
+                                        <small className="text-danger mt-1" style={{ fontSize: '0.7em' }}>{t('products.list.table.low_stock')}</small>
                                     )}
                                 </div>
                             )}
@@ -172,13 +174,13 @@ export const ProductList = () => {
                         </td>
                         <td className="p-3">
                             {product.product_type === 'bundle' ? (
-                                <span className="badge bg-info text-dark">Bundle</span>
+                                <span className="badge bg-info text-dark">{t('products.form.fields.types.bundle')}</span>
                             ) : product.product_type === 'variable' ? (
-                                <span className="badge bg-warning text-dark">Variable</span>
+                                <span className="badge bg-warning text-dark">{t('products.form.fields.types.variable')}</span>
                             ) : product.product_type === 'service' ? (
-                                <span className="badge bg-secondary text-white">Service</span>
+                                <span className="badge bg-secondary text-white">{t('products.form.fields.types.service')}</span>
                             ) : (
-                                <span className="badge bg-light text-dark border">Single</span>
+                                <span className="badge bg-light text-dark border">{t('products.form.fields.types.single')}</span>
                             )}
                         </td>
                         <td className="p-3">
@@ -186,19 +188,19 @@ export const ProductList = () => {
                             onClick={() => navigate(`/products/${product.id}/edit`)}
                             className="btn btn-sm btn-outline-primary me-2"
                             >
-                            Edit
+                            {t('actions.edit')}
                             </button>
                             <button
                             onClick={() => handleDelete(product.id)}
                             className="btn btn-sm btn-outline-danger"
                             >
-                            Delete
+                            {t('actions.delete')}
                             </button>
                         </td>
                         </tr>
                     )) : (
                         <tr>
-                            <td colSpan={6} className="text-center p-5 text-muted">No products found</td>
+                            <td colSpan={6} className="text-center p-5 text-muted">{t('common.no_data')}</td>
                         </tr>
                     )}
                     </tbody>

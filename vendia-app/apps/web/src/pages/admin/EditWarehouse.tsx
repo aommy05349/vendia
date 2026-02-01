@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useAuxStore } from '@vendia/shared';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const EditWarehouse = () => {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { warehouses, fetchWarehouses, updateWarehouse, loading } = useAuxStore();
@@ -33,10 +35,10 @@ export const EditWarehouse = () => {
         setPhone(warehouse.phone || '');
         setEmail(warehouse.email || '');
       } else {
-        setError('Warehouse not found');
+        setError(t('warehouses.alerts.not_found'));
       }
     }
-  }, [initialLoading, id, warehouses]);
+  }, [initialLoading, id, warehouses, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,9 +48,9 @@ export const EditWarehouse = () => {
 
     try {
       await updateWarehouse(parseInt(id), name, address, phone, email);
-      navigate('/warehouses', { state: { success: 'Warehouse updated successfully!' } });
+      navigate('/warehouses', { state: { success: t('warehouses.alerts.update_success') } });
     } catch (err: any) {
-      setError(err.message || 'Failed to update warehouse');
+      setError(err.message || t('warehouses.alerts.update_error'));
     }
   };
 
@@ -56,7 +58,7 @@ export const EditWarehouse = () => {
 
   return (
     <div className="container mt-5" style={{ maxWidth: '600px' }}>
-      <h1 className="mb-4">Edit Warehouse</h1>
+      <h1 className="mb-4">{t('warehouses.edit_title')}</h1>
       
       {error && <div className="alert alert-danger">{error}</div>}
 
@@ -64,7 +66,7 @@ export const EditWarehouse = () => {
         <div className="card-body p-4">
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
-              <label className="form-label fw-bold">Name</label>
+              <label className="form-label fw-bold">{t('warehouses.form.name')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -75,7 +77,7 @@ export const EditWarehouse = () => {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Address</label>
+              <label className="form-label fw-bold">{t('warehouses.form.address')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -85,7 +87,7 @@ export const EditWarehouse = () => {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Phone</label>
+              <label className="form-label fw-bold">{t('warehouses.form.phone')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -95,7 +97,7 @@ export const EditWarehouse = () => {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Email</label>
+              <label className="form-label fw-bold">{t('warehouses.form.email')}</label>
               <input 
                 type="email" 
                 className="form-control" 
@@ -110,14 +112,14 @@ export const EditWarehouse = () => {
                 className="btn btn-secondary"
                 onClick={() => navigate('/warehouses')}
               >
-                Cancel
+                {t('warehouses.form.cancel')}
               </button>
               <button 
                 type="submit" 
                 className="btn btn-primary"
                 disabled={loading}
               >
-                {loading ? 'Updating...' : 'Update Warehouse'}
+                {loading ? t('warehouses.form.updating') : t('warehouses.form.submit_update')}
               </button>
             </div>
           </form>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { api, useAuthStore } from '@vendia/shared';
 
 interface Job {
@@ -16,6 +17,7 @@ interface Job {
 }
 
 export const TechnicianJobs = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -80,9 +82,9 @@ export const TechnicianJobs = () => {
   return (
     <div className="container-fluid p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>My Jobs</h2>
+        <h2>{t('technician.jobs.title')}</h2>
         <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>
-          <i className="bi bi-house me-2"></i>Dashboard
+          <i className="bi bi-house me-2"></i>{t('technician.jobs.dashboard_btn')}
         </button>
       </div>
 
@@ -93,7 +95,7 @@ export const TechnicianJobs = () => {
             className={`nav-link ${filter === 'today' ? 'active' : ''}`}
             onClick={() => setFilter('today')}
           >
-            Today
+            {t('technician.jobs.filter.today')}
           </button>
         </li>
         <li className="nav-item">
@@ -101,7 +103,7 @@ export const TechnicianJobs = () => {
             className={`nav-link ${filter === 'upcoming' ? 'active' : ''}`}
             onClick={() => setFilter('upcoming')}
           >
-            Upcoming
+            {t('technician.jobs.filter.upcoming')}
           </button>
         </li>
         <li className="nav-item">
@@ -109,15 +111,15 @@ export const TechnicianJobs = () => {
             className={`nav-link ${filter === 'history' ? 'active' : ''}`}
             onClick={() => setFilter('history')}
           >
-            History
+            {t('technician.jobs.filter.history')}
           </button>
         </li>
       </ul>
 
       {loading ? (
-        <div className="text-center p-5">Loading jobs...</div>
+        <div className="text-center p-5">{t('technician.jobs.loading')}</div>
       ) : jobs.length === 0 ? (
-        <div className="alert alert-info">No jobs found for this period.</div>
+        <div className="alert alert-info">{t('technician.jobs.no_jobs')}</div>
       ) : (
         <div className="row g-3">
           {jobs.map(job => (
@@ -131,7 +133,7 @@ export const TechnicianJobs = () => {
                   <div className="d-flex justify-content-between align-items-start mb-2">
                     <h5 className="card-title mb-0 text-truncate">{job.title}</h5>
                     <span className={`badge ${getStatusBadge(job.status)}`}>
-                      {job.status.replace('_', ' ').toUpperCase()}
+                      {t(`appointments.status.${job.status}`, job.status)}
                     </span>
                   </div>
                   
@@ -151,7 +153,7 @@ export const TechnicianJobs = () => {
                   </p>
                 </div>
                 <div className="card-footer bg-white border-top-0 text-end">
-                  <small className="text-primary">View Details <i className="bi bi-chevron-right"></i></small>
+                  <small className="text-primary">{t('technician.jobs.view_details')} <i className="bi bi-chevron-right"></i></small>
                 </div>
               </div>
             </div>

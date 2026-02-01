@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { api } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const CreateCustomer = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     username: '', // Generated or same as email
@@ -39,14 +41,14 @@ export const CreateCustomer = () => {
 
       await api.post('/users', dataToSubmit);
 
-      navigate('/customers', { state: { success: 'Customer created successfully' } });
+      navigate('/customers', { state: { success: t('customers.create_success') } });
     } catch (err: any) {
       console.error(err);
       if (err.response?.data?.errors) {
         const errorMessages = Object.values(err.response.data.errors).flat().join('\n');
         setError(errorMessages);
       } else {
-        setError(err.response?.data?.message || 'Failed to create customer');
+        setError(err.response?.data?.message || t('customers.create_failed'));
       }
     } finally {
       setLoading(false);
@@ -55,13 +57,13 @@ export const CreateCustomer = () => {
 
   return (
     <div className="container mt-5" style={{ maxWidth: '90%' }}>
-      <h1 className="mb-4">Create New Customer</h1>
+      <h1 className="mb-4">{t('customers.create_title')}</h1>
       {error && <div className="alert alert-danger" style={{ whiteSpace: 'pre-wrap' }}>{error}</div>}
       
       <form onSubmit={handleSubmit} className="card p-4 shadow-sm">
         <div className="row g-3 mb-3">
           <div className="col-md-6">
-            <label className="form-label fw-bold">First Name</label>
+            <label className="form-label fw-bold">{t('customers.first_name')}</label>
             <input 
               type="text" 
               name="first_name" 
@@ -72,7 +74,7 @@ export const CreateCustomer = () => {
             />
           </div>
           <div className="col-md-6">
-            <label className="form-label fw-bold">Last Name</label>
+            <label className="form-label fw-bold">{t('customers.last_name')}</label>
             <input 
               type="text" 
               name="last_name" 
@@ -86,7 +88,7 @@ export const CreateCustomer = () => {
 
         <div className="row g-3 mb-3">
           <div className="col-md-6">
-            <label className="form-label fw-bold">Email <span className="text-danger">*</span></label>
+            <label className="form-label fw-bold">{t('customers.email')} <span className="text-danger">*</span></label>
             <input 
               type="email" 
               name="email" 
@@ -97,7 +99,7 @@ export const CreateCustomer = () => {
             />
           </div>
           <div className="col-md-6">
-            <label className="form-label fw-bold">Phone <span className="text-danger">*</span></label>
+            <label className="form-label fw-bold">{t('customers.phone')} <span className="text-danger">*</span></label>
             <input 
               type="text" 
               name="phone" 
@@ -110,7 +112,7 @@ export const CreateCustomer = () => {
         </div>
 
         <div className="mb-3">
-          <label className="form-label fw-bold">Company Name</label>
+          <label className="form-label fw-bold">{t('customers.company')}</label>
           <input 
             type="text" 
             name="company_name" 
@@ -121,7 +123,7 @@ export const CreateCustomer = () => {
         </div>
 
         <div className="mb-3">
-          <label className="form-label fw-bold">Tax ID</label>
+          <label className="form-label fw-bold">{t('customers.tax_id')}</label>
           <input 
             type="text" 
             name="tax_id" 
@@ -132,7 +134,7 @@ export const CreateCustomer = () => {
         </div>
 
         <div className="mb-3">
-          <label className="form-label fw-bold">Address</label>
+          <label className="form-label fw-bold">{t('customers.address')}</label>
           <textarea 
             name="address" 
             className="form-control"
@@ -148,14 +150,14 @@ export const CreateCustomer = () => {
             className="btn btn-secondary"
             onClick={() => navigate('/customers')}
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button 
             type="submit" 
             className="btn btn-primary"
             disabled={loading}
           >
-            {loading ? 'Creating...' : 'Create Customer'}
+            {loading ? t('common.creating') : t('customers.create_btn')}
           </button>
         </div>
       </form>

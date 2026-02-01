@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useCategoryStore } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const CategoryList = () => {
+  const { t } = useTranslation();
   const { categories, fetchCategories, deleteCategory, loading, error } = useCategoryStore();
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
   const navigate = useNavigate();
@@ -18,10 +20,10 @@ export const CategoryList = () => {
   }, [error]);
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this category?')) return;
+    if (!window.confirm(t('categories.alerts.delete_confirm'))) return;
     try {
       await deleteCategory(id);
-      setAlertMessage({ type: 'success', text: 'Category deleted successfully' });
+      setAlertMessage({ type: 'success', text: t('categories.alerts.delete_success') });
       setTimeout(() => setAlertMessage(null), 3000);
     } catch (err) {
       // Error is handled by store
@@ -33,12 +35,12 @@ export const CategoryList = () => {
   return (
     <div className="container-fluid p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="h3">Category Management</h1>
+        <h1 className="h3">{t('categories.title')}</h1>
         <button
           onClick={() => navigate('/categories/create')}
           className="btn btn-success"
         >
-          Create New Category
+          {t('categories.create')}
         </button>
       </div>
 
@@ -54,10 +56,10 @@ export const CategoryList = () => {
           <table className="table table-hover mb-0">
             <thead className="table-light">
               <tr>
-                <th className="p-3 border-bottom-2">ID</th>
-                <th className="p-3 border-bottom-2">Name</th>
-                <th className="p-3 border-bottom-2">Description</th>
-                <th className="p-3 border-bottom-2">Actions</th>
+                <th className="p-3 border-bottom-2">{t('categories.table.id')}</th>
+                <th className="p-3 border-bottom-2">{t('categories.table.name')}</th>
+                <th className="p-3 border-bottom-2">{t('categories.table.description')}</th>
+                <th className="p-3 border-bottom-2">{t('categories.table.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -71,20 +73,20 @@ export const CategoryList = () => {
                       onClick={() => navigate(`/categories/${category.id}/edit`)}
                       className="btn btn-sm btn-outline-primary me-2"
                     >
-                      Edit
+                      {t('actions.edit')}
                     </button>
                     <button
                       onClick={() => handleDelete(category.id)}
                       className="btn btn-sm btn-outline-danger"
                     >
-                      Delete
+                      {t('actions.delete')}
                     </button>
                   </td>
                 </tr>
               ))}
               {categories.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={4} className="text-center p-4 text-muted">No categories found</td>
+                  <td colSpan={4} className="text-center p-4 text-muted">{t('common.no_data')}</td>
                 </tr>
               )}
             </tbody>

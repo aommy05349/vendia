@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useShopStore } from '@vendia/shared';
+import { useTranslation } from 'react-i18next';
 
 export default function ShopSettings() {
+  const { t } = useTranslation();
   const { shop, updateShop, fetchShop, loading } = useShopStore();
   const [name, setName] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -80,7 +82,7 @@ export default function ShopSettings() {
 
     try {
       await updateShop(formData);
-      setSuccess('Shop settings updated successfully!');
+      setSuccess(t('settings.alerts.success'));
       // Reset file input
       setLogo(null);
       setPreview(null);
@@ -93,7 +95,7 @@ export default function ShopSettings() {
         signatureInputRef.current.value = '';
       }
     } catch (err) {
-      setError('Failed to update shop settings. Please try again.');
+      setError(t('settings.alerts.error'));
       console.error(err);
     }
   };
@@ -102,7 +104,7 @@ export default function ShopSettings() {
 
   return (
     <div className="container mt-5" style={{ maxWidth: '800px' }}>
-      <h1 className="mb-4">Shop Management</h1>
+      <h1 className="mb-4">{t('settings.title')}</h1>
       
       {success && <div className="alert alert-success">{success}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
@@ -111,14 +113,14 @@ export default function ShopSettings() {
         <div className="card-body p-4">
           <form onSubmit={handleSubmit}>
             <div className="mb-4 text-center">
-              <label className="form-label d-block fw-bold">Shop Logo</label>
+              <label className="form-label d-block fw-bold">{t('settings.logo')}</label>
               <div className="mb-3">
                 {preview ? (
                   <img src={preview} alt="Preview" className="img-thumbnail" style={{ maxHeight: '150px' }} />
                 ) : shop?.logo_path ? (
                   <img src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.logo_path}`} alt="Current Logo" className="img-thumbnail" style={{ maxHeight: '150px' }} />
                 ) : (
-                  <div className="text-muted border p-3 d-inline-block rounded bg-light">No Logo</div>
+                  <div className="text-muted border p-3 d-inline-block rounded bg-light">{t('settings.no_logo')}</div>
                 )}
               </div>
               <input 
@@ -128,18 +130,18 @@ export default function ShopSettings() {
                 onChange={handleLogoChange}
                 ref={fileInputRef}
               />
-              <div className="form-text">Allowed formats: JPG, PNG, GIF. Max size: 2MB.</div>
+              <div className="form-text">{t('settings.logo_help')}</div>
             </div>
 
             <div className="mb-4 text-center">
-              <label className="form-label d-block fw-bold">Authorized Signature (ลายเซ็นผู้มีอำนาจ)</label>
+              <label className="form-label d-block fw-bold">{t('settings.signature')}</label>
               <div className="mb-3">
                 {signaturePreview ? (
                   <img src={signaturePreview} alt="Signature Preview" className="img-thumbnail" style={{ maxHeight: '100px' }} />
                 ) : shop?.signature_path ? (
                   <img src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.signature_path}`} alt="Current Signature" className="img-thumbnail" style={{ maxHeight: '100px' }} />
                 ) : (
-                  <div className="text-muted border p-3 d-inline-block rounded bg-light">No Signature</div>
+                  <div className="text-muted border p-3 d-inline-block rounded bg-light">{t('settings.no_signature')}</div>
                 )}
               </div>
               <input 
@@ -149,11 +151,11 @@ export default function ShopSettings() {
                 onChange={handleSignatureChange}
                 ref={signatureInputRef}
               />
-              <div className="form-text">จะแสดงในใบเสนอราคา/ใบวางบิล/ใบเสร็จรับเงิน</div>
+              <div className="form-text">{t('settings.signature_help')}</div>
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Shop Name (Display Name)</label>
+              <label className="form-label fw-bold">{t('settings.name')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -164,30 +166,30 @@ export default function ShopSettings() {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Company Name (Legal Name for Invoices)</label>
+              <label className="form-label fw-bold">{t('settings.company_name')}</label>
               <input 
                 type="text" 
                 className="form-control" 
                 value={companyName} 
                 onChange={(e) => setCompanyName(e.target.value)} 
-                placeholder="e.g. ห้างหุ้นส่วนจำกัด..."
+                placeholder={t('settings.company_placeholder')}
               />
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Bank Details (รายละเอียดบัญชีธนาคาร)</label>
+              <label className="form-label fw-bold">{t('settings.bank_details')}</label>
               <textarea 
                 className="form-control" 
                 rows={4}
                 value={bankDetails} 
                 onChange={(e) => setBankDetails(e.target.value)} 
-                placeholder="ใส่ข้อมูลบัญชีธนาคารที่จะแสดงในใบเสนอราคา/ใบแจ้งหนี้"
+                placeholder={t('settings.bank_placeholder')}
               />
-              <div className="form-text">ข้อความนี้จะแสดงในตารางรายการสินค้า</div>
+              <div className="form-text">{t('settings.bank_help')}</div>
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Address</label>
+              <label className="form-label fw-bold">{t('settings.address')}</label>
               <textarea 
                 className="form-control" 
                 rows={3}
@@ -197,7 +199,7 @@ export default function ShopSettings() {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Phone</label>
+              <label className="form-label fw-bold">{t('settings.phone')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -207,7 +209,7 @@ export default function ShopSettings() {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Tax ID (เลขประจำตัวผู้เสียภาษี)</label>
+              <label className="form-label fw-bold">{t('settings.tax_id')}</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -217,7 +219,7 @@ export default function ShopSettings() {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Email</label>
+              <label className="form-label fw-bold">{t('settings.email')}</label>
               <input 
                 type="email" 
                 className="form-control" 
@@ -227,7 +229,7 @@ export default function ShopSettings() {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Website</label>
+              <label className="form-label fw-bold">{t('settings.website')}</label>
               <input 
                 type="url" 
                 className="form-control" 
@@ -237,32 +239,32 @@ export default function ShopSettings() {
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Footer Text (ข้อความท้ายใบเสร็จ)</label>
+              <label className="form-label fw-bold">{t('settings.footer_text')}</label>
               <textarea 
                 className="form-control" 
                 rows={2}
                 value={footerText} 
                 onChange={(e) => setFooterText(e.target.value)} 
-                placeholder="e.g. ขอบคุณที่ใช้บริการ"
+                placeholder={t('settings.footer_placeholder')}
               />
-              <div className="form-text">ข้อความนี้จะแสดงด้านล่างของราคารวม (Net Total)</div>
+              <div className="form-text">{t('settings.footer_help')}</div>
             </div>
 
             <div className="mb-3">
-              <label className="form-label fw-bold">Remarks (หมายเหตุ)</label>
+              <label className="form-label fw-bold">{t('settings.remarks')}</label>
               <textarea 
                 className="form-control" 
                 rows={3}
                 value={remarks} 
                 onChange={(e) => setRemarks(e.target.value)} 
-                placeholder="e.g. สินค้าซื้อแล้วไม่รับเปลี่ยนคืน..."
+                placeholder={t('settings.remarks_placeholder')}
               />
-              <div className="form-text">ข้อความนี้จะแสดงในกล่องหมายเหตุ (Remarks box)</div>
+              <div className="form-text">{t('settings.remarks_help')}</div>
             </div>
 
             <div className="d-flex justify-content-end">
               <button type="submit" className="btn btn-primary" disabled={loading}>
-                {loading ? 'Saving...' : 'Save Changes'}
+                {loading ? t('settings.saving') : t('settings.save')}
               </button>
             </div>
           </form>

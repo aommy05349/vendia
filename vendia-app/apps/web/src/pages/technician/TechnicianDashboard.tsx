@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api, useAuthStore } from '@vendia/shared';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AttendanceHistory } from '../admin/AttendanceHistory';
 
 const formatDuration = (startDate: string) => {
@@ -31,6 +32,7 @@ const LiveDuration = ({ startTime }: { startTime: string }) => {
 };
 
 export const TechnicianDashboard = () => {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   
   // Technician State
@@ -90,7 +92,7 @@ export const TechnicianDashboard = () => {
       await fetchStatus();
     } catch (error) {
       console.error('Check-in failed', error);
-      alert('Check-in failed');
+      alert(t('attendance.dashboard.check_in_failed'));
     } finally {
       setLoading(false);
     }
@@ -103,7 +105,7 @@ export const TechnicianDashboard = () => {
       await fetchStatus();
     } catch (error) {
       console.error('Check-out failed', error);
-      alert('Check-out failed');
+      alert(t('attendance.dashboard.check_out_failed'));
     } finally {
       setLoading(false);
     }
@@ -198,7 +200,7 @@ export const TechnicianDashboard = () => {
       return (
           <div className="container-fluid p-4">
               <div className="d-flex justify-content-between align-items-center mb-4">
-                  <h2 className="h3">Technician Attendance Overview</h2>
+                  <h2 className="h3">{t('attendance.dashboard.title')}</h2>
                   <div className="text-muted">
                       {currentTime.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                       {' '}
@@ -215,7 +217,7 @@ export const TechnicianDashboard = () => {
                     <div className="row g-4">
                         {technicians.length === 0 ? (
                             <div className="col-12 text-center text-muted p-5">
-                                No technicians found.
+                                {t('attendance.dashboard.no_technicians')}
                             </div>
                         ) : (
                             technicians.map((tech) => (
@@ -243,30 +245,30 @@ export const TechnicianDashboard = () => {
                                         <div className="card-body text-center d-flex flex-column justify-content-center p-2">
                                             {tech.status === 'working' ? (
                                                 <div>
-                                                    <div className="text-muted mb-1 small text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Checked in</div>
+                                                    <div className="text-muted mb-1 small text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>{t('attendance.dashboard.checked_in')}</div>
                                                     <div className="fw-bold mb-2 text-dark" style={{ fontSize: '1.1rem' }}>
                                                         {new Date(tech.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </div>
-                                                    <div className="text-muted mb-1 small text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Duration</div>
+                                                    <div className="text-muted mb-1 small text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>{t('attendance.dashboard.duration')}</div>
                                                     <div className="fw-bold text-success font-monospace" style={{ fontSize: '1.4rem' }}>
                                                         <LiveDuration startTime={tech.check_in} />
                                                     </div>
                                                 </div>
                                             ) : tech.status === 'absent' ? (
                                                 <div className="text-danger py-2">
-                                                    <div className="fw-bold mb-1" style={{ fontSize: '1rem' }}>ABSENT</div>
-                                                    <div className="text-muted fst-italic text-truncate" style={{ fontSize: '0.8rem', maxWidth: '100%' }}>{tech.reason || 'No reason'}</div>
+                                                    <div className="fw-bold mb-1" style={{ fontSize: '1rem' }}>{t('attendance.dashboard.absent')}</div>
+                                                    <div className="text-muted fst-italic text-truncate" style={{ fontSize: '0.8rem', maxWidth: '100%' }}>{tech.reason || t('attendance.dashboard.no_reason')}</div>
                                                 </div>
                                             ) : (
                                                 <div className="text-muted py-2">
                                                     {tech.last_seen ? (
                                                         <>
-                                                            <div className="small text-uppercase fw-bold mb-1" style={{ fontSize: '0.7rem' }}>Last seen</div>
+                                                            <div className="small text-uppercase fw-bold mb-1" style={{ fontSize: '0.7rem' }}>{t('attendance.dashboard.last_seen')}</div>
                                                             <div className="fw-bold" style={{ fontSize: '1rem' }}>{new Date(tech.last_seen).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
                                                         </>
                                                     ) : (
                                                         <div className="d-flex flex-column gap-2">
-                                                            <span className="fst-italic small">No activity</span>
+                                                            <span className="fst-italic small">{t('attendance.dashboard.no_activity')}</span>
                                                             <button 
                                                                 className="btn btn-sm btn-outline-danger mx-auto"
                                                                 style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
@@ -275,7 +277,7 @@ export const TechnicianDashboard = () => {
                                                                     handleAbsentClick(e, tech);
                                                                 }}
                                                             >
-                                                                Mark Absent
+                                                                {t('attendance.dashboard.mark_absent')}
                                                             </button>
                                                         </div>
                                                     )}
@@ -284,7 +286,7 @@ export const TechnicianDashboard = () => {
                                         </div>
                                         <div className={`card-footer py-1 px-2 small ${tech.status === 'working' ? 'bg-success text-white' : 'bg-light'}`} style={{ fontSize: '0.75rem' }}>
                                             <div className="d-flex justify-content-between align-items-center">
-                                                <span>W-Off:</span>
+                                                <span>{t('attendance.dashboard.weekly_off')}:</span>
                                                 <span className={`fw-bold ${tech.status !== 'working' && (tech.weekly_off_count >= 1 ? 'text-danger' : 'text-success')}`}>
                                                     {tech.weekly_off_count || 0}/1
                                                 </span>
@@ -307,26 +309,26 @@ export const TechnicianDashboard = () => {
                             <div className="modal-dialog modal-dialog-centered">
                                 <div className="modal-content">
                                     <div className="modal-header">
-                                        <h5 className="modal-title">Mark Absent: {absentTech?.user.first_name} {absentTech?.user.last_name}</h5>
+                                        <h5 className="modal-title">{t('attendance.dashboard.mark_absent_modal.title', { name: `${absentTech?.user.first_name} ${absentTech?.user.last_name}` })}</h5>
                                         <button type="button" className="btn-close" onClick={() => setShowAbsentModal(false)}></button>
                                     </div>
                                     <form onSubmit={submitAbsent}>
                                         <div className="modal-body">
                                             <div className="mb-3">
-                                                <label htmlFor="absentType" className="form-label">Absence Type</label>
+                                                <label htmlFor="absentType" className="form-label">{t('attendance.dashboard.mark_absent_modal.type')}</label>
                                                 <select 
                                                     className="form-select mb-3" 
                                                     id="absentType" 
                                                     value={absentType} 
                                                     onChange={(e) => setAbsentType(e.target.value)}
                                                 >
-                                                    <option value="weekly_off">วันหยุดประจำสัปดาห์ (Weekly Day Off)</option>
-                                                    <option value="absent">ไม่มาทำงาน (Absent)</option>
+                                                    <option value="weekly_off">{t('attendance.dashboard.mark_absent_modal.types.weekly_off')}</option>
+                                                    <option value="absent">{t('attendance.dashboard.mark_absent_modal.types.absent')}</option>
                                                 </select>
                                                 
                                                 {absentType === 'absent' && (
                                                     <div>
-                                                        <label htmlFor="reason" className="form-label">Reason Detail</label>
+                                                        <label htmlFor="reason" className="form-label">{t('attendance.dashboard.mark_absent_modal.reason')}</label>
                                                         <textarea 
                                                             className="form-control" 
                                                             id="reason" 
@@ -334,17 +336,17 @@ export const TechnicianDashboard = () => {
                                                             value={absentReason}
                                                             onChange={(e) => setAbsentReason(e.target.value)}
                                                             required
-                                                            placeholder="e.g., Sick leave, Personal leave, etc."
+                                                            placeholder={t('attendance.dashboard.mark_absent_modal.reason_placeholder')}
                                                         ></textarea>
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
                                         <div className="modal-footer">
-                                            <button type="button" className="btn btn-secondary" onClick={() => setShowAbsentModal(false)}>Cancel</button>
+                                            <button type="button" className="btn btn-secondary" onClick={() => setShowAbsentModal(false)}>{t('attendance.dashboard.mark_absent_modal.cancel')}</button>
                                             <button type="submit" className="btn btn-danger" disabled={absentLoading}>
                                                 {absentLoading ? <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> : null}
-                                                Confirm Absent
+                                                {t('attendance.dashboard.mark_absent_modal.confirm')}
                                             </button>
                                         </div>
                                     </form>
@@ -360,7 +362,7 @@ export const TechnicianDashboard = () => {
                                 <div className="modal-content">
                                     <div className="modal-header">
                                         <h5 className="modal-title">
-                                            Attendance History: {selectedTech.user.first_name} {selectedTech.user.last_name}
+                                            {t('attendance.dashboard.history_modal.title', { name: `${selectedTech.user.first_name} ${selectedTech.user.last_name}` })}
                                         </h5>
                                         <button type="button" className="btn-close" onClick={closeHistoryModal}></button>
                                     </div>
@@ -374,17 +376,17 @@ export const TechnicianDashboard = () => {
                                                 <table className="table table-hover align-middle">
                                                     <thead className="table-light">
                                                         <tr>
-                                                            <th>Date</th>
-                                                            <th>Check In</th>
-                                                            <th>Check Out</th>
-                                                            <th>Duration</th>
-                                                            <th>Status</th>
+                                                            <th>{t('attendance.history.table.date')}</th>
+                                                            <th>{t('attendance.history.table.check_in')}</th>
+                                                            <th>{t('attendance.history.table.check_out')}</th>
+                                                            <th>{t('attendance.history.table.duration')}</th>
+                                                            <th>{t('attendance.history.table.status')}</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         {history.length === 0 ? (
                                                             <tr>
-                                                                <td colSpan={5} className="text-center py-4 text-muted">No history found</td>
+                                                                <td colSpan={5} className="text-center py-4 text-muted">{t('attendance.history.table.no_records')}</td>
                                                             </tr>
                                                         ) : (
                                                             history.map((record: any) => (
@@ -415,7 +417,7 @@ export const TechnicianDashboard = () => {
                                     </div>
                                     <div className="modal-footer justify-content-between">
                                         <div className="text-muted small">
-                                            Page {historyPage} of {historyTotalPages}
+                                            {t('attendance.dashboard.history_modal.page_info', { current: historyPage, total: historyTotalPages })}
                                         </div>
                                         <div>
                                             <button 
@@ -423,14 +425,14 @@ export const TechnicianDashboard = () => {
                                                 onClick={() => fetchHistory(selectedTech.user.id, historyPage - 1)}
                                                 disabled={historyPage <= 1 || historyLoading}
                                             >
-                                                Previous
+                                                {t('common.previous')}
                                             </button>
                                             <button 
                                                 className="btn btn-outline-secondary btn-sm" 
                                                 onClick={() => fetchHistory(selectedTech.user.id, historyPage + 1)}
                                                 disabled={historyPage >= historyTotalPages || historyLoading}
                                             >
-                                                Next
+                                                {t('common.next')}
                                             </button>
                                         </div>
                                     </div>
@@ -451,7 +453,7 @@ export const TechnicianDashboard = () => {
         <div className="col-md-8 col-lg-6">
           <div className="card shadow-sm border-0">
             <div className="card-body text-center p-5">
-              <h2 className="mb-4">Technician Dashboard</h2>
+              <h2 className="mb-4">{t('attendance.technician_view.title')}</h2>
               
               <div className="mb-4">
                 <div className="display-1 fw-bold text-primary">
@@ -464,14 +466,14 @@ export const TechnicianDashboard = () => {
 
               <div className="d-flex justify-content-center mb-4">
                 <div className={`badge rounded-pill p-3 fs-5 ${status === 'checked_in' ? 'bg-success' : 'bg-secondary'}`}>
-                  Status: {status === 'checked_in' ? 'Working' : 'Off Duty'}
+                  {t('attendance.technician_view.status_label', { status: status === 'checked_in' ? t('attendance.technician_view.status_working') : t('attendance.technician_view.status_off_duty') })}
                 </div>
               </div>
 
               {status === 'checked_in' && attendance && (
                 <div className="alert alert-info mb-4">
-                  <div className="mb-2">Checked in at: {new Date(attendance.check_in).toLocaleTimeString()}</div>
-                  <div className="text-uppercase small fw-bold text-muted mb-1">Duration</div>
+                  <div className="mb-2">{t('attendance.technician_view.checked_in_at', { time: new Date(attendance.check_in).toLocaleTimeString() })}</div>
+                  <div className="text-uppercase small fw-bold text-muted mb-1">{t('attendance.technician_view.duration')}</div>
                   <div className="display-4 fw-bold text-success font-monospace">
                      <LiveDuration startTime={attendance.check_in} />
                   </div>
@@ -480,7 +482,7 @@ export const TechnicianDashboard = () => {
 
               {status === 'checked_out' && attendance && attendance.check_out && (
                  <div className="alert alert-success mb-4">
-                  Last shift: {new Date(attendance.check_in).toLocaleTimeString()} - {new Date(attendance.check_out).toLocaleTimeString()}
+                  {t('attendance.technician_view.last_shift', { start: new Date(attendance.check_in).toLocaleTimeString(), end: new Date(attendance.check_out).toLocaleTimeString() })}
                 </div>
               )}
 
@@ -491,7 +493,7 @@ export const TechnicianDashboard = () => {
                     onClick={handleCheckIn}
                     disabled={loading}
                   >
-                    {loading ? 'Processing...' : 'CHECK IN (เข้างาน)'}
+                    {loading ? t('attendance.technician_view.processing') : t('attendance.technician_view.check_in_button')}
                   </button>
                 ) : (
                   <button 
@@ -499,14 +501,14 @@ export const TechnicianDashboard = () => {
                     onClick={handleCheckOut}
                     disabled={loading}
                   >
-                    {loading ? 'Processing...' : 'CHECK OUT (ออกงาน)'}
+                    {loading ? t('attendance.technician_view.processing') : t('attendance.technician_view.check_out_button')}
                   </button>
                 )}
               </div>
               
               <div className="d-grid gap-3 mt-3">
                 <Link to="/technician/jobs" className="btn btn-outline-primary btn-lg py-3 fw-bold">
-                   <i className="bi bi-calendar-check me-2"></i>MY JOBS (งานของฉัน)
+                   <i className="bi bi-calendar-check me-2"></i>{t('attendance.technician_view.my_jobs_button')}
                 </Link>
               </div>
             </div>

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { api } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const CreateUser = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     username: '',
@@ -47,10 +49,10 @@ export const CreateUser = () => {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      navigate('/users', { state: { success: 'User created successfully' } });
+      navigate('/users', { state: { success: t('users.alerts.create_success') } });
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to create user');
+      setError(err.response?.data?.message || t('users.alerts.create_error'));
     } finally {
       setLoading(false);
     }
@@ -58,13 +60,13 @@ export const CreateUser = () => {
 
   return (
     <div className="container mt-5" style={{ maxWidth: '800px' }}>
-      <h1 className="mb-4">Create New User</h1>
+      <h1 className="mb-4">{t('users.create_title')}</h1>
       {error && <div className="alert alert-danger">{error}</div>}
       
       <form onSubmit={handleSubmit} className="card p-4 shadow-sm">
         <div className="row g-3 mb-3">
           <div className="col-md-6">
-            <label className="form-label fw-bold">First Name</label>
+            <label className="form-label fw-bold">{t('users.form.first_name')}</label>
             <input 
               type="text" 
               name="first_name" 
@@ -75,7 +77,7 @@ export const CreateUser = () => {
             />
           </div>
           <div className="col-md-6">
-            <label className="form-label fw-bold">Last Name</label>
+            <label className="form-label fw-bold">{t('users.form.last_name')}</label>
             <input 
               type="text" 
               name="last_name" 
@@ -88,7 +90,7 @@ export const CreateUser = () => {
         </div>
 
         <div className="mb-3">
-          <label className="form-label fw-bold">Username</label>
+          <label className="form-label fw-bold">{t('users.form.username')}</label>
           <input 
             type="text" 
             name="username" 
@@ -100,7 +102,7 @@ export const CreateUser = () => {
         </div>
 
         <div className="mb-3">
-          <label className="form-label fw-bold">Email</label>
+          <label className="form-label fw-bold">{t('users.form.email')}</label>
           <input 
             type="email" 
             name="email" 
@@ -112,7 +114,7 @@ export const CreateUser = () => {
         </div>
 
         <div className="mb-3">
-          <label className="form-label fw-bold">Password</label>
+          <label className="form-label fw-bold">{t('users.form.password')}</label>
           <input 
             type="password" 
             name="password" 
@@ -125,7 +127,7 @@ export const CreateUser = () => {
         </div>
 
         <div className="mb-3">
-          <label className="form-label fw-bold">Phone Number</label>
+          <label className="form-label fw-bold">{t('users.form.phone')}</label>
           <input 
             type="text" 
             name="phone" 
@@ -133,26 +135,26 @@ export const CreateUser = () => {
             value={formData.phone} 
             onChange={handleChange} 
             required 
-            placeholder="e.g. 0812345678"
+            placeholder={t('users.form.phone_placeholder')}
           />
         </div>
 
         <div className="mb-3">
-          <label className="form-label fw-bold">Role</label>
+          <label className="form-label fw-bold">{t('users.form.role')}</label>
           <select 
             name="role" 
             className="form-select"
             value={formData.role} 
             onChange={handleChange}
           >
-            <option value="staff">Staff</option>
-            <option value="admin">Admin</option>
-            <option value="technician">Technician</option>
+            <option value="staff">{t('users.roles.staff')}</option>
+            <option value="admin">{t('users.roles.admin')}</option>
+            <option value="technician">{t('users.roles.technician')}</option>
           </select>
         </div>
 
         <div className="mb-4">
-          <label className="form-label fw-bold">Profile Image (Optional)</label>
+          <label className="form-label fw-bold">{t('users.form.profile_image')}</label>
           <input 
             type="file" 
             name="image" 
@@ -168,14 +170,14 @@ export const CreateUser = () => {
             className="btn btn-primary btn-lg"
             disabled={loading}
           >
-            {loading ? 'Creating...' : 'Create User'}
+            {loading ? t('users.form.submitting') : t('users.form.submit_create')}
           </button>
           <button 
             type="button" 
             className="btn btn-secondary"
             onClick={() => navigate('/users')}
           >
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
       </form>

@@ -21,12 +21,20 @@
     "no_data": "No data found",
     "confirm": "Confirm",
     "back": "Back",
+    "previous": "Previous",
+    "next": "Next",
+    "page_of": "Page {{current}} of {{total}}",
     "attendance": "Attendance",
     "my_jobs": "My Jobs",
     "categories": "Categories",
     "brands": "Brands",
     "units": "Units",
-    "warehouses": "Warehouses"
+    "warehouses": "Warehouses",
+    "cancel": "Cancel",
+    "save": "Save",
+    "technician_section": "TECHNICIAN",
+    "admin_section": "ADMIN",
+    "please_login": "Please login"
   },
   "login": {
     "title": "Login",
@@ -67,7 +75,38 @@
     "transfer": "Transfer",
     "save_unpaid": "Save as Unpaid",
     "create_quotation": "Create Quotation",
-    "confirm_payment": "Confirm Payment"
+    "confirm_payment": "Confirm Payment",
+    "out_of_stock": "Out of Stock",
+    "cart_empty": "Cart is empty",
+    "services_fees": "Services & Fees",
+    "insufficient": "Insufficient",
+    "enter_amount": "Enter amount",
+    "default": "Default",
+    "no_customers_found": "No customers found",
+    "enter_price": "Enter Price",
+    "price_thb": "Price (฿)",
+    "price_deduction_hint": "Enter negative value for deductions (e.g., -100)",
+    "order_updated": "Order updated successfully!",
+    "order_placed": "Order placed successfully!",
+    "order_saved_unpaid": "Order saved as Unpaid!",
+    "quotation_created": "Quotation created successfully!",
+    "checkout_failed": "Checkout failed!",
+    "warning_items_skipped": "Warning: {{count}} items were skipped because the product no longer exists.",
+    "error_load_order": "Failed to load order for editing: "
+  },
+  "actions": {
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete",
+    "update": "Update",
+    "cancel": "Cancel",
+    "save": "Save",
+    "change": "Change",
+    "select": "Select",
+    "view": "View",
+    "create": "Create",
+    "print": "Print",
+    "close": "Close"
   },
   "orders": {
     "title": "Orders",
@@ -93,7 +132,26 @@
     "hide": "Hide",
     "view": "View",
     "pay_now": "Pay Now",
-    "ref": "Ref"
+    "ref": "Ref",
+    "title_bills": "Orders & Bills",
+    "todays_orders": "Today's Orders",
+    "completed_orders_today": "Completed orders today",
+    "refresh": "Refresh",
+    "supplementary_order": "Supplementary Order",
+    "order_items_breakdown": "Order Items Breakdown",
+    "product": "Product",
+    "sku": "SKU",
+    "price": "Price",
+    "qty": "Qty",
+    "subtotal": "Subtotal",
+    "details": "Details",
+    "bundle_contents": "Bundle Contents",
+    "pay_for_order": "Pay for Order #{{id}}",
+    "confirm_convert_quotation": "Convert this quotation to an order? Stock will be deducted.",
+    "convert_failed": "Failed to convert quotation",
+    "payment_success": "Payment successful!",
+    "payment_failed": "Payment failed. Please try again.",
+    "unknown_product": "Unknown Product"
   },
   "customers": {
     "title": "Customers",
@@ -108,7 +166,50 @@
     "selected": "Selected",
     "no_customers": "No customers found",
     "create_btn": "Create Customer",
-    "create_failed": "Failed to create customer"
+    "create_failed": "Failed to create customer",
+    "management_title": "Customer Management",
+    "create_new": "Create New Customer",
+    "search_placeholder": "Search by name, email, or phone...",
+    "delete_confirm": "Are you sure you want to delete this customer?",
+    "delete_success": "Customer deleted successfully",
+    "delete_failed": "Failed to delete customer",
+    "fetch_failed": "Failed to fetch customers",
+    "create_title": "Create New Customer",
+    "edit_title": "Edit Customer",
+    "create_success": "Customer created successfully",
+    "update_success": "Customer updated successfully",
+    "update_btn": "Update Customer",
+    "update_failed": "Failed to update customer",
+    "order_history": "Order History",
+    "no_orders": "No orders found for this customer",
+    "locations": {
+      "title": "Locations",
+      "add_btn": "Add Location",
+      "edit_title": "Edit Location",
+      "add_title": "Add Location",
+      "name_label": "Location Name (e.g. Home, Office)",
+      "name_placeholder": "Home",
+      "address_label": "Address",
+      "google_maps_link": "Google Maps Link",
+      "contact_person": "Contact Person (Optional)",
+      "contact_phone": "Contact Phone (Optional)",
+      "set_default": "Set as default location",
+      "get_current_location": "Get Current Location",
+      "delete_confirm": "Are you sure you want to delete this location?",
+      "save_failed": "Failed to save location",
+      "no_locations": "No locations added yet"
+    },
+    "fields": {
+      "id": "ID",
+      "name": "Name",
+      "address": "Address",
+      "actions": "Actions",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "map": "Map",
+      "contact": "Contact",
+      "default": "Default"
+    }
   },
   "status": {
     "pending": "Pending",
@@ -117,16 +218,597 @@
     "quotation": "Quotation",
     "all": "All"
   },
-  "actions": {
-    "edit": "Edit",
-    "delete": "Delete",
+  "appointments": {
+    "title": "Service Appointments",
+    "create_btn": "Create Appointment",
+    "filter_status": "Status",
+    "start_date": "Start Date",
+    "end_date": "End Date",
+    "clear_filters": "Clear Filters",
+    "loading": "Loading...",
+    "no_appointments": "No appointments found",
     "view": "View",
-    "save": "Save",
+    "table": {
+      "date_time": "Date/Time",
+      "title": "Title",
+      "customer": "Customer",
+      "location": "Location",
+      "technicians": "Technicians",
+      "status": "Status",
+      "actions": "Actions",
+      "lead": "LEAD"
+    },
+    "status": {
+      "all": "All Statuses",
+      "scheduled": "Scheduled",
+      "en_route": "En Route",
+      "in_progress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "create": {
+      "title": "Create Service Appointment",
+      "customer": "Customer",
+      "link_order": "Link Order (Optional)",
+      "select_order": "Select Order",
+      "title_label": "Title",
+      "title_placeholder": "e.g. AC Installation, Repair Visit",
+      "description": "Description",
+      "start_time": "Start Time",
+      "end_time": "End Time (Optional)",
+      "location_details": "Location Details",
+      "select_location": "Select Location",
+      "manual_location": "Enter Manually / New Location",
+      "address": "Address",
+      "google_maps_link": "Google Maps Link",
+      "location_name": "Location Name (e.g. Home)",
+      "contact_person": "Contact Person",
+      "contact_phone": "Contact Phone",
+      "assign_team": "Assign Team",
+      "select_technicians": "Select Technicians",
+      "team_lead": "Team Lead",
+      "select_lead_header": "Assign Team Lead",
+      "lead_role": "Is Lead",
+      "admin_notes": "Admin Notes (Internal)",
+      "cancel": "Cancel",
+      "submit": "Create Appointment",
+      "submitting": "Creating...",
+      "success": "Appointment created successfully",
+      "failed": "Failed to create appointment",
+      "search_customer_placeholder": "Search by name or phone..."
+    },
+    "edit": {
+      "title": "Edit Appointment #{{id}}",
+      "save": "Save Changes",
+      "saving": "Saving...",
+      "failed_load": "Failed to load appointment",
+      "failed_update": "Failed to update appointment",
+      "team_members_lead": "Team Members & Lead"
+    },
+    "detail": {
+      "title": "Appointment #{{id}}",
+      "back": "Back",
+      "job_details": "Job Details",
+      "no_description": "No description provided",
+      "start_time": "Start Time",
+      "end_time": "End Time (Est.)",
+      "products_materials": "Products & Materials (Order #{{code}})",
+      "edit_order": "Edit Order",
+      "add_extra_charge": "Add Extra Charge",
+      "product": "Product",
+      "qty": "Qty",
+      "location": "Location",
+      "customer_location": "Customer Location",
+      "open_maps": "Open in Google Maps",
+      "customer_info": "Customer",
+      "main_address": "Main Address",
+      "assigned_team": "Assigned Team",
+      "manage_team": "Manage Team",
+      "no_technicians": "No technicians assigned",
+      "team_lead": "Team Lead",
+      "danger_zone": "Danger Zone",
+      "cancel_warning": "Cancelling this appointment will stop all progress and notify the team.",
+      "cancel_btn": "Cancel Appointment",
+      "manage_team_modal": "Manage Team",
+      "select_technicians": "Select Technicians",
+      "select_lead": "Select a Team Lead",
+      "save_team": "Save Team",
+      "saving": "Saving...",
+      "update_success": "Team updated successfully",
+      "update_failed": "Failed to update team",
+      "status_update_failed": "Failed to update status",
+      "load_failed": "Failed to load appointment details",
+      "unpaid_warning": "Order is still Unpaid!",
+      "unpaid_confirm": "Order is still UNPAID (Pending). Do you want to complete this job anyway?",
+      "unknown_product": "Unknown Product",
+      "actions": {
+        "start_travel": "Start Travel (En Route)",
+        "arrived": "Arrived / Start Job",
+        "complete": "Complete Job",
+        "force_complete": "Force Complete"
+      }
+    }
+  },
+  "attendance": {
+    "status": {
+      "completed": "Completed",
+      "absent": "Absent",
+      "working": "Working",
+      "checked_in": "Checked In",
+      "checked_out": "Checked Out"
+    },
+    "history": {
+      "title": "Attendance History",
+      "filter": {
+        "technician": "Technician",
+        "all_technicians": "All Technicians",
+        "start_date": "Start Date",
+        "end_date": "End Date",
+        "clear": "Clear Filters"
+      },
+      "summary": {
+        "days_worked": "Days Worked",
+        "total_hours": "Total Hours",
+        "weekly_off": "Weekly Off",
+        "absent": "Absent (No Reason)"
+      },
+      "table": {
+        "technician": "Technician",
+        "date": "Date",
+        "check_in": "Check In",
+        "check_out": "Check Out",
+        "duration": "Duration",
+        "status": "Status",
+        "actions": "Actions",
+        "no_records": "No attendance records found",
+        "active": "Active",
+        "edit": "Edit",
+        "note": "Note"
+      },
+      "edit_modal": {
+        "title": "Edit Attendance",
+        "check_in_time": "Check In Time",
+        "check_out_time": "Check Out Time",
+        "leave_empty": "Leave empty if still active",
+        "cancel": "Cancel",
+        "save": "Save Changes"
+      },
+      "update_failed": "Failed to update attendance"
+    },
+    "dashboard": {
+      "title": "Technician Attendance Overview",
+      "view_history": "History",
+      "technician_status": "Technician Status",
+      "no_technicians": "No technicians found.",
+      "checked_in": "Checked in",
+      "duration": "Duration",
+      "absent": "ABSENT",
+      "no_reason": "No reason",
+      "last_seen": "Last seen",
+      "no_activity": "No activity",
+      "mark_absent": "Mark Absent",
+      "weekly_off": "W-Off",
+      "check_in_failed": "Check-in failed",
+      "check_out_failed": "Check-out failed",
+      "mark_absent_modal": {
+        "title": "Mark Absent: {{name}}",
+        "type": "Absence Type",
+        "reason": "Reason Detail",
+        "reason_placeholder": "e.g., Sick leave, Personal leave, etc.",
+        "confirm": "Confirm Absent",
+        "cancel": "Cancel",
+        "please_provide_reason": "Please provide a reason",
+        "failed": "Failed to mark absent",
+        "types": {
+          "weekly_off": "Weekly Day Off",
+          "absent": "Absent"
+        }
+      },
+      "history_modal": {
+        "title": "Attendance History: {{name}}",
+        "page_info": "Page {{current}} of {{total}}"
+      }
+    },
+    "technician_view": {
+      "title": "Technician Dashboard",
+      "status_label": "Status: {{status}}",
+      "status_working": "Working",
+      "status_off_duty": "Off Duty",
+      "checked_in_at": "Checked in at: {{time}}",
+      "duration": "Duration",
+      "last_shift": "Last shift: {{start}} - {{end}}",
+      "check_in_button": "CHECK IN",
+      "check_out_button": "CHECK OUT",
+      "processing": "Processing...",
+      "my_jobs_button": "MY JOBS"
+    }
+  },
+  "users": {
+    "title": "User Management",
+    "create_title": "Create New User",
+    "edit_title": "Edit User",
+    "create": "Create New User",
+    "table": {
+      "id": "ID",
+      "name": "Name",
+      "username": "Username",
+      "email": "Email",
+      "role": "Role",
+      "actions": "Actions"
+    },
+    "form": {
+      "first_name": "First Name",
+      "last_name": "Last Name",
+      "username": "Username",
+      "email": "Email",
+      "password": "Password",
+      "password_edit_hint": "Password (Leave blank to keep current)",
+      "phone": "Phone Number",
+      "phone_placeholder": "e.g. 0812345678",
+      "role": "Role",
+      "profile_image": "Profile Image (Optional)",
+      "submit_create": "Create User",
+      "submit_update": "Update User",
+      "submitting": "Creating...",
+      "updating": "Updating..."
+    },
+    "roles": {
+      "admin": "Admin",
+      "staff": "Staff",
+      "technician": "Technician"
+    },
+    "alerts": {
+      "fetch_error": "Failed to fetch users",
+      "fetch_single_error": "Failed to fetch user data",
+      "delete_confirm": "Are you sure you want to delete this user?",
+      "delete_success": "User deleted successfully",
+      "delete_error": "Failed to delete user",
+      "create_success": "User created successfully",
+      "create_error": "Failed to create user",
+      "update_success": "User updated successfully",
+      "update_error": "Failed to update user"
+    }
+  },
+  "warehouses": {
+    "title": "Warehouse Management",
+    "create_title": "Create New Warehouse",
+    "edit_title": "Edit Warehouse",
+    "table": {
+      "id": "ID",
+      "name": "Name",
+      "address": "Address",
+      "phone": "Phone",
+      "email": "Email",
+      "actions": "Actions"
+    },
+    "form": {
+      "name": "Name",
+      "address": "Address",
+      "phone": "Phone",
+      "email": "Email",
+      "submit_create": "Create Warehouse",
+      "submit_update": "Update Warehouse",
+      "submitting": "Creating...",
+      "updating": "Updating...",
+      "cancel": "Cancel"
+    },
+    "alerts": {
+      "delete_confirm": "Are you sure you want to delete this warehouse?",
+      "delete_success": "Warehouse deleted successfully",
+      "create_success": "Warehouse created successfully!",
+      "create_error": "Failed to create warehouse",
+      "update_success": "Warehouse updated successfully!",
+      "update_error": "Failed to update warehouse",
+      "not_found": "Warehouse not found",
+      "no_warehouses": "No warehouses found"
+    }
+  },
+  "settings": {
+    "title": "Shop Settings",
+    "shop_info": "Shop Information",
+    "name": "Shop Name",
+    "company_name": "Company Name",
+    "bank_details": "Bank Details",
+    "address": "Address",
+    "phone": "Phone",
+    "tax_id": "Tax ID",
+    "email": "Email",
+    "website": "Website",
+    "footer_text": "Footer Text",
+    "remarks": "Remarks",
+    "logo": "Shop Logo",
+    "signature": "Authorized Signature",
+    "upload_help": "Upload new image to change",
+    "preview": "Preview",
+    "save": "Save Settings",
+    "saving": "Saving...",
     "cancel": "Cancel",
-    "add": "Add",
-    "create": "Create",
-    "update": "Update",
-    "print": "Print",
-    "close": "Close"
+    "logo_help": "Allowed formats: JPG, PNG, GIF. Max size: 2MB.",
+    "signature_help": "Will be displayed on Quotation/Billing Note/Receipt",
+    "bank_placeholder": "Enter bank details to be displayed on Quotation/Invoice",
+    "bank_help": "This text will be displayed in the item table",
+    "footer_placeholder": "e.g. Thank you for your business",
+    "footer_help": "This text will be displayed below the Net Total",
+    "remarks_placeholder": "e.g. Goods sold are not returnable...",
+    "remarks_help": "This text will be displayed in the Remarks box",
+    "no_logo": "No Logo",
+    "no_signature": "No Signature",
+    "company_placeholder": "e.g. My Company Ltd...",
+    "alerts": {
+      "success": "Shop settings updated successfully!",
+      "error": "Failed to update shop settings. Please try again."
+    }
+  },
+  "categories": {
+    "title": "Category Management",
+    "create": "Create New Category",
+    "create_title": "Create New Category",
+    "edit_title": "Edit Category",
+    "table": {
+      "id": "ID",
+      "name": "Name",
+      "description": "Description",
+      "actions": "Actions"
+    },
+    "form": {
+      "name": "Name",
+      "description": "Description",
+      "submit_create": "Create Category",
+      "submit_update": "Update Category",
+      "submitting": "Creating...",
+      "updating": "Updating..."
+    },
+    "alerts": {
+      "delete_confirm": "Are you sure you want to delete this category?",
+      "delete_success": "Category deleted successfully",
+      "create_success": "Category created successfully",
+      "create_error": "Failed to create category",
+      "update_success": "Category updated successfully",
+      "update_error": "Failed to update category",
+      "not_found": "Category not found"
+    }
+  },
+  "technician": {
+    "jobs": {
+      "title": "My Jobs",
+      "dashboard_btn": "Dashboard",
+      "filter": {
+        "today": "Today",
+        "upcoming": "Upcoming",
+        "history": "History"
+      },
+      "loading": "Loading jobs...",
+      "no_jobs": "No jobs found for this period",
+      "view_details": "View Details"
+    }
+  },
+  "print": {
+    "receipt": {
+      "title": "Receipt",
+      "subtitle": "RECEIPT"
+    },
+    "quotation": {
+      "title": "Quotation",
+      "subtitle": "QUOTATION"
+    },
+    "billing_note": {
+      "title": "Billing Note",
+      "subtitle": "BILLING NOTE"
+    },
+    "issuer": {
+      "label_th": "Issuer",
+      "label_en": ""
+    },
+    "customer": {
+      "label": "Customer :",
+      "address": "Address :",
+      "tax_id": "Tax ID :",
+      "attention": "Attention :"
+    },
+    "document": {
+      "no": "No :",
+      "date": "Date :",
+      "valid": "Valid Until :",
+      "email": "Email :",
+      "phone": "Tel :"
+    },
+    "table": {
+      "no": "No.",
+      "description": "Description",
+      "quantity": "Quantity",
+      "unit_price": "Unit Price",
+      "total": "Total"
+    },
+    "footer": {
+      "baht_text": "Baht",
+      "remarks": "Remarks",
+      "subtotal": "Sub Total",
+      "subtotal_en": "",
+      "net_total": "Net Total",
+      "net_total_en": ""
+    },
+    "signatures": {
+      "approved": "Approved by",
+      "received_billing": "Received by",
+      "receiver": "Receiver",
+      "accepted": "Accepted by",
+      "billing": "Billing by",
+      "collector": "Collector",
+      "sign": "Sign",
+      "date": "Date"
+    },
+    "button": "Print Document"
+  },
+  "products": {
+    "title": "Product Management",
+    "create_title": "Create New Product",
+    "edit_title": "Edit Product",
+    "list": {
+      "create_button": "Create New Product",
+      "filter": {
+        "category": "Category",
+        "all_categories": "All Categories",
+        "sort_by": "Sort By",
+        "sort_options": {
+          "newest": "Newest First",
+          "oldest": "Oldest First",
+          "name_az": "Name (A-Z)",
+          "name_za": "Name (Z-A)",
+          "price_low_high": "Price (Low to High)",
+          "price_high_low": "Price (High to Low)",
+          "stock_low_high": "Stock (Low to High)",
+          "stock_high_low": "Stock (High to Low)"
+        }
+      },
+      "table": {
+        "name": "Name",
+        "price": "Price",
+        "stock": "Stock",
+        "category": "Category",
+        "sku": "SKU",
+        "value": "Value",
+        "type": "Type",
+        "actions": "Actions",
+        "low_stock": "Low Stock"
+      }
+    },
+    "form": {
+      "sections": {
+        "info": "Product Information",
+        "pricing": "Pricing & Stocks",
+        "images": "Product Images"
+      },
+      "fields": {
+        "name": "Product Name",
+        "slug": "Slug",
+        "slug_placeholder": "Auto-generated if empty",
+        "sku": "SKU",
+        "barcode_symbology": "Barcode Symbology",
+        "item_barcode": "Item Barcode",
+        "category": "Category",
+        "select_category": "Select Category",
+        "brand": "Brand",
+        "select_brand": "Select Brand",
+        "unit": "Unit",
+        "select_unit": "Select Unit",
+        "warehouse": "Warehouse",
+        "select_warehouse": "Select Warehouse",
+        "description": "Description",
+        "product_type": "Product Type",
+        "types": {
+          "single": "Single Product",
+          "variable": "Variable Product",
+          "bundle": "Bundle/Set Product",
+          "service": "Service"
+        },
+        "quantity_alert": "Quantity Alert",
+        "price": "Price",
+        "quantity": "Quantity",
+        "tax_type": "Tax Type",
+        "tax_types": {
+          "exclusive": "Exclusive",
+          "inclusive": "Inclusive"
+        },
+        "tax_amount": "Tax (%)",
+        "discount_type": "Discount Type",
+        "discount_types": {
+          "fixed": "Fixed",
+          "percentage": "Percentage"
+        },
+        "discount_value": "Discount Value",
+        "upload_images": "Upload Images",
+        "upload_new_images": "Upload New Images",
+        "upload_hint": "Allowed: jpg, jpeg, png, gif"
+      },
+      "bundle": {
+        "title": "Bundle Items",
+        "search_placeholder": "Search by Name, SKU, Barcode, or Description...",
+        "table": {
+          "product": "Product",
+          "qty": "Qty"
+        },
+        "no_items": "No items added to bundle yet.",
+        "error_empty": "Please add at least one item to the bundle."
+      },
+      "buttons": {
+        "back_to_list": "Back to List",
+        "create": "Create Product",
+        "creating": "Creating...",
+        "update": "Update Product",
+        "updating": "Updating...",
+        "cancel": "Cancel"
+      }
+    },
+    "alerts": {
+      "delete_confirm": "Are you sure you want to delete this product?",
+      "delete_success": "Product deleted successfully",
+      "create_success": "Product created successfully",
+      "create_error": "Failed to create product",
+      "update_success": "Product updated successfully",
+      "update_error": "Failed to update product",
+      "not_found": "Product not found"
+    }
+  },
+  "brands": {
+    "title": "Brand Management",
+    "create_title": "Create New Brand",
+    "edit_title": "Edit Brand",
+    "table": {
+      "id": "ID",
+      "image": "Image",
+      "name": "Name",
+      "actions": "Actions"
+    },
+    "form": {
+      "name": "Name",
+      "image": "Brand Image",
+      "image_hint": "Leave empty to keep current image",
+      "no_image": "No Image",
+      "submit_create": "Create Brand",
+      "submit_update": "Update Brand",
+      "submitting": "Creating...",
+      "updating": "Updating...",
+      "cancel": "Cancel"
+    },
+    "alerts": {
+      "delete_confirm": "Are you sure you want to delete this brand?",
+      "delete_success": "Brand deleted successfully",
+      "create_success": "Brand created successfully!",
+      "create_error": "Failed to create brand",
+      "update_success": "Brand updated successfully!",
+      "update_error": "Failed to update brand",
+      "not_found": "Brand not found",
+      "no_brands": "No brands found"
+    }
+  },
+  "units": {
+    "title": "Unit Management",
+    "create_title": "Create New Unit",
+    "edit_title": "Edit Unit",
+    "table": {
+      "id": "ID",
+      "name": "Name",
+      "short_name": "Short Name",
+      "actions": "Actions"
+    },
+    "form": {
+      "name": "Name",
+      "short_name": "Short Name",
+      "submit_create": "Create Unit",
+      "submit_update": "Update Unit",
+      "submitting": "Creating...",
+      "updating": "Updating...",
+      "cancel": "Cancel"
+    },
+    "alerts": {
+      "delete_confirm": "Are you sure you want to delete this unit?",
+      "delete_success": "Unit deleted successfully",
+      "create_success": "Unit created successfully!",
+      "create_error": "Failed to create unit",
+      "update_success": "Unit updated successfully!",
+      "update_error": "Failed to update unit",
+      "not_found": "Unit not found",
+      "no_units": "No units found"
+    }
   }
 }

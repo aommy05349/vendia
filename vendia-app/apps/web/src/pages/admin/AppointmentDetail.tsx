@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api, useAuthStore } from '@vendia/shared';
 import Select from 'react-select';
+import { useTranslation } from 'react-i18next';
 
 interface Appointment {
   id: number;
@@ -56,6 +57,7 @@ interface Appointment {
 }
 
 export const AppointmentDetail = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -95,7 +97,7 @@ export const AppointmentDetail = () => {
       setAppointment(response.data);
     } catch (error) {
       console.error('Failed to fetch appointment', error);
-      alert('Failed to load appointment details');
+      alert(t('appointments.detail.load_failed'));
       navigate('/appointments');
     } finally {
       setLoading(false);
@@ -138,9 +140,10 @@ export const AppointmentDetail = () => {
         });
         await fetchAppointment();
         setShowTeamModal(false);
+        // Optional: show success message if needed, but UI updates automatically
     } catch (error) {
         console.error('Failed to update team', error);
-        alert('Failed to update team');
+        alert(t('appointments.detail.update_failed'));
     } finally {
         setSavingTeam(false);
     }
@@ -154,7 +157,8 @@ export const AppointmentDetail = () => {
         // For other statuses, maybe just a simple confirm or direct update?
         // Let's keep simple confirm for others to avoid too much UI overhead, 
         // or just do it directly. The user originally had a confirm for everything.
-        if (confirm(`Change status to ${newStatus.replace('_', ' ')}?`)) {
+        // Translating the confirm message might be tricky if dynamic, let's keep it simple or use a generic confirm.
+        if (confirm(t('common.confirm') + '?')) {
             handleStatusUpdate(newStatus);
         }
     }
@@ -168,7 +172,7 @@ export const AppointmentDetail = () => {
       setShowCompleteModal(false); // Close modal if open
     } catch (error) {
       console.error('Failed to update status', error);
-      alert('Failed to update status');
+      alert(t('appointments.detail.status_update_failed'));
     } finally {
       setUpdating(false);
     }
@@ -185,8 +189,8 @@ export const AppointmentDetail = () => {
     }
   };
 
-  if (loading) return <div className="p-4">Loading...</div>;
-  if (!appointment) return <div className="p-4">Appointment not found</div>;
+  if (loading) return <div className="p-4">{t('common.loading')}</div>;
+  if (!appointment) return <div className="p-4">{t('appointments.detail.load_failed')}</div>;
 
   const isTechnician = user?.role === 'technician';
   const isAdmin = user?.role === 'admin';
@@ -198,11 +202,11 @@ export const AppointmentDetail = () => {
     // Technician actions
     if (isTechnician) {
       if (currentStatus === 'scheduled') {
-        actions.push({ label: 'Start Travel (En Route)', value: 'en_route', btn: 'btn-info' });
+        actions.push({ label: t('appointments.detail.actions.start_travel'), value: 'en_route', btn: 'btn-info' });
       } else if (currentStatus === 'en_route') {
-        actions.push({ label: 'Arrived / Start Job', value: 'in_progress', btn: 'btn-warning' });
+        actions.push({ label: t('appointments.detail.actions.arrived'), value: 'in_progress', btn: 'btn-warning' });
       } else if (currentStatus === 'in_progress') {
-        actions.push({ label: 'Complete Job', value: 'completed', btn: 'btn-success' });
+        actions.push({ label: t('appointments.detail.actions.complete'), value: 'completed', btn: 'btn-success' });
       }
     }
 
@@ -210,7 +214,7 @@ export const AppointmentDetail = () => {
     if (isAdmin) {
        // Allow Admin to force complete if needed? For now, keep it minimal as requested.
        if (currentStatus === 'in_progress') {
-         actions.push({ label: 'Force Complete', value: 'completed', btn: 'btn-outline-success' });
+         actions.push({ label: t('appointments.detail.actions.force_complete'), value: 'completed', btn: 'btn-outline-success' });
        }
     }
 
@@ -226,17 +230,17 @@ export const AppointmentDetail = () => {
     <div className="container-fluid p-4">
       <div className="mb-4">
         <button onClick={() => navigate(-1)} className="btn btn-outline-secondary mb-3">
-          <i className="bi bi-arrow-left me-2"></i>Back
+          <i className="bi bi-arrow-left me-2"></i>{t('appointments.detail.back')}
         </button>
         <div className="d-flex justify-content-between align-items-start">
           <div>
-            <h1>Appointment #{appointment.id}</h1>
+            <h1>{t('appointments.detail.title', { id: appointment.id })}</h1>
             <span className={`badge ${getStatusBadge(appointment.status)} fs-6`}>
-              {appointment.status.replace('_', ' ').toUpperCase()}
+              {t(`appointments.status.${appointment.status}`)}
             </span>
             {appointment.status === 'completed' && showPaymentWarning && (
                  <div className="alert alert-warning mt-2 d-inline-block py-1 px-2 mb-0 ms-2">
-                    <i className="bi bi-exclamation-triangle-fill me-1"></i> Order is still Unpaid!
+                    <i className="bi bi-exclamation-triangle-fill me-1"></i> {t('appointments.detail.unpaid_warning')}
                  </div>
             )}
           </div>
@@ -245,7 +249,7 @@ export const AppointmentDetail = () => {
              {nextActions.some(a => a.value === 'completed') && showPaymentWarning && (
                  <span className="text-danger small fw-bold me-2">
                     <i className="bi bi-exclamation-circle me-1"></i>
-                    Order is Unpaid
+                    {t('appointments.detail.unpaid_warning')}
                  </span>
              )}
              {nextActions.map(action => (
@@ -254,7 +258,7 @@ export const AppointmentDetail = () => {
                  className={`btn ${action.btn}`}
                  onClick={() => {
                      if (action.value === 'completed' && showPaymentWarning) {
-                         if(!confirm('Order is still UNPAID (Pending). Do you want to complete this job anyway?')) return;
+                         if(!confirm(t('appointments.detail.unpaid_confirm'))) return;
                      }
                      handleStatusUpdate(action.value);
                  }}
@@ -272,19 +276,19 @@ export const AppointmentDetail = () => {
           {/* Job Details */}
           <div className="card mb-4">
             <div className="card-header">
-              <h5 className="mb-0">Job Details</h5>
+              <h5 className="mb-0">{t('appointments.detail.job_details')}</h5>
             </div>
             <div className="card-body">
               <h4 className="card-title">{appointment.title}</h4>
-              <p className="text-muted mb-4">{appointment.description || 'No description provided'}</p>
+              <p className="text-muted mb-4">{appointment.description || t('appointments.detail.no_description')}</p>
               
               <div className="row mb-3">
                 <div className="col-md-6">
-                  <strong>Start Time:</strong>
+                  <strong>{t('appointments.detail.start_time')}:</strong>
                   <div className="fs-5">{new Date(appointment.start_time).toLocaleString()}</div>
                 </div>
                 <div className="col-md-6">
-                  <strong>End Time (Est.):</strong>
+                  <strong>{t('appointments.detail.end_time')}:</strong>
                   <div className="fs-5">
                     {appointment.end_time ? new Date(appointment.end_time).toLocaleString() : '-'}
                   </div>
@@ -294,13 +298,13 @@ export const AppointmentDetail = () => {
               {appointment.order && (
                    <div className="mt-4 pt-3 border-top">
                        <div className="d-flex justify-content-between align-items-center mb-3">
-                           <h6 className="mb-0">Products & Materials (Order #{appointment.order.code})</h6>
+                           <h6 className="mb-0">{t('appointments.detail.products_materials', { code: appointment.order.code })}</h6>
                            {['pending', 'quotation'].includes(appointment.order.status) ? (
                                <button 
                                    className="btn btn-sm btn-warning"
                                    onClick={() => navigate(`/pos?order_id=${appointment.order!.id}`)}
                                >
-                                   <i className="bi bi-pencil-square me-1"></i>Edit Order
+                                   <i className="bi bi-pencil-square me-1"></i>{t('appointments.detail.edit_order')}
                                </button>
                            ) : (
                                <button 
@@ -308,7 +312,7 @@ export const AppointmentDetail = () => {
                                    onClick={() => navigate(`/pos?customer_id=${appointment.customer.id}&parent_order_id=${appointment.order!.id}`)}
                                    title="Create a new supplementary order for additional costs"
                                >
-                                   <i className="bi bi-plus-circle me-1"></i>Add Extra Charge
+                                   <i className="bi bi-plus-circle me-1"></i>{t('appointments.detail.add_extra_charge')}
                                </button>
                            )}
                        </div>
@@ -316,8 +320,8 @@ export const AppointmentDetail = () => {
                            <table className="table table-sm table-bordered">
                               <thead className="table-light">
                                   <tr>
-                                      <th>Product</th>
-                                      <th className="text-center" style={{ width: '100px' }}>Qty</th>
+                                      <th>{t('appointments.detail.product')}</th>
+                                      <th className="text-center" style={{ width: '100px' }}>{t('appointments.detail.qty')}</th>
                                   </tr>
                               </thead>
                               <tbody>
@@ -333,7 +337,7 @@ export const AppointmentDetail = () => {
                                                           style={{ width: '30px', height: '30px', objectFit: 'cover' }}
                                                       />
                                                   )}
-                                                  <span>{item.product?.name || item.product_name || 'Unknown Product'}</span>
+                                                  <span>{item.product?.name || item.product_name || t('appointments.detail.unknown_product')}</span>
                                               </div>
                                           </td>
                                           <td className="text-center">{item.quantity}</td>
@@ -350,10 +354,10 @@ export const AppointmentDetail = () => {
           {/* Location */}
           <div className="card mb-4">
             <div className="card-header">
-              <h5 className="mb-0">Location</h5>
+              <h5 className="mb-0">{t('appointments.detail.location')}</h5>
             </div>
             <div className="card-body">
-              <h5>{appointment.location_name || 'Customer Location'}</h5>
+              <h5>{appointment.location_name || t('appointments.detail.customer_location')}</h5>
               <p className="fs-5">{appointment.address}</p>
               {appointment.google_maps_link && (
                 <a 
@@ -362,7 +366,7 @@ export const AppointmentDetail = () => {
                   rel="noopener noreferrer"
                   className="btn btn-outline-primary"
                 >
-                  <i className="bi bi-geo-alt me-2"></i>Open in Google Maps
+                  <i className="bi bi-geo-alt me-2"></i>{t('appointments.detail.open_maps')}
                 </a>
               )}
             </div>
@@ -373,7 +377,7 @@ export const AppointmentDetail = () => {
           {/* Customer Info */}
           <div className="card mb-4">
             <div className="card-header">
-              <h5 className="mb-0">Customer</h5>
+              <h5 className="mb-0">{t('appointments.detail.customer_info')}</h5>
             </div>
             <div className="card-body">
               <h5>{appointment.customer.name}</h5>
@@ -409,13 +413,13 @@ export const AppointmentDetail = () => {
 
               {appointment.customer.tax_id && (
                  <p className="mb-1">
-                   <i className="bi bi-receipt me-2"></i>Tax ID: {appointment.customer.tax_id}
+                   <i className="bi bi-receipt me-2"></i>{t('customers.tax_id')}: {appointment.customer.tax_id}
                  </p>
               )}
               
               {appointment.customer.address && (
                 <div className="mt-2 pt-2 border-top">
-                   <small className="text-muted d-block mb-1">Main Address:</small>
+                   <small className="text-muted d-block mb-1">{t('appointments.detail.main_address')}:</small>
                    <span>{appointment.customer.address}</span>
                 </div>
               )}
@@ -425,21 +429,21 @@ export const AppointmentDetail = () => {
           {/* Technicians */}
           <div className="card mb-4">
             <div className="card-header d-flex justify-content-between align-items-center">
-              <h5 className="mb-0">Assigned Team</h5>
+              <h5 className="mb-0">{t('appointments.detail.assigned_team')}</h5>
               {isAdmin && appointment.status === 'scheduled' && (
                   <button className="btn btn-sm btn-outline-primary" onClick={openTeamModal}>
-                      Manage Team
+                      {t('appointments.detail.manage_team')}
                   </button>
               )}
             </div>
             <ul className="list-group list-group-flush">
-              {appointment.technicians.length === 0 && <li className="list-group-item text-muted">No technicians assigned</li>}
+              {appointment.technicians.length === 0 && <li className="list-group-item text-muted">{t('appointments.detail.no_technicians')}</li>}
               {appointment.technicians.map(tech => (
                 <li key={tech.id} className="list-group-item d-flex justify-content-between align-items-center">
                   <div>
                     {tech.first_name} {tech.last_name}
                     {tech.pivot.is_lead && (
-                      <span className="badge bg-primary ms-2">Team Lead</span>
+                      <span className="badge bg-primary ms-2">{t('appointments.detail.team_lead')}</span>
                     )}
                   </div>
                 </li>
@@ -451,16 +455,16 @@ export const AppointmentDetail = () => {
           {showCancelButton && (
             <div className="card border-danger mb-4">
                 <div className="card-header bg-danger text-white">
-                    <h5 className="mb-0">Danger Zone</h5>
+                    <h5 className="mb-0">{t('appointments.detail.danger_zone')}</h5>
                 </div>
                 <div className="card-body">
-                    <p className="card-text text-muted small">Cancelling this appointment will stop all progress and notify the team.</p>
+                    <p className="card-text text-muted small">{t('appointments.detail.cancel_warning')}</p>
                     <button 
                         className="btn btn-outline-danger w-100" 
                         onClick={() => handleStatusUpdate('cancelled')}
                         disabled={updating}
                     >
-                        Cancel Appointment
+                        {t('appointments.detail.cancel_btn')}
                     </button>
                 </div>
             </div>
@@ -474,12 +478,12 @@ export const AppointmentDetail = () => {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Manage Team</h5>
+                <h5 className="modal-title">{t('appointments.detail.manage_team_modal')}</h5>
                 <button type="button" className="btn-close" onClick={() => setShowTeamModal(false)}></button>
               </div>
               <div className="modal-body">
                  <div className="mb-3">
-                     <label className="form-label">Select Technicians</label>
+                     <label className="form-label">{t('appointments.detail.select_technicians')}</label>
                      <Select
                          isMulti
                          options={technicians.map(t => ({
@@ -503,25 +507,21 @@ export const AppointmentDetail = () => {
                  {selectedTechnicians.length > 0 && (
                     <div className="card bg-light border-0">
                         <div className="card-body p-2">
-                            <small className="d-block mb-2 text-muted">Select a Team Lead:</small>
+                            <small className="d-block mb-2 text-muted">{t('appointments.detail.select_lead')}:</small>
                             <ul className="list-group">
                                 {selectedTechnicians.map(st => {
                                     const tech = technicians.find(t => t.id === st.id);
                                     if (!tech) return null;
                                     return (
                                         <li key={st.id} className="list-group-item d-flex justify-content-between align-items-center py-2">
-                                            <span>{tech.first_name ? `${tech.first_name} ${tech.last_name}` : tech.name}</span>
-                                            <div className="form-check form-switch mb-0">
-                                                <input
-                                                    className="form-check-input"
-                                                    type="checkbox"
+                                            <span>{tech.first_name} {tech.last_name}</span>
+                                            <div className="form-check form-switch">
+                                                <input 
+                                                    className="form-check-input" 
+                                                    type="checkbox" 
                                                     checked={st.is_lead}
                                                     onChange={() => setLeadTechnician(st.id)}
-                                                    id={`modal-lead-${st.id}`}
                                                 />
-                                                <label className="form-check-label small" htmlFor={`modal-lead-${st.id}`}>
-                                                    Lead
-                                                </label>
                                             </div>
                                         </li>
                                     );
@@ -532,55 +532,14 @@ export const AppointmentDetail = () => {
                  )}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowTeamModal(false)}>Cancel</button>
-                <button type="button" className="btn btn-primary" onClick={handleSaveTeam} disabled={savingTeam}>
-                  {savingTeam ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Complete Job Confirmation Modal */}
-      {showCompleteModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Complete Job</h5>
-                <button type="button" className="btn-close" onClick={() => setShowCompleteModal(false)}></button>
-              </div>
-              <div className="modal-body">
-                <p>Are you sure you want to mark this job as <strong>Completed</strong>?</p>
-                
-                {showPaymentWarning && (
-                    <div className="alert alert-warning">
-                        <div className="d-flex">
-                            <i className="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
-                            <div>
-                                <h6 className="alert-heading fw-bold">Payment Pending</h6>
-                                <p className="mb-0 small">
-                                    The linked order (<strong>#{appointment?.order?.code || appointment?.order?.id}</strong>) is currently <strong>UNPAID</strong>.
-                                </p>
-                                <hr />
-                                <p className="mb-0 small">
-                                    Please ensure you have collected payment or confirmed the payment arrangement before completing the job.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowCompleteModal(false)}>Cancel</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowTeamModal(false)}>{t('actions.cancel')}</button>
                 <button 
                     type="button" 
-                    className="btn btn-success" 
-                    onClick={() => pendingStatusUpdate && handleStatusUpdate(pendingStatusUpdate)}
-                    disabled={updating}
+                    className="btn btn-primary" 
+                    onClick={handleSaveTeam}
+                    disabled={savingTeam}
                 >
-                  {updating ? 'Updating...' : 'Confirm Completion'}
+                    {savingTeam ? t('appointments.detail.saving') : t('appointments.detail.save_team')}
                 </button>
               </div>
             </div>

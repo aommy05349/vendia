@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useAuxStore } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const UnitList = () => {
+  const { t } = useTranslation();
   const { units, fetchUnits, deleteUnit, loading, error } = useAuxStore();
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
   const navigate = useNavigate();
@@ -18,10 +20,10 @@ export const UnitList = () => {
   }, [error]);
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this unit?')) return;
+    if (!window.confirm(t('units.alerts.delete_confirm'))) return;
     try {
       await deleteUnit(id);
-      setAlertMessage({ type: 'success', text: 'Unit deleted successfully' });
+      setAlertMessage({ type: 'success', text: t('units.alerts.delete_success') });
       setTimeout(() => setAlertMessage(null), 3000);
     } catch (err) {
       // Error is handled by store
@@ -33,12 +35,12 @@ export const UnitList = () => {
   return (
     <div className="container-fluid p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="h3">Unit Management</h1>
+        <h1 className="h3">{t('units.title')}</h1>
         <button
           onClick={() => navigate('/units/create')}
           className="btn btn-success"
         >
-          Create New Unit
+          {t('units.create_title')}
         </button>
       </div>
 
@@ -54,10 +56,10 @@ export const UnitList = () => {
           <table className="table table-hover mb-0">
             <thead className="table-light">
               <tr>
-                <th className="p-3 border-bottom-2">ID</th>
-                <th className="p-3 border-bottom-2">Name</th>
-                <th className="p-3 border-bottom-2">Short Name</th>
-                <th className="p-3 border-bottom-2">Actions</th>
+                <th className="p-3 border-bottom-2">{t('units.table.id')}</th>
+                <th className="p-3 border-bottom-2">{t('units.table.name')}</th>
+                <th className="p-3 border-bottom-2">{t('units.table.short_name')}</th>
+                <th className="p-3 border-bottom-2">{t('units.table.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -71,20 +73,20 @@ export const UnitList = () => {
                       onClick={() => navigate(`/units/${unit.id}/edit`)}
                       className="btn btn-sm btn-outline-primary me-2"
                     >
-                      Edit
+                      {t('actions.edit')}
                     </button>
                     <button
                       onClick={() => handleDelete(unit.id)}
                       className="btn btn-sm btn-outline-danger"
                     >
-                      Delete
+                      {t('actions.delete')}
                     </button>
                   </td>
                 </tr>
               ))}
               {units.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={4} className="text-center p-4 text-muted">No units found</td>
+                  <td colSpan={4} className="text-center p-4 text-muted">{t('units.alerts.no_units')}</td>
                 </tr>
               )}
             </tbody>

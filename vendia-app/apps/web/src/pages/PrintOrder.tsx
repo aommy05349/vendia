@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { api, User } from '@vendia/shared';
 import { thaiBahtText } from '../utils/thaiBaht';
+import { useTranslation } from 'react-i18next';
 
 interface Shop {
     name: string;
@@ -41,6 +42,7 @@ interface Order {
 }
 
 export const PrintOrder = () => {
+    const { t } = useTranslation();
     const { id } = useParams();
     const [searchParams] = useSearchParams();
     const type = searchParams.get('type') || 'receipt';
@@ -62,20 +64,20 @@ export const PrintOrder = () => {
         }
     }, [id]);
 
-    if (!order || !shop) return <div className="p-5 text-center">Loading...</div>;
+    if (!order || !shop) return <div className="p-5 text-center">{t('common.loading')}</div>;
 
     const isQuotation = type === 'quotation';
     const isBillingNote = type === 'billing_note';
     
-    let title = 'ใบเสร็จรับเงิน';
-    let subtitle = 'RECEIPT';
+    let title = t('print.receipt.title');
+    let subtitle = t('print.receipt.subtitle');
     
     if (isQuotation) {
-        title = 'ใบเสนอราคา';
-        subtitle = 'QUOTATION';
+        title = t('print.quotation.title');
+        subtitle = t('print.quotation.subtitle');
     } else if (isBillingNote) {
-        title = 'ใบวางบิล';
-        subtitle = 'BILLING NOTE';
+        title = t('print.billing_note.title');
+        subtitle = t('print.billing_note.subtitle');
     }
 
     // Calculate valid date (e.g. 7 days from created_at)
@@ -91,14 +93,14 @@ export const PrintOrder = () => {
                     <h4 className="fw-bold text-uppercase mb-4">{subtitle}</h4>
 
                     <div className="row" style={{ fontSize: '15px' }}>
-                        <div className="col-2 fw-bold">ผู้ออก</div>
+                        <div className="col-2 fw-bold">{t('print.issuer.label_th')}</div>
                         <div className="col-10">
                             <div className="fw-bold mb-1">{shop.company_name || shop.name}</div>
                             <div style={{ whiteSpace: 'pre-line', lineHeight: '1.4' }}>{shop.address}</div>
                         </div>
                     </div>
                     <div className="row mt-1">
-                        <div className="col-2 fw-bold">Issuer</div>
+                        <div className="col-2 fw-bold">{t('print.issuer.label_en')}</div>
                         <div className="col-10 text-muted">
                             {/* Space for English Address if needed */}
                         </div>
@@ -114,8 +116,8 @@ export const PrintOrder = () => {
                         />
                     )}
                     <div className="fw-bold">{shop.name}</div>
-                    <div>เลขผู้เสียภาษี Tax ID : {shop.tax_id}</div>
-                    <div className="fw-bold mt-1">T: {shop.phone}</div>
+                    <div>{t('print.customer.tax_id')} {shop.tax_id}</div>
+                    <div className="fw-bold mt-1">{t('print.document.phone')} {shop.phone}</div>
                 </div>
             </div>
 
@@ -123,47 +125,47 @@ export const PrintOrder = () => {
             <div className="row mb-1">
                 <div className="col-7">
                     <div className="row mb-1">
-                        <div className="col-4 fw-bold">ลูกค้า/Customer :</div>
+                        <div className="col-4 fw-bold">{t('print.customer.label')}</div>
                         <div className="col-8 fw-bold">
                             {order.customer?.company_name || order.customer?.name || 'Walk-in Customer'}
                         </div>
                     </div>
                     <div className="row mb-1">
-                        <div className="col-4 fw-bold">ที่อยู่/Address :</div>
+                        <div className="col-4 fw-bold">{t('print.customer.address')}</div>
                         <div className="col-8" style={{ whiteSpace: 'pre-line', lineHeight: '1.4' }}>
                             {order.customer?.address || '-'}
                         </div>
                     </div>
                     <div className="row mb-1">
-                        <div className="col-4 fw-bold">เลขผู้เสียภาษี :</div>
-                        <div className="col-8">Tax ID : {order.customer?.tax_id || '-'}</div>
+                        <div className="col-4 fw-bold">{t('print.customer.tax_id')}</div>
+                        <div className="col-8">{order.customer?.tax_id || '-'}</div>
                     </div>
                     <div className="row mb-1">
-                        <div className="col-4 fw-bold">ผู้ติดต่อ / Attention :</div>
+                        <div className="col-4 fw-bold">{t('print.customer.attention')}</div>
                         <div className="col-8">{order.customer?.name || '-'}</div>
                     </div>
                 </div>
                 <div className="col-5">
                     <div className="row mb-1">
-                        <div className="col-4 fw-bold text-end">เลขที่/No :</div>
+                        <div className="col-4 fw-bold text-end">{t('print.document.no')}</div>
                         <div className="col-8">{order.id}</div>
                     </div>
                     <div className="row mb-1">
-                        <div className="col-4 fw-bold text-end">วันที่ / ISSUE :</div>
+                        <div className="col-4 fw-bold text-end">{t('print.document.date')}</div>
                         <div className="col-8">{new Date(order.created_at).toLocaleDateString('th-TH')}</div>
                     </div>
                     {isQuotation && (
                         <div className="row mb-1">
-                            <div className="col-4 fw-bold text-end">ใช้ได้ถึง/Valid :</div>
+                            <div className="col-4 fw-bold text-end">{t('print.document.valid')}</div>
                             <div className="col-8">{validDate.toLocaleDateString('th-TH')}</div>
                         </div>
                     )}
                     <div className="row mb-1">
-                        <div className="col-4 fw-bold text-end">Email :</div>
+                        <div className="col-4 fw-bold text-end">{t('print.document.email')}</div>
                         <div className="col-8" style={{ wordBreak: 'break-all' }}>{order.customer?.email && !order.customer.email.startsWith('cust_') ? order.customer.email : '-'}</div>
                     </div>
                     <div className="row mb-1">
-                        <div className="col-4 fw-bold text-end">โทร :</div>
+                        <div className="col-4 fw-bold text-end">{t('print.document.phone')}</div>
                         <div className="col-8">{order.customer?.phone || shop.phone}</div>
                     </div>
                 </div>
@@ -173,11 +175,11 @@ export const PrintOrder = () => {
             <table className="table table-bordered border-dark mb-0">
                 <thead className="text-center align-middle bg-light">
                     <tr>
-                        <th style={{ width: '60px' }}>ลำดับที่ (No.)</th>
-                        <th>รายการ (DESCRIPTION)</th>
-                        <th style={{ width: '80px' }}>จำนวน<br/>Quantity</th>
-                        <th style={{ width: '120px' }}>ราคาต่อหน่วย<br/>Unit Price</th>
-                        <th style={{ width: '120px' }}>ราคารวม(บาท)</th>
+                        <th style={{ width: '60px' }}>{t('print.table.no')}</th>
+                        <th>{t('print.table.description')}</th>
+                        <th style={{ width: '80px' }} dangerouslySetInnerHTML={{ __html: t('print.table.quantity') }}></th>
+                        <th style={{ width: '120px' }} dangerouslySetInnerHTML={{ __html: t('print.table.unit_price') }}></th>
+                        <th style={{ width: '120px' }}>{t('print.table.total')}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -198,7 +200,7 @@ export const PrintOrder = () => {
                 <tfoot>
                     <tr>
                         <td colSpan={2} className="text-center bg-light">
-                            บาท / Baht
+                            {t('print.footer.baht_text')}
                         </td>
                         <td colSpan={3} className="bg-light fw-bold text-center">
                             ({thaiBahtText(Number(order.total))})
@@ -207,18 +209,18 @@ export const PrintOrder = () => {
                     <tr>
                         <td colSpan={3} rowSpan={2} className="align-top">
                             {/* Bank Info & Remarks */}
-                            <div className="text-danger fw-bold mb-2">***หมายเหตุ / Remarks***</div>
+                            <div className="text-danger fw-bold mb-2">{t('print.footer.remarks')}</div>
                             <div style={{ whiteSpace: 'pre-line', fontSize: '12px' }}>
                                 {shop.remarks || '-'}
                             </div>
                         </td>
-                        <td className="text-end fw-bold">ราคารวม<small>Sub Total</small></td>
+                        <td className="text-end fw-bold">{t('print.footer.subtotal')}<small>{t('print.footer.subtotal_en')}</small></td>
                         <td className="text-end fw-bold align-middle">
                             {Number(order.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                         </td>
                     </tr>
                     <tr>
-                        <td className="text-end fw-bold">สุทธิ<small>Net Total</small></td>
+                        <td className="text-end fw-bold">{t('print.footer.net_total')}<small>{t('print.footer.net_total_en')}</small></td>
                         <td className="text-end fw-bold fs-5 align-middle">
                             {Number(order.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                         </td>
@@ -253,12 +255,12 @@ export const PrintOrder = () => {
                     </div>
                     <div className="border-top w-75 mx-auto pt-2">
                         <div className="fw-bold">
-                            {isQuotation ? 'อนุมัติโดย / Approved by' : 
-                             isBillingNote ? 'ผู้รับวางบิล / Received by' : 
-                             'ผู้รับสินค้า / Receiver'}
+                            {isQuotation ? t('print.signatures.approved') : 
+                             isBillingNote ? t('print.signatures.received_billing') : 
+                             t('print.signatures.receiver')}
                         </div>
-                        <div className="mt-4">ลงชื่อ..........................................................</div>
-                        <div className="mt-2">วันที่ / Date ........................................</div>
+                        <div className="mt-4">{t('print.signatures.sign')}..........................................................</div>
+                        <div className="mt-2">{t('print.signatures.date')} ........................................</div>
                     </div>
                 </div>
                 <div className="col-6 text-center">
@@ -273,18 +275,18 @@ export const PrintOrder = () => {
                     </div>
                     <div className="border-top w-75 mx-auto pt-2">
                         <div className="fw-bold">
-                            {isQuotation ? 'ยอมรับใบเสนอราคา / Accepted by' : 
-                             isBillingNote ? 'ผู้วางบิล / Billing by' : 
-                             'ผู้รับเงิน / Collector'}
+                            {isQuotation ? t('print.signatures.accepted') : 
+                             isBillingNote ? t('print.signatures.billing') : 
+                             t('print.signatures.collector')}
                         </div>
-                        <div className="mt-4">ลงชื่อ..........................................................</div>
-                        <div className="mt-2">วันที่ / Date ........................................</div>
+                        <div className="mt-4">{t('print.signatures.sign')}..........................................................</div>
+                        <div className="mt-2">{t('print.signatures.date')} ........................................</div>
                     </div>
                 </div>
             </div>
 
             <div className="text-center mt-5 d-print-none">
-                <button className="btn btn-primary btn-lg" onClick={() => window.print()}>Print Document</button>
+                <button className="btn btn-primary btn-lg" onClick={() => window.print()}>{t('print.button')}</button>
             </div>
         </div>
     );

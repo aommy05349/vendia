@@ -122,7 +122,7 @@ export const Pos = () => {
         console.log("Setting cart:", newCartItems);
         
         if (skippedCount > 0) {
-            setAlertMessage({ type: 'danger', text: `Warning: ${skippedCount} items were skipped because the product no longer exists.` });
+            setAlertMessage({ type: 'danger', text: t('pos.warning_items_skipped', { count: skippedCount }) });
         }
 
         // Direct update without timeout to test immediate reactivity
@@ -130,7 +130,7 @@ export const Pos = () => {
         
       }).catch(err => {
         console.error("Failed to load order", err);
-        setAlertMessage({ type: 'danger', text: 'Failed to load order for editing: ' + err.message });
+        setAlertMessage({ type: 'danger', text: t('pos.error_load_order') + err.message });
       });
     } else {
         // If we are NOT editing (normal POS mode), clear the cart on mount
@@ -200,12 +200,12 @@ export const Pos = () => {
 
       if (editingOrderId) {
         await api.put(`/orders/${editingOrderId}`, payload);
-        setAlertMessage({ type: 'success', text: 'Order updated successfully!' });
+        setAlertMessage({ type: 'success', text: t('pos.order_updated') });
       } else {
         await api.post('/orders', payload);
-        let msg = 'Order placed successfully!';
-        if (status === 'pending') msg = 'Order saved as Unpaid!';
-        if (status === 'quotation') msg = 'Quotation created successfully!';
+        let msg = t('pos.order_placed');
+        if (status === 'pending') msg = t('pos.order_saved_unpaid');
+        if (status === 'quotation') msg = t('pos.quotation_created');
         setAlertMessage({ type: 'success', text: msg });
       }
 
@@ -219,7 +219,7 @@ export const Pos = () => {
         setTimeout(() => setAlertMessage(null), 3000);
       }
     } catch (error) {
-      setAlertMessage({ type: 'danger', text: 'Checkout failed!' });
+      setAlertMessage({ type: 'danger', text: t('pos.checkout_failed') });
       console.error(error);
     }
   };
@@ -331,7 +331,7 @@ export const Pos = () => {
                         onClick={() => handleProductClick(product)}
                         className={`btn w-100 mt-3 ${product.product_type !== 'service' && product.stock === 0 ? 'btn-secondary' : 'btn-primary'}`}
                       >
-                        {product.product_type !== 'service' && product.stock === 0 ? 'Out of Stock' : t('actions.add')}
+                        {product.product_type !== 'service' && product.stock === 0 ? t('pos.out_of_stock') : t('actions.add')}
                       </button>
                     </div>
                   </div>
@@ -347,17 +347,17 @@ export const Pos = () => {
                   disabled={pagination.current_page === 1}
                   onClick={() => handlePageChange(pagination.current_page - 1)}
                 >
-                  Previous
+                  {t('common.previous')}
                 </button>
                 <span className="text-muted">
-                  Page {pagination.current_page} of {pagination.last_page}
+                  {t('common.page_of', { current: pagination.current_page, total: pagination.last_page })}
                 </span>
                 <button
                   className="btn btn-outline-secondary"
                   disabled={pagination.current_page === pagination.last_page}
                   onClick={() => handlePageChange(pagination.current_page + 1)}
                 >
-                  Next
+                  {t('common.next')}
                 </button>
               </div>
             )}
@@ -373,7 +373,7 @@ export const Pos = () => {
              <div className="d-flex justify-content-between align-items-center mb-2">
                  <h6 className="text-muted text-uppercase small fw-bold m-0">{t('pos.select_customer')}</h6>
                  <button className="btn btn-sm btn-link text-decoration-none" onClick={() => { setShowCustomerModal(true); fetchCustomers(); }}>
-                     {selectedCustomer ? 'Change' : 'Select'}
+                     {selectedCustomer ? t('actions.change') : t('actions.select')}
                  </button>
              </div>
              <div className="card shadow-sm border-0" onClick={() => { setShowCustomerModal(true); fetchCustomers(); }} style={{ cursor: 'pointer' }}>
@@ -392,7 +392,7 @@ export const Pos = () => {
 
         <h2 className="h4 mt-0 mb-4">{t('pos.cart')}</h2>
         {items.length === 0 ? (
-          <p className="text-muted text-center my-5">Cart is empty</p>
+          <p className="text-muted text-center my-5">{t('pos.cart_empty')}</p>
         ) : (
           <div className="flex-grow-1 overflow-auto mb-3">
             {/* Products Section */}
@@ -438,7 +438,7 @@ export const Pos = () => {
             {/* Services Section (Positive Price) */}
             {items.some(item => item.product.product_type === 'service' && item.price >= 0) && (
               <div className="mb-3">
-                <h6 className="text-muted text-uppercase small fw-bold mb-2">Services & Fees</h6>
+                <h6 className="text-muted text-uppercase small fw-bold mb-2">{t('pos.services_fees')}</h6>
                 {items.filter(item => item.product.product_type === 'service' && item.price >= 0).map((item) => (
                   <div key={item.product.id} className="card mb-2 border-0 shadow-sm border-start border-4 border-info">
                     <div className="card-body p-3 d-flex justify-content-between align-items-center">
@@ -578,7 +578,7 @@ export const Pos = () => {
                                 className="form-control form-control-lg"
                                 value={receivedAmount}
                                 onChange={(e) => setReceivedAmount(e.target.value)}
-                                placeholder="Enter amount"
+                                placeholder={t('pos.enter_amount')}
                                 autoFocus
                                 required
                             />
@@ -592,7 +592,7 @@ export const Pos = () => {
 
                     {change !== null && (
                         <div className={`alert ${change < 0 ? 'alert-danger' : 'alert-success'} text-center`}>
-                            <div className="small text-uppercase fw-bold mb-1">{change < 0 ? 'Insufficient' : t('pos.change')}</div>
+                            <div className="small text-uppercase fw-bold mb-1">{change < 0 ? t('pos.insufficient') : t('pos.change')}</div>
                             <div className="fs-2 fw-bold">฿{change.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                         </div>
                     )}
@@ -644,7 +644,7 @@ export const Pos = () => {
                         onClick={() => { setSelectedCustomer(null); setShowCustomerModal(false); }}
                     >
                         <div className="fw-bold">{t('pos.walk_in')}</div>
-                        <div className="small">Default</div>
+                        <div className="small">{t('pos.default')}</div>
                     </button>
                     {customers.map(customer => (
                         <button 
@@ -663,7 +663,7 @@ export const Pos = () => {
                         </button>
                     ))}
                     {customers.length === 0 && (
-                        <div className="text-center p-4 text-muted">No customers found</div>
+                        <div className="text-center p-4 text-muted">{t('pos.no_customers_found')}</div>
                     )}
                 </div>
               </div>
@@ -806,13 +806,13 @@ export const Pos = () => {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Enter Price</h5>
+                <h5 className="modal-title">{t('pos.enter_price')}</h5>
                 <button type="button" className="btn-close" onClick={() => { setShowPriceModal(false); setSelectedProductForPrice(null); }}></button>
               </div>
               <div className="modal-body">
                 <form onSubmit={confirmPrice}>
                   <div className="mb-3">
-                    <label className="form-label">Price (฿)</label>
+                    <label className="form-label">{t('pos.price_thb')}</label>
                     <input
                       type="number"
                       className="form-control"
@@ -821,12 +821,12 @@ export const Pos = () => {
                       autoFocus
                     />
                     <div className="form-text text-muted">
-                      Enter negative value for deductions (e.g., -100)
+                      {t('pos.price_deduction_hint')}
                     </div>
                   </div>
                   <div className="d-flex justify-content-end gap-2">
-                    <button type="button" className="btn btn-secondary" onClick={() => { setShowPriceModal(false); setSelectedProductForPrice(null); }}>Cancel</button>
-                    <button type="submit" className="btn btn-primary">Confirm</button>
+                    <button type="button" className="btn btn-secondary" onClick={() => { setShowPriceModal(false); setSelectedProductForPrice(null); }}>{t('actions.cancel')}</button>
+                    <button type="submit" className="btn btn-primary">{t('common.confirm')}</button>
                   </div>
                 </form>
               </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api, useAuthStore } from '@vendia/shared';
+import { useTranslation } from 'react-i18next';
 import { format, differenceInHours, differenceInMinutes } from 'date-fns';
 
 interface User {
@@ -20,6 +21,7 @@ interface Attendance {
 }
 
 export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) => {
+    const { t } = useTranslation();
     const { user } = useAuthStore();
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loading, setLoading] = useState(true);
@@ -117,7 +119,7 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
             // Show success message (optional)
         } catch (error) {
             console.error('Failed to update attendance', error);
-            alert('Failed to update attendance');
+            alert(t('attendance.history.update_failed'));
         }
     };
 
@@ -135,7 +137,7 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
         <div className={embedded ? "mt-4" : "container-fluid p-4"}>
             {!embedded && (
                 <div className="d-flex justify-content-between align-items-center mb-4">
-                    <h1 className="h3">Attendance History</h1>
+                    <h1 className="h3">{t('attendance.history.title')}</h1>
                 </div>
             )}
 
@@ -144,7 +146,7 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                 <div className="card-body">
                     <div className="row g-3">
                         <div className="col-md-3">
-                            <label className="form-label">Technician</label>
+                            <label className="form-label">{t('attendance.history.filter.technician')}</label>
                             <select 
                                 className="form-select"
                                 value={selectedUser}
@@ -153,14 +155,14 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                                     setPage(1);
                                 }}
                             >
-                                <option value="">All Technicians</option>
+                                <option value="">{t('attendance.history.filter.all_technicians')}</option>
                                 {users.map(u => (
                                     <option key={u.id} value={u.id}>{u.name}</option>
                                 ))}
                             </select>
                         </div>
                         <div className="col-md-3">
-                            <label className="form-label">Start Date</label>
+                            <label className="form-label">{t('attendance.history.filter.start_date')}</label>
                             <input 
                                 type="date" 
                                 className="form-control"
@@ -172,7 +174,7 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                             />
                         </div>
                         <div className="col-md-3">
-                            <label className="form-label">End Date</label>
+                            <label className="form-label">{t('attendance.history.filter.end_date')}</label>
                             <input 
                                 type="date" 
                                 className="form-control"
@@ -193,7 +195,7 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                                     setPage(1);
                                 }}
                             >
-                                Clear Filters
+                                {t('attendance.history.filter.clear')}
                             </button>
                         </div>
                     </div>
@@ -206,7 +208,7 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                     <div className="col-md-3">
                         <div className="card bg-primary text-white h-100">
                             <div className="card-body text-center">
-                                <h6 className="card-title text-uppercase small opacity-75">Days Worked</h6>
+                                <h6 className="card-title text-uppercase small opacity-75">{t('attendance.history.summary.days_worked')}</h6>
                                 <h2 className="display-6 fw-bold mb-0">{summary.days_worked}</h2>
                             </div>
                         </div>
@@ -214,7 +216,7 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                     <div className="col-md-3">
                         <div className="card bg-info text-white h-100">
                             <div className="card-body text-center">
-                                <h6 className="card-title text-uppercase small opacity-75">Total Hours</h6>
+                                <h6 className="card-title text-uppercase small opacity-75">{t('attendance.history.summary.total_hours')}</h6>
                                 <h2 className="display-6 fw-bold mb-0">{summary.total_hours}</h2>
                             </div>
                         </div>
@@ -222,7 +224,7 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                     <div className="col-md-3">
                         <div className="card bg-success text-white h-100">
                             <div className="card-body text-center">
-                                <h6 className="card-title text-uppercase small opacity-75">Weekly Off</h6>
+                                <h6 className="card-title text-uppercase small opacity-75">{t('attendance.history.summary.weekly_off')}</h6>
                                 <h2 className="display-6 fw-bold mb-0">{summary.weekly_off_days}</h2>
                             </div>
                         </div>
@@ -230,7 +232,7 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                     <div className="col-md-3">
                         <div className="card bg-danger text-white h-100">
                             <div className="card-body text-center">
-                                <h6 className="card-title text-uppercase small opacity-75">Absent (No Reason)</h6>
+                                <h6 className="card-title text-uppercase small opacity-75">{t('attendance.history.summary.absent')}</h6>
                                 <h2 className="display-6 fw-bold mb-0">{summary.absent_days}</h2>
                             </div>
                         </div>
@@ -245,13 +247,13 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                         <table className="table table-hover align-middle mb-0">
                             <thead className="bg-light">
                                 <tr>
-                                    <th className="ps-4">Technician</th>
-                                    <th>Date</th>
-                                    <th>Check In</th>
-                                    <th>Check Out</th>
-                                    <th>Duration</th>
-                                    <th>Status</th>
-                                    {user?.role === 'admin' && <th className="text-end pe-4">Actions</th>}
+                                    <th className="ps-4">{t('attendance.history.table.technician')}</th>
+                                    <th>{t('attendance.history.table.date')}</th>
+                                    <th>{t('attendance.history.table.check_in')}</th>
+                                    <th>{t('attendance.history.table.check_out')}</th>
+                                    <th>{t('attendance.history.table.duration')}</th>
+                                    <th>{t('attendance.history.table.status')}</th>
+                                    {user?.role === 'admin' && <th className="text-end pe-4">{t('attendance.history.table.actions')}</th>}
                                 </tr>
                             </thead>
                             <tbody>
@@ -264,7 +266,7 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                                 ) : attendances.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="text-center py-5 text-muted">
-                                            No attendance records found
+                                            {t('attendance.history.table.no_records')}
                                         </td>
                                     </tr>
                                 ) : (
@@ -286,17 +288,17 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                                                         {format(new Date(record.check_out), 'HH:mm')}
                                                     </div>
                                                 ) : (
-                                                    <span className="badge bg-warning text-dark">Active</span>
+                                                    <span className="badge bg-warning text-dark">{t('attendance.history.table.active')}</span>
                                                 )}
                                             </td>
                                             <td>{calculateDuration(record.check_in, record.check_out)}</td>
                                             <td>
                                                 <span className={`badge ${record.status === 'completed' ? 'bg-success' : (record.status === 'absent' ? 'bg-danger' : 'bg-primary')}`}>
-                                                    {record.status}
+                                                    {t(`attendance.status.${record.status}`, { defaultValue: record.status })}
                                                 </span>
                                                 {record.status === 'absent' && record.reason && (
                                                     <div className="small text-danger mt-1">
-                                                        Note: {record.reason}
+                                                        {t('attendance.history.table.note')}: {record.reason}
                                                     </div>
                                                 )}
                                             </td>
@@ -306,7 +308,7 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                                                         className="btn btn-sm btn-outline-primary"
                                                         onClick={() => handleEditClick(record)}
                                                     >
-                                                        Edit
+                                                        {t('attendance.history.table.edit')}
                                                     </button>
                                                 </td>
                                             )}
@@ -324,7 +326,7 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                         <nav>
                             <ul className="pagination mb-0">
                                 <li className={`page-item ${page === 1 ? 'disabled' : ''}`}>
-                                    <button className="page-link" onClick={() => setPage(p => Math.max(1, p - 1))}>Previous</button>
+                                    <button className="page-link" onClick={() => setPage(p => Math.max(1, p - 1))}>{t('common.previous')}</button>
                                 </li>
                                 {[...Array(totalPages)].map((_, i) => (
                                     <li key={i} className={`page-item ${page === i + 1 ? 'active' : ''}`}>
@@ -332,7 +334,7 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                                     </li>
                                 ))}
                                 <li className={`page-item ${page === totalPages ? 'disabled' : ''}`}>
-                                    <button className="page-link" onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next</button>
+                                    <button className="page-link" onClick={() => setPage(p => Math.min(totalPages, p + 1))}>{t('common.next')}</button>
                                 </li>
                             </ul>
                         </nav>
@@ -346,17 +348,17 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                     <div className="modal-dialog">
                         <div className="modal-content">
                             <div className="modal-header">
-                                <h5 className="modal-title">Edit Attendance</h5>
+                                <h5 className="modal-title">{t('attendance.history.edit_modal.title')}</h5>
                                 <button type="button" className="btn-close" onClick={() => setShowEditModal(false)}></button>
                             </div>
                             <form onSubmit={handleUpdate}>
                                 <div className="modal-body">
                                     <div className="mb-3">
-                                        <label className="form-label">Technician</label>
+                                        <label className="form-label">{t('attendance.history.table.technician')}</label>
                                         <input type="text" className="form-control" value={editingAttendance?.user.name} disabled />
                                     </div>
                                     <div className="mb-3">
-                                        <label className="form-label">Check In Time</label>
+                                        <label className="form-label">{t('attendance.history.edit_modal.check_in_time')}</label>
                                         <input 
                                             type="datetime-local" 
                                             className="form-control" 
@@ -366,19 +368,19 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
                                         />
                                     </div>
                                     <div className="mb-3">
-                                        <label className="form-label">Check Out Time</label>
+                                        <label className="form-label">{t('attendance.history.edit_modal.check_out_time')}</label>
                                         <input 
                                             type="datetime-local" 
                                             className="form-control" 
                                             value={editCheckOut}
                                             onChange={(e) => setEditCheckOut(e.target.value)}
                                         />
-                                        <div className="form-text">Leave empty if still active</div>
+                                        <div className="form-text">{t('attendance.history.edit_modal.leave_empty')}</div>
                                     </div>
                                 </div>
                                 <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Cancel</button>
-                                    <button type="submit" className="btn btn-primary">Save Changes</button>
+                                    <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>{t('attendance.history.edit_modal.cancel')}</button>
+                                    <button type="submit" className="btn btn-primary">{t('attendance.history.edit_modal.save')}</button>
                                 </div>
                             </form>
                         </div>
