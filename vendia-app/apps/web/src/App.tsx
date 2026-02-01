@@ -29,6 +29,11 @@ import { EditCustomer } from './pages/admin/EditCustomer';
 import { PrintOrder } from './pages/PrintOrder';
 import { TechnicianDashboard } from './pages/technician/TechnicianDashboard';
 import { AttendanceHistory } from './pages/admin/AttendanceHistory';
+import { AppointmentList } from './pages/admin/AppointmentList';
+import { CreateAppointment } from './pages/admin/CreateAppointment';
+import { AppointmentDetail } from './pages/admin/AppointmentDetail';
+import { EditAppointment } from './pages/admin/EditAppointment';
+import { TechnicianJobs } from './pages/technician/TechnicianJobs';
 
 function App() {
   const { user, login } = useAuthStore();
@@ -176,6 +181,22 @@ function App() {
           } />
           <Route path="attendance/history" element={
             user.role === 'admin' ? <AttendanceHistory /> : <Navigate to="/" />
+          } />
+          {/* Appointments */}
+          <Route path="appointments" element={
+            user.role === 'admin' || user.role === 'technician' ? <AppointmentList /> : <Navigate to="/" />
+          } />
+          <Route path="appointments/create" element={
+            user.role === 'admin' ? <CreateAppointment /> : <Navigate to="/" />
+          } />
+          <Route path="appointments/:id" element={
+            user.role === 'admin' || user.role === 'technician' ? <AppointmentDetail /> : <Navigate to="/" />
+          } />
+          <Route path="appointments/:id/edit" element={
+            user.role === 'admin' ? <EditAppointment /> : <Navigate to="/" />
+          } />
+          <Route path="technician/jobs" element={
+            user.role === 'technician' || user.role === 'admin' ? <TechnicianJobs /> : <Navigate to="/" />
           } />
         </Route>
         <Route path="/print/order/:id" element={<PrintOrder />} />

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api, useAuthStore } from '@vendia/shared';
+import { Link } from 'react-router-dom';
 import { AttendanceHistory } from '../admin/AttendanceHistory';
 
 const formatDuration = (startDate: string) => {
@@ -501,6 +502,12 @@ export const TechnicianDashboard = () => {
                     {loading ? 'Processing...' : 'CHECK OUT (ออกงาน)'}
                   </button>
                 )}
+              </div>
+              
+              <div className="d-grid gap-3 mt-3">
+                <Link to="/technician/jobs" className="btn btn-outline-primary btn-lg py-3 fw-bold">
+                   <i className="bi bi-calendar-check me-2"></i>MY JOBS (งานของฉัน)
+                </Link>
               </div>
             </div>
           </div>

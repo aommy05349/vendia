@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@vendia/shared';
 import { useNavigate, useParams } from 'react-router-dom';
+import { CustomerLocations } from '../../components/CustomerLocations';
 
 export const EditCustomer = () => {
   const { id } = useParams();
@@ -96,7 +97,7 @@ export const EditCustomer = () => {
   if (loading) return <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>;
 
   return (
-    <div className="container mt-5" style={{ maxWidth: '800px' }}>
+    <div className="container mt-5" style={{ maxWidth: '90%' }}>
       <h1 className="mb-4">Edit Customer</h1>
       {error && <div className="alert alert-danger" style={{ whiteSpace: 'pre-wrap' }}>{error}</div>}
       
@@ -203,6 +204,10 @@ export const EditCustomer = () => {
       </form>
 
       <div className="mt-5">
+        <CustomerLocations customerId={id!} />
+      </div>
+
+      <div className="mt-5 mb-5">
         <h3 className="mb-3">Order History</h3>
         <div className="card shadow-sm">
           <div className="table-responsive">

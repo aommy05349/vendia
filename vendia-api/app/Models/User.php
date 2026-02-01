@@ -56,4 +56,23 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function locations()
+    {
+        return $this->hasMany(CustomerLocation::class);
+    }
+
+    public function appointments()
+    {
+        // For customer
+        return $this->hasMany(Appointment::class, 'customer_id');
+    }
+
+    public function assignedAppointments()
+    {
+        // For technician
+        return $this->belongsToMany(Appointment::class, 'appointment_assignees')
+                    ->withPivot('is_lead')
+                    ->withTimestamps();
+    }
 }

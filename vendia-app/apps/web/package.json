@@ -9,12 +9,14 @@
   },
   "dependencies": {
     "@types/bootstrap": "^5.2.10",
+    "@types/react-select": "^5.0.1",
     "@vendia/shared": "workspace:*",
     "bootstrap": "^5.3.8",
     "date-fns": "^4.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^7.13.0"
+    "react-router-dom": "^7.13.0",
+    "react-select": "^5.10.2"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",

@@ -312,23 +312,43 @@ export const OrderList = () => {
                                 Receipt
                             </button>
                             <button 
-                              className="btn btn-warning btn-sm me-2"
-                              onClick={(e) => {
+                                className="btn btn-warning btn-sm me-2"
+                                onClick={(e) => {
                                 e.stopPropagation();
                                 navigate(`/pos?order_id=${order.id}`);
-                              }}
+                                }}
                             >
-                              Edit
+                                Edit
+                            </button>
+                            <button 
+                                className="btn btn-primary btn-sm me-2"
+                                onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/appointments/create?order_id=${order.id}&customer_id=${order.customer?.id}`);
+                                }}
+                            >
+                                Create Appt
                             </button>
                           </>
                         )}
                         {order.status === 'completed' && (
+                            <>
                             <button 
                                 className="btn btn-secondary btn-sm me-2"
                                 onClick={(e) => handlePrint(e, order.id, 'receipt')}
                             >
                                 Print Receipt
                             </button>
+                            <button 
+                                className="btn btn-primary btn-sm me-2"
+                                onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/appointments/create?order_id=${order.id}&customer_id=${order.customer?.id}`);
+                                }}
+                            >
+                                Create Appt
+                            </button>
+                            </>
                         )}
                         <button className="btn btn-sm btn-link text-decoration-none">
                           {expandedOrderId === order.id ? 'Hide' : 'View'}

@@ -132,10 +132,12 @@ export const AttendanceHistory = ({ embedded = false }: { embedded?: boolean }) 
     };
 
     return (
-        <div className={embedded ? "mt-5" : "container-fluid p-4"}>
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h1 className="h3">Attendance History</h1>
-            </div>
+        <div className={embedded ? "mt-4" : "container-fluid p-4"}>
+            {!embedded && (
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                    <h1 className="h3">Attendance History</h1>
+                </div>
+            )}
 
             {/* Filters */}
             <div className="card shadow-sm mb-4">

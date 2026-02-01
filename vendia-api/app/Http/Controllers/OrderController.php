@@ -45,6 +45,15 @@ class OrderController extends Controller
             $query->where('customer_id', $request->input('customer_id'));
         }
 
+        if ($request->has('exclude_has_appointment') && $request->boolean('exclude_has_appointment')) {
+            $query->where(function($q) use ($request) {
+                $q->doesntHave('appointments');
+                if ($request->has('include_order_id')) {
+                    $q->orWhere('id', $request->input('include_order_id'));
+                }
+            });
+        }
+
         $orders = $query->paginate(10);
 
         $orders->getCollection()->each(function($order) {

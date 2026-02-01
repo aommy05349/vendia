@@ -82,10 +82,17 @@ export const DashboardLayout = () => {
             <Link to="/orders" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/orders' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📄 Orders / Bill</Link>
             <Link to="/customers" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/customers' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 Customers</Link>
             
+            {user.role === 'admin' && (
+              <Link to="/appointments" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/appointments') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 Appointments</Link>
+            )}
+
             {(user.role === 'technician' || user.role === 'admin') && (
               <>
                 <div className=" text-muted fw-bold small ps-2">TECHNICIAN</div>
                 <Link to="/technician" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/technician' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⏱️ Attendance</Link>
+                {user.role === 'technician' && (
+                  <Link to="/technician/jobs" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/technician/jobs') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 My Jobs</Link>
+                )}
               </>
             )}
 

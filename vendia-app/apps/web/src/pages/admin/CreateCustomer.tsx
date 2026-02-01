@@ -54,7 +54,7 @@ export const CreateCustomer = () => {
   };
 
   return (
-    <div className="container mt-5" style={{ maxWidth: '800px' }}>
+    <div className="container mt-5" style={{ maxWidth: '90%' }}>
       <h1 className="mb-4">Create New Customer</h1>
       {error && <div className="alert alert-danger" style={{ whiteSpace: 'pre-wrap' }}>{error}</div>}
       

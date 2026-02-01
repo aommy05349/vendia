@@ -40,4 +40,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/attendance/absent', [AttendanceController::class, 'markAbsent']);
     Route::put('/attendance/{id}', [AttendanceController::class, 'update']);
     Route::get('/attendance', [AttendanceController::class, 'index']);
+
+    // Customer Locations
+    Route::get('/users/{user}/locations', [\App\Http\Controllers\CustomerLocationController::class, 'index']);
+    Route::post('/customer-locations', [\App\Http\Controllers\CustomerLocationController::class, 'store']);
+    Route::put('/customer-locations/{id}', [\App\Http\Controllers\CustomerLocationController::class, 'update']);
+    Route::delete('/customer-locations/{id}', [\App\Http\Controllers\CustomerLocationController::class, 'destroy']);
+
+    // Appointments
+    Route::apiResource('appointments', \App\Http\Controllers\AppointmentController::class);
 });

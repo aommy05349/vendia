@@ -1,0 +1,56 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Appointment extends Model
+{
+    protected $fillable = [
+        'customer_id',
+        'order_id',
+        'title',
+        'description',
+        'status',
+        'start_time',
+        'end_time',
+        'location_name',
+        'address',
+        'latitude',
+        'longitude',
+        'google_maps_link',
+        'contact_name',
+        'contact_phone',
+        'admin_notes',
+        'technician_notes',
+    ];
+
+    protected $casts = [
+        'start_time' => 'datetime',
+        'end_time' => 'datetime',
+        'latitude' => 'decimal:8',
+        'longitude' => 'decimal:8',
+    ];
+
+    public function customer()
+    {
+        return $this->belongsTo(User::class, 'customer_id');
+    }
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function assignees()
+    {
+        return $this->hasMany(AppointmentAssignee::class);
+    }
+
+    public function technicians()
+    {
+        return $this->belongsToMany(User::class, 'appointment_assignees')
+                    ->withPivot('is_lead')
+                    ->withTimestamps();
+    }
+}
