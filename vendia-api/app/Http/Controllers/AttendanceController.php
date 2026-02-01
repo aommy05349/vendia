@@ -22,6 +22,14 @@ class AttendanceController extends Controller
             $query->whereDate('date', $request->date);
         }
 
+        if ($request->has('start_date')) {
+            $query->whereDate('date', '>=', $request->start_date);
+        }
+
+        if ($request->has('end_date')) {
+            $query->whereDate('date', '<=', $request->end_date);
+        }
+
         return $query->paginate(20);
     }
 
@@ -95,34 +103,107 @@ class AttendanceController extends Controller
 
     public function overview(Request $request)
     {
-        // Ensure only admin/staff can access this? The route middleware will handle auth, 
-        // but maybe we should check role here too? 
-        // For now, let's assume the frontend protects the view and API just serves data.
-        
         $technicians = User::where('role', 'technician')->get();
         
         $data = $technicians->map(function($tech) {
+            // Check for today's attendance record
+            $todayAttendance = Attendance::where('user_id', $tech->id)
+                ->whereDate('date', Carbon::today())
+                ->latest()
+                ->first();
+
             $activeSession = Attendance::where('user_id', $tech->id)
                 ->whereNull('check_out')
+                ->where('status', '!=', 'absent')
                 ->latest()
                 ->first();
                 
             $lastSession = null;
-            if (!$activeSession) {
+            if (!$activeSession && !$todayAttendance) {
                 $lastSession = Attendance::where('user_id', $tech->id)
                     ->latest()
                     ->first();
             }
+
+            // Weekly Stats
+            $startOfWeek = Carbon::now()->startOfWeek();
+            $endOfWeek = Carbon::now()->endOfWeek();
+
+            $weeklyOffCount = Attendance::where('user_id', $tech->id)
+                ->whereBetween('date', [$startOfWeek, $endOfWeek])
+                ->where('status', 'absent')
+                ->where('reason', 'วันหยุดประจำสัปดาห์')
+                ->count();
             
+            // Determine status
+            $status = 'offline';
+            $reason = null;
+
+            if ($todayAttendance && $todayAttendance->status === 'absent') {
+                $status = 'absent';
+                $reason = $todayAttendance->reason;
+            } elseif ($activeSession) {
+                $status = 'working';
+            } elseif ($todayAttendance && $todayAttendance->check_out) {
+                 // Already finished work for today
+                 $status = 'completed';
+            }
+
             return [
                 'user' => $tech,
-                'status' => $activeSession ? 'working' : 'offline',
-                'check_in' => $activeSession ? $activeSession->check_in : null,
+                'status' => $status,
+                'reason' => $reason,
+                'check_in' => $activeSession ? $activeSession->check_in : ($todayAttendance ? $todayAttendance->check_in : null),
                 'last_seen' => $lastSession ? $lastSession->check_out ?? $lastSession->check_in : null,
+                'weekly_off_count' => $weeklyOffCount,
             ];
         });
         
         return response()->json($data);
+    }
+
+    public function markAbsent(Request $request)
+    {
+        // Only admin can mark absent
+        if (Auth::user()->role !== 'admin') {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'reason' => 'required|string',
+            'date' => 'nullable|date',
+        ]);
+
+        $date = $request->date ? Carbon::parse($request->date) : Carbon::today();
+
+        // Check if record exists for this date
+        $existing = Attendance::where('user_id', $request->user_id)
+            ->whereDate('date', $date)
+            ->first();
+
+        if ($existing) {
+             // If already working/completed, maybe we shouldn't overwrite? 
+             // Or assume admin knows best. Let's update it.
+             $existing->update([
+                 'status' => 'absent',
+                 'reason' => $request->reason,
+                 'check_in' => $date->startOfDay(), // Placeholder
+                 'check_out' => $date->endOfDay(),   // Placeholder
+             ]);
+             return response()->json($existing);
+        }
+
+        $attendance = Attendance::create([
+            'user_id' => $request->user_id,
+            'date' => $date,
+            'check_in' => $date->startOfDay(), // Need non-null for constraint? Migration says check_in is timestamp, not nullable.
+            'check_out' => $date->endOfDay(),
+            'status' => 'absent',
+            'reason' => $request->reason,
+        ]);
+
+        return response()->json($attendance);
     }
 
     public function history($userId)
@@ -132,5 +213,77 @@ class AttendanceController extends Controller
             ->paginate(10); // Paginate history
 
         return response()->json($attendances);
+    }
+
+    public function summary(Request $request)
+    {
+        $query = Attendance::query();
+
+        if ($request->has('user_id') && $request->user_id) {
+            $query->where('user_id', $request->user_id);
+        }
+
+        if ($request->has('start_date') && $request->start_date) {
+            $query->whereDate('date', '>=', $request->start_date);
+        }
+
+        if ($request->has('end_date') && $request->end_date) {
+            $query->whereDate('date', '<=', $request->end_date);
+        }
+
+        // Clone query for different stats to avoid interference
+        $workingQuery = clone $query;
+        $absentQuery = clone $query;
+
+        // 1. Working Days & Hours
+        $workingRecords = $workingQuery->whereIn('status', ['working', 'completed'])->get();
+        $daysWorked = $workingRecords->unique('date')->count();
+        
+        $totalMinutes = 0;
+        foreach ($workingRecords as $record) {
+            if ($record->check_out && $record->check_in) {
+                $start = Carbon::parse($record->check_in);
+                $end = Carbon::parse($record->check_out);
+                $totalMinutes += abs($end->diffInMinutes($start));
+            }
+        }
+        $totalHours = round($totalMinutes / 60, 2);
+
+        // 2. Absent Days (No Reason / Other Reason)
+        // We defined "Absent without reason" as status='absent' AND reason != 'วันหยุดประจำสัปดาห์'
+        $absentRecords = $absentQuery->where('status', 'absent')->get();
+        
+        $weeklyOffDays = $absentRecords->where('reason', 'วันหยุดประจำสัปดาห์')->count();
+        $absentDays = $absentRecords->where('reason', '!=', 'วันหยุดประจำสัปดาห์')->count();
+
+        return response()->json([
+            'days_worked' => $daysWorked,
+            'total_hours' => $totalHours,
+            'absent_days' => $absentDays,
+            'weekly_off_days' => $weeklyOffDays,
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        // Only admin can update attendance
+        if (Auth::user()->role !== 'admin') {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $request->validate([
+            'check_in' => 'required|date',
+            'check_out' => 'nullable|date|after_or_equal:check_in',
+        ]);
+
+        $attendance = Attendance::findOrFail($id);
+        
+        $attendance->update([
+            'check_in' => Carbon::parse($request->check_in),
+            'check_out' => $request->check_out ? Carbon::parse($request->check_out) : null,
+            // Update duration or status if needed, but usually derived
+        ]);
+
+        return response()->json($attendance);
     }
 }

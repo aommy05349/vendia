@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api, useAuthStore } from '@vendia/shared';
+import { AttendanceHistory } from '../admin/AttendanceHistory';
 
 const formatDuration = (startDate: string) => {
   const start = new Date(startDate).getTime();
@@ -47,6 +48,13 @@ export const TechnicianDashboard = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
+
+  // Absent Modal State
+  const [showAbsentModal, setShowAbsentModal] = useState(false);
+  const [absentTech, setAbsentTech] = useState<any>(null);
+  const [absentType, setAbsentType] = useState('weekly_off');
+  const [absentReason, setAbsentReason] = useState('');
+  const [absentLoading, setAbsentLoading] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -131,6 +139,41 @@ export const TechnicianDashboard = () => {
     fetchHistory(tech.user.id, 1);
   };
 
+  const handleAbsentClick = (e: React.MouseEvent, tech: any) => {
+      e.stopPropagation(); // Prevent card click
+      setAbsentTech(tech);
+      setAbsentType('weekly_off');
+      setAbsentReason('');
+      setShowAbsentModal(true);
+  };
+
+  const submitAbsent = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!absentTech) return;
+
+      const finalReason = absentType === 'weekly_off' ? 'วันหยุดประจำสัปดาห์' : absentReason;
+
+      if (absentType === 'absent' && !finalReason) {
+          alert('Please provide a reason');
+          return;
+      }
+      
+      setAbsentLoading(true);
+      try {
+          await api.post('/attendance/absent', {
+              user_id: absentTech.user.id,
+              reason: finalReason
+          });
+          setShowAbsentModal(false);
+          fetchOverview();
+      } catch (error) {
+          console.error('Failed to mark absent', error);
+          alert('Failed to mark absent');
+      } finally {
+          setAbsentLoading(false);
+      }
+  };
+
   const closeHistoryModal = () => {
     setSelectedTech(null);
     setHistory([]);
@@ -175,63 +218,139 @@ export const TechnicianDashboard = () => {
                             </div>
                         ) : (
                             technicians.map((tech) => (
-                                <div className="col-md-6 col-lg-4 col-xl-3" key={tech.user.id}>
+                                <div className="col-md-4 col-lg-3 col-xl-2" key={tech.user.id}>
                                     <div 
-                                        className={`card h-100 shadow-sm border-${tech.status === 'working' ? 'success' : 'light'} cursor-pointer`} 
-                                        style={{ borderLeftWidth: tech.status === 'working' ? '5px' : '1px', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                        className={`card h-100 shadow-sm border-${tech.status === 'working' ? 'success' : (tech.status === 'absent' ? 'danger' : 'light')} cursor-pointer`} 
+                                        style={{ borderLeftWidth: tech.status === 'working' ? '4px' : '1px', cursor: 'pointer', transition: 'transform 0.2s', fontSize: '0.9rem' }}
                                         onClick={() => handleCardClick(tech)}
-                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
+                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
                                         onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                                     >
-                                        <div className="card-header bg-white d-flex justify-content-between align-items-center py-3">
-                                            <div className="d-flex align-items-center">
-                                                <div className={`rounded-circle d-flex align-items-center justify-content-center text-white me-2 fw-bold ${tech.status === 'working' ? 'bg-success' : 'bg-secondary'}`} style={{ width: '40px', height: '40px' }}>
+                                        <div className="card-header bg-white d-flex justify-content-between align-items-center py-2 px-3">
+                                            <div className="d-flex align-items-center" style={{ minWidth: 0 }}>
+                                                <div className={`rounded-circle d-flex align-items-center justify-content-center text-white me-2 fw-bold ${tech.status === 'working' ? 'bg-success' : (tech.status === 'absent' ? 'bg-danger' : 'bg-secondary')}`} style={{ width: '32px', height: '32px', minWidth: '32px', fontSize: '0.85rem' }}>
                                                     {tech.user.first_name.charAt(0)}
                                                 </div>
-                                                <div>
-                                                    <h6 className="mb-0 text-truncate" style={{ maxWidth: '150px' }}>{tech.user.first_name} {tech.user.last_name}</h6>
-                                                    <small className="text-muted">{tech.user.phone || '-'}</small>
+                                                <div className="text-truncate">
+                                                    <h6 className="mb-0 text-truncate fw-bold" style={{ fontSize: '0.9rem' }}>{tech.user.first_name}</h6>
                                                 </div>
                                             </div>
-                                            <span className={`badge ${tech.status === 'working' ? 'bg-success' : 'bg-secondary'}`}>
-                                                {tech.status === 'working' ? 'ONLINE' : 'OFFLINE'}
+                                            <span className={`badge ${tech.status === 'working' ? 'bg-success' : (tech.status === 'absent' ? 'bg-danger' : 'bg-secondary')}`} style={{ fontSize: '0.7rem' }}>
+                                                {tech.status === 'working' ? 'ON' : (tech.status === 'absent' ? 'ABS' : 'OFF')}
                                             </span>
                                         </div>
-                                        <div className="card-body text-center d-flex flex-column justify-content-center">
+                                        <div className="card-body text-center d-flex flex-column justify-content-center p-2">
                                             {tech.status === 'working' ? (
                                                 <div>
-                                                    <div className="text-muted mb-2 small text-uppercase fw-bold tracking-wide">Checked in at</div>
-                                                    <div className="fs-4 fw-bold mb-3 text-dark">
+                                                    <div className="text-muted mb-1 small text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Checked in</div>
+                                                    <div className="fw-bold mb-2 text-dark" style={{ fontSize: '1.1rem' }}>
                                                         {new Date(tech.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </div>
-                                                    <div className="text-muted mb-1 small text-uppercase fw-bold tracking-wide">Duration</div>
-                                                    <div className="display-6 fw-bold text-success font-monospace">
+                                                    <div className="text-muted mb-1 small text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Duration</div>
+                                                    <div className="fw-bold text-success font-monospace" style={{ fontSize: '1.4rem' }}>
                                                         <LiveDuration startTime={tech.check_in} />
                                                     </div>
                                                 </div>
+                                            ) : tech.status === 'absent' ? (
+                                                <div className="text-danger py-2">
+                                                    <div className="fw-bold mb-1" style={{ fontSize: '1rem' }}>ABSENT</div>
+                                                    <div className="text-muted fst-italic text-truncate" style={{ fontSize: '0.8rem', maxWidth: '100%' }}>{tech.reason || 'No reason'}</div>
+                                                </div>
                                             ) : (
-                                                <div className="text-muted py-3">
+                                                <div className="text-muted py-2">
                                                     {tech.last_seen ? (
                                                         <>
-                                                            <div className="small text-uppercase fw-bold mb-1">Last seen</div>
-                                                            <div className="fw-bold fs-5">{new Date(tech.last_seen).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
+                                                            <div className="small text-uppercase fw-bold mb-1" style={{ fontSize: '0.7rem' }}>Last seen</div>
+                                                            <div className="fw-bold" style={{ fontSize: '1rem' }}>{new Date(tech.last_seen).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</div>
                                                         </>
                                                     ) : (
-                                                        <span className="fst-italic">No activity recorded</span>
+                                                        <div className="d-flex flex-column gap-2">
+                                                            <span className="fst-italic small">No activity</span>
+                                                            <button 
+                                                                className="btn btn-sm btn-outline-danger mx-auto"
+                                                                style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleAbsentClick(e, tech);
+                                                                }}
+                                                            >
+                                                                Mark Absent
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             )}
                                         </div>
-                                        {tech.status === 'working' && (
-                                            <div className="card-footer bg-success text-white text-center py-1 small">
-                                                Currently Working
+                                        <div className={`card-footer py-1 px-2 small ${tech.status === 'working' ? 'bg-success text-white' : 'bg-light'}`} style={{ fontSize: '0.75rem' }}>
+                                            <div className="d-flex justify-content-between align-items-center">
+                                                <span>W-Off:</span>
+                                                <span className={`fw-bold ${tech.status !== 'working' && (tech.weekly_off_count >= 1 ? 'text-danger' : 'text-success')}`}>
+                                                    {tech.weekly_off_count || 0}/1
+                                                </span>
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
                                 </div>
                             ))
                         )}
                     </div>
+                    
+                    {/* Attendance History Section (Admin Only) */}
+                    <div className="border-top">
+                        <AttendanceHistory embedded={true} />
+                    </div>
+
+                        {/* Absent Modal */}
+                    {showAbsentModal && (
+                        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex={-1}>
+                            <div className="modal-dialog modal-dialog-centered">
+                                <div className="modal-content">
+                                    <div className="modal-header">
+                                        <h5 className="modal-title">Mark Absent: {absentTech?.user.first_name} {absentTech?.user.last_name}</h5>
+                                        <button type="button" className="btn-close" onClick={() => setShowAbsentModal(false)}></button>
+                                    </div>
+                                    <form onSubmit={submitAbsent}>
+                                        <div className="modal-body">
+                                            <div className="mb-3">
+                                                <label htmlFor="absentType" className="form-label">Absence Type</label>
+                                                <select 
+                                                    className="form-select mb-3" 
+                                                    id="absentType" 
+                                                    value={absentType} 
+                                                    onChange={(e) => setAbsentType(e.target.value)}
+                                                >
+                                                    <option value="weekly_off">วันหยุดประจำสัปดาห์ (Weekly Day Off)</option>
+                                                    <option value="absent">ไม่มาทำงาน (Absent)</option>
+                                                </select>
+                                                
+                                                {absentType === 'absent' && (
+                                                    <div>
+                                                        <label htmlFor="reason" className="form-label">Reason Detail</label>
+                                                        <textarea 
+                                                            className="form-control" 
+                                                            id="reason" 
+                                                            rows={3} 
+                                                            value={absentReason}
+                                                            onChange={(e) => setAbsentReason(e.target.value)}
+                                                            required
+                                                            placeholder="e.g., Sick leave, Personal leave, etc."
+                                                        ></textarea>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="modal-footer">
+                                            <button type="button" className="btn btn-secondary" onClick={() => setShowAbsentModal(false)}>Cancel</button>
+                                            <button type="submit" className="btn btn-danger" disabled={absentLoading}>
+                                                {absentLoading ? <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> : null}
+                                                Confirm Absent
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* History Modal */}
                     {selectedTech && (

@@ -12,6 +12,7 @@ class Attendance extends Model
         'check_out',
         'date',
         'status',
+        'reason',
     ];
 
     protected $casts = [

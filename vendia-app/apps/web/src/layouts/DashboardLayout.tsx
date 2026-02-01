@@ -58,7 +58,7 @@ export const DashboardLayout = () => {
 
         {/* Sidebar */}
         <aside 
-          className={`bg-light border-end p-3 d-flex flex-column ${showMobileSidebar ? 'position-fixed top-0 start-0 h-100 shadow' : 'd-none d-lg-flex position-sticky top-0 vh-100'}`} 
+          className={`bg-light border-end p-3 d-flex flex-column overflow-hidden ${showMobileSidebar ? 'position-fixed top-0 start-0 h-100 shadow' : 'd-none d-lg-flex position-sticky top-0 vh-100'}`} 
           style={{ width: '250px', minWidth: '250px', transition: 'transform 0.3s ease-in-out', zIndex: showMobileSidebar ? 1050 : 1 }}
         >
           {/* Mobile Close Button */}
@@ -72,12 +72,12 @@ export const DashboardLayout = () => {
                 src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.logo_path}`} 
                 alt="Logo" 
                 className="mb-2 img-fluid d-block mx-auto"
-                style={{ maxHeight: '70%' }} 
+                style={{ maxHeight: '120px', width: 'auto' }} 
               />
             )}
-            <h2 className="h4 text-dark m-0">{shop?.name || 'Vendia POS'}</h2>
+            <h2 className="h5 text-dark m-0 fw-bold">{shop?.name || 'Vendia POS'}</h2>
           </div>
-          <nav className="nav flex-column gap-2 overflow-y-auto overflow-x-hidden flex-grow-1" style={{ scrollbarWidth: 'thin' }}>
+          <nav className="nav flex-column gap-2 overflow-y-auto overflow-x-hidden flex-grow-1" style={{ scrollbarWidth: 'thin', minHeight: 0 }}>
             <Link to="/" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🛒 POS System</Link>
             <Link to="/orders" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/orders' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📄 Orders / Bill</Link>
             <Link to="/customers" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/customers' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 Customers</Link>
@@ -92,14 +92,15 @@ export const DashboardLayout = () => {
             {user.role === 'admin' && (
               <>
                 <div className="text-muted fw-bold small ps-2">ADMIN</div>
+                {/* <Link to="/attendance/history" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/attendance/history' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 Attendance History</Link> */}
                 <Link to="/users" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/users' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 User Management</Link>
                 <Link to="/categories" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/categories' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📁 Categories</Link>
                 <Link to="/products" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/products' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📦 Products</Link>
                 <Link to="/brands" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/brands' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏷️ Brands</Link>
                 <Link to="/units" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/units' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚖️ Units</Link>
                 <Link to="/warehouses" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/warehouses' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏭 Warehouses</Link>
-                <Link to="/settings" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/settings' ? 'bg-primary text-white border-primary' : 'text-dark'}`}><span className="fs-5">⚙️</span> Shop Settings</Link>
-                <div className="pb-3"></div>
+                <Link to="/settings" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/settings' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚙️ Shop Settings</Link>
+                {/* <div className="pb-4"></div> */}
               </>
             )}
           </nav>
