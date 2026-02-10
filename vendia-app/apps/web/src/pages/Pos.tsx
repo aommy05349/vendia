@@ -262,7 +262,7 @@ export const Pos = () => {
   return (
     <div className="d-flex flex-column flex-lg-row h-100">
       {/* Product Grid */}
-      <div className="flex-grow-1 p-4 overflow-auto border-end-lg border-bottom border-bottom-lg-0" style={{ flex: 3 }}>
+      <div className="flex-grow-1 p-4 overflow-auto border-end-lg border-bottom border-bottom-lg-0" style={{ flex: 4 }}>
         <div className="d-flex justify-content-between align-items-center mb-4">
             <h1 className="h3 m-0">
                 {editingOrderId ? (
@@ -331,7 +331,7 @@ export const Pos = () => {
                 const isOutOfStock = product.product_type !== 'service' && product.stock === 0;
                 
                 return (
-                <div key={product.id} className="col-12 col-md-6 col-lg-4 col-xl-3">
+                <div key={product.id} className="col-12 col-md-6 col-lg-4 col-xl-3 col-xxl-3">
                   <div 
                     className={`card h-100 border-0 shadow-sm product-card ${isOutOfStock ? 'opacity-75' : ''}`}
                     style={{ 
@@ -428,7 +428,7 @@ export const Pos = () => {
       </div>
 
       {/* Cart Sidebar */}
-      <div className="d-flex flex-column p-4 bg-light border-top" style={{ flex: 1, minWidth: '280px' }}>
+      <div className="d-flex flex-column p-4 bg-light border-top" style={{ flex: 1, minWidth: '260px', maxWidth: '500px' }}>
         
         {/* Customer Section */}
         <div className="mb-4">

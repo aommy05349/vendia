@@ -19,12 +19,14 @@ export const UserList = () => {
   const { t } = useTranslation();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    fetchUsers();
+    fetchUsers(page);
     if (location.state?.success) {
       setAlertMessage({ type: 'success', text: location.state.success });
       // Clear the state to prevent showing the message again on refresh
@@ -32,12 +34,27 @@ export const UserList = () => {
       // Auto dismiss after 3 seconds
       setTimeout(() => setAlertMessage(null), 3000);
     }
-  }, [location]);
+  }, [location, page]);
 
-  const fetchUsers = async () => {
+  const getImageUrl = (path: string) => {
+    if (path.startsWith('http')) return path;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    const origin = apiUrl.replace(/\/api\/?$/, '');
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    
+    // Ensure storage prefix exists if it's a local file
+    if (!normalizedPath.startsWith('/storage/') && !normalizedPath.startsWith('/images/')) {
+        return `${origin}/storage${normalizedPath}`;
+    }
+    
+    return `${origin}${normalizedPath}`;
+  };
+
+  const fetchUsers = async (pageNo: number) => {
     try {
-      const response = await api.get('/users?exclude_role=customer');
-      setUsers(response.data.data); // Assuming pagination
+      const response = await api.get(`/users?exclude_role=customer&page=${pageNo}`);
+      setUsers(response.data.data);
+      setTotalPages(response.data.last_page);
     } catch (error) {
       console.error('Failed to fetch users:', error);
       setAlertMessage({ type: 'danger', text: t('users.alerts.fetch_error') });
@@ -51,7 +68,7 @@ export const UserList = () => {
     try {
       await api.delete(`/users/${id}`);
       setAlertMessage({ type: 'success', text: t('users.alerts.delete_success') });
-      fetchUsers();
+      fetchUsers(page);
     } catch (error) {
       console.error('Failed to delete user:', error);
       setAlertMessage({ type: 'danger', text: t('users.alerts.delete_error') });
@@ -99,16 +116,9 @@ export const UserList = () => {
                   <td className="p-3">{user.id}</td>
                   <td className="p-3">
                     <div className="rounded-circle overflow-hidden bg-light d-flex align-items-center justify-content-center border" style={{ width: '40px', height: '40px' }}>
-                      {user.image_url ? (
+                      {user.image || user.image_url ? (
                         <img 
-                          src={user.image_url} 
-                          alt={user.name} 
-                          className="w-100 h-100" 
-                          style={{ objectFit: 'cover' }} 
-                        />
-                      ) : user.image ? (
-                        <img 
-                          src={user.image.startsWith('http') ? user.image : `${(import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace('/api', '')}/storage/${user.image}`}
+                          src={getImageUrl(user.image_url || user.image || '')} 
                           alt={user.name} 
                           className="w-100 h-100" 
                           style={{ objectFit: 'cover' }} 
@@ -151,6 +161,43 @@ export const UserList = () => {
             </tbody>
           </table>
         </div>
+        
+        {totalPages > 1 && (
+          <div className="card-footer bg-white py-3">
+            <nav aria-label="Page navigation">
+              <ul className="pagination justify-content-center mb-0">
+                <li className={`page-item ${page === 1 ? 'disabled' : ''}`}>
+                  <button 
+                    className="page-link" 
+                    onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                    disabled={page === 1}
+                  >
+                    {t('common.previous')}
+                  </button>
+                </li>
+                {[...Array(totalPages)].map((_, i) => (
+                  <li key={i + 1} className={`page-item ${page === i + 1 ? 'active' : ''}`}>
+                    <button 
+                      className="page-link" 
+                      onClick={() => setPage(i + 1)}
+                    >
+                      {i + 1}
+                    </button>
+                  </li>
+                ))}
+                <li className={`page-item ${page === totalPages ? 'disabled' : ''}`}>
+                  <button 
+                    className="page-link" 
+                    onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={page === totalPages}
+                  >
+                    {t('common.next')}
+                  </button>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        )}
       </div>
     </div>
   );

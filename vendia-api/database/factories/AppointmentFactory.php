@@ -1,0 +1,40 @@
+<?php
+
+namespace Database\Factories;
+
+use App\Models\Order;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Appointment>
+ */
+class AppointmentFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        $startTime = $this->faker->dateTimeBetween('now', '+1 month');
+        $endTime = (clone $startTime)->modify('+2 hours');
+
+        return [
+            'customer_id' => User::factory(),
+            'order_id' => Order::factory(),
+            'title' => $this->faker->sentence(3),
+            'description' => $this->faker->paragraph,
+            'status' => $this->faker->randomElement(['scheduled', 'en_route', 'in_progress', 'completed', 'cancelled']),
+            'start_time' => $startTime,
+            'end_time' => $endTime,
+            'location_name' => $this->faker->word . ' Place',
+            'address' => $this->faker->address,
+            'latitude' => $this->faker->latitude,
+            'longitude' => $this->faker->longitude,
+            'contact_name' => $this->faker->name,
+            'contact_phone' => $this->faker->phoneNumber,
+        ];
+    }
+}
