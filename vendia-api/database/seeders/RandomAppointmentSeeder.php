@@ -20,7 +20,7 @@ class RandomAppointmentSeeder extends Seeder
         $orders = Order::all();
 
         Appointment::factory()
-            ->count(20)
+            ->count(50)
             ->state(function (array $attributes) use ($customers, $orders) {
                 $customer = $customers->random();
                 // Try to find an order for this customer, or null

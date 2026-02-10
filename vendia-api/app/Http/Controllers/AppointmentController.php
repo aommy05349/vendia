@@ -22,7 +22,10 @@ class AppointmentController extends Controller
         }
         
         if ($request->has('start_date') && $request->has('end_date')) {
-            $query->whereBetween('start_time', [$request->start_date, $request->end_date]);
+            // Include full day range
+            $start = \Carbon\Carbon::parse($request->start_date)->startOfDay();
+            $end = \Carbon\Carbon::parse($request->end_date)->endOfDay();
+            $query->whereBetween('start_time', [$start, $end]);
         }
 
         return response()->json($query->get());

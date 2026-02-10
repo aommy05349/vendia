@@ -7,8 +7,8 @@ interface CustomerLocation {
   user_id: number;
   name: string | null;
   address: string;
-  latitude: number | null;
-  longitude: number | null;
+  latitude: string | number | null;
+  longitude: string | number | null;
   google_maps_link: string | null;
   contact_person: string | null;
   contact_phone: string | null;

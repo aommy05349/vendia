@@ -15,6 +15,7 @@ import {
 import { th, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { AppointmentMap } from './AppointmentMap';
 
 interface Appointment {
   id: number;
@@ -39,6 +40,8 @@ interface Appointment {
   }[];
   location_name: string | null;
   address: string;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
 }
 
 interface AppointmentCalendarProps {
@@ -56,6 +59,9 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'th' ? th : enUS;
+  const [selectedDayAppointments, setSelectedDayAppointments] = React.useState<Appointment[] | null>(null);
+  const [selectedDate, setSelectedDate] = React.useState<Date | null>(null);
+  const [modalViewMode, setModalViewMode] = React.useState<'list' | 'map'>('list');
 
   const nextMonth = () => {
     onDateChange(addMonths(currentDate, 1));
@@ -135,21 +141,32 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
 
         days.push(
           <div
-            className={`col border min-h-150 p-1 position-relative ${
+            className={`col border p-1 position-relative ${
               !isSameMonth(day, monthStart)
                 ? 'bg-light text-muted opacity-50'
                 : 'bg-white'
             } ${isToday(day) ? 'bg-primary-subtle' : ''}`}
             key={day.toString()}
             style={{ 
-                minHeight: '150px', 
+                minHeight: '180px', 
                 height: '100%',
                 width: '14.28%', 
                 flex: '0 0 14.28%', 
                 maxWidth: '14.28%' 
             }}
           >
-            <div className={`d-flex justify-content-between align-items-center px-2 py-1 ${isToday(day) ? 'text-primary fw-bold' : ''}`}>
+            <div 
+                className={`d-flex justify-content-between align-items-center px-2 py-1 ${isToday(day) ? 'text-primary fw-bold' : ''}`}
+                style={{ cursor: daysAppointments.length > 0 ? 'pointer' : 'default' }}
+                onClick={(e) => {
+                    if (daysAppointments.length > 0) {
+                        e.stopPropagation();
+                        setSelectedDate(cloneDay);
+                        setSelectedDayAppointments(daysAppointments);
+                        setModalViewMode('list');
+                    }
+                }}
+            >
               <span>{formattedDate}</span>
               {daysAppointments.length > 0 && (
                 <span className="badge bg-secondary rounded-pill" style={{ fontSize: '0.7em' }}>
@@ -158,8 +175,8 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
               )}
             </div>
             
-            <div className="d-flex flex-column gap-1 overflow-auto" style={{ maxHeight: '120px' }}>
-              {daysAppointments.map((apt) => {
+            <div className="d-flex flex-column gap-1 overflow-auto custom-scrollbar" style={{ maxHeight: '150px' }}>
+              {daysAppointments.slice(0, 3).map((apt) => {
                  // Find lead
                  const lead = apt.technicians.find(tech => tech.pivot.is_lead);
                  const leadName = lead 
@@ -190,6 +207,20 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                   </Link>
                  );
               })}
+              {daysAppointments.length > 3 && (
+                <div 
+                    className="text-center text-muted small py-1 hover-bg-light" 
+                    style={{ fontSize: '0.7rem', cursor: 'pointer' }}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedDate(cloneDay);
+                        setSelectedDayAppointments(daysAppointments);
+                        setModalViewMode('list');
+                    }}
+                >
+                    +{daysAppointments.length - 3} more...
+                </div>
+              )}
             </div>
           </div>
         );
@@ -205,6 +236,135 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
     return <div className="mb-5">{rows}</div>;
   };
 
+  const renderModal = () => {
+    if (!selectedDayAppointments || !selectedDate) return null;
+
+    return (
+        <>
+            <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex={-1}>
+                <div className="modal-dialog modal-dialog-centered modal-lg">
+                    <div className="modal-content">
+                        <div className="modal-header">
+                            <div>
+                                <h5 className="modal-title d-flex align-items-center">
+                                    {format(selectedDate, 'EEEE d MMMM yyyy', { locale })}
+                                    <span className="badge bg-primary ms-2">{selectedDayAppointments.length}</span>
+                                </h5>
+                            </div>
+                            <button 
+                                type="button" 
+                                className="btn-close" 
+                                onClick={() => {
+                                    setSelectedDayAppointments(null);
+                                    setSelectedDate(null);
+                                }}
+                            ></button>
+                        </div>
+                        
+                        <div className="modal-body p-0">
+                            {/* Tabs */}
+                            <ul className="nav nav-tabs px-3 pt-3">
+                                <li className="nav-item">
+                                    <button 
+                                        className={`nav-link ${modalViewMode === 'list' ? 'active' : ''}`}
+                                        onClick={() => setModalViewMode('list')}
+                                    >
+                                        <i className="bi bi-list-ul me-2"></i>
+                                        {t('common.list', 'List')}
+                                    </button>
+                                </li>
+                                <li className="nav-item">
+                                    <button 
+                                        className={`nav-link ${modalViewMode === 'map' ? 'active' : ''}`}
+                                        onClick={() => setModalViewMode('map')}
+                                    >
+                                        <i className="bi bi-map me-2"></i>
+                                        {t('common.map', 'Map')}
+                                    </button>
+                                </li>
+                            </ul>
+
+                            {modalViewMode === 'list' ? (
+                                <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                                    <div className="list-group list-group-flush">
+                                        {selectedDayAppointments.map((apt) => {
+                                            const lead = apt.technicians.find(tech => tech.pivot.is_lead);
+                                            const leadName = lead 
+                                                ? (lead.first_name || `Tech #${lead.id}`) 
+                                                : (apt.technicians.length > 0 ? (apt.technicians[0].first_name || 'Tech') : 'No Tech');
+
+                                            return (
+                                                <Link 
+                                                    to={`/appointments/${apt.id}`}
+                                                    key={apt.id}
+                                                    className="list-group-item list-group-item-action p-3"
+                                                    onClick={() => {
+                                                        setSelectedDayAppointments(null);
+                                                        setSelectedDate(null);
+                                                    }}
+                                                >
+                                                    <div className="d-flex w-100 justify-content-between align-items-center mb-1">
+                                                        <h6 className="mb-0 d-flex align-items-center gap-2">
+                                                            <span className={`badge ${
+                                                                apt.status === 'completed' ? 'bg-success' :
+                                                                apt.status === 'cancelled' ? 'bg-danger' :
+                                                                apt.status === 'in_progress' ? 'bg-warning text-dark' :
+                                                                'bg-primary'
+                                                            }`}>
+                                                                {format(parseISO(apt.start_time), 'HH:mm')}
+                                                            </span>
+                                                            {apt.title || 'Untitled'}
+                                                        </h6>
+                                                        <small className="text-muted">{apt.status}</small>
+                                                    </div>
+                                                    <div className="d-flex justify-content-between align-items-end">
+                                                        <div>
+                                                            <p className="mb-1 small text-muted">
+                                                                <i className="bi bi-geo-alt-fill me-1"></i>
+                                                                {apt.location_name || apt.address || 'No location'}
+                                                            </p>
+                                                            <small className="text-muted">
+                                                                <i className="bi bi-person-fill me-1"></i>
+                                                                Lead: {leadName}
+                                                            </small>
+                                                        </div>
+                                                        <i className="bi bi-chevron-right text-muted"></i>
+                                                    </div>
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ height: '60vh' }}>
+                                    <AppointmentMap 
+                                        currentDate={selectedDate}
+                                        onDateChange={() => {}} // No-op for modal
+                                        appointments={selectedDayAppointments}
+                                        showControls={false}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        <div className="modal-footer">
+                            <button 
+                                type="button" 
+                                className="btn btn-secondary"
+                                onClick={() => {
+                                    setSelectedDayAppointments(null);
+                                    setSelectedDate(null);
+                                }}
+                            >
+                                {t('common.close', 'Close')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </>
+    );
+  };
+
   if (loading) {
       return (
         <div className="text-center py-5">
@@ -218,6 +378,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
       {renderHeader()}
       {renderDays()}
       {renderCells()}
+      {renderModal()}
     </div>
   );
 };

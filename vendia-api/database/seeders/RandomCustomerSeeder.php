@@ -14,7 +14,7 @@ class RandomCustomerSeeder extends Seeder
     public function run(): void
     {
         User::factory()
-            ->count(20)
+            ->count(50)
             ->create(['role' => 'customer'])
             ->each(function ($user) {
                 CustomerLocation::factory()

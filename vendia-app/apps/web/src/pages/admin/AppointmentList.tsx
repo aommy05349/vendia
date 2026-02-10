@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from 'date-fns';
 import { AppointmentCalendar } from './AppointmentCalendar';
+import { AppointmentMap } from './AppointmentMap';
 
 interface Appointment {
   id: number;
@@ -28,14 +29,17 @@ interface Appointment {
   }[];
   location_name: string | null;
   address: string;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
 }
 
 export const AppointmentList = () => {
   const { t } = useTranslation();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'map'>('list');
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [filters, setFilters] = useState({
     status: '',
     start_date: '',
@@ -43,7 +47,9 @@ export const AppointmentList = () => {
   });
 
   useEffect(() => {
-    fetchAppointments();
+    if (viewMode !== 'map') {
+      fetchAppointments();
+    }
   }, [filters, viewMode, currentMonth]);
 
   const fetchAppointments = async () => {
@@ -104,6 +110,12 @@ export const AppointmentList = () => {
                 >
                     <i className="bi bi-calendar3 me-2"></i>{t('appointments.view_calendar', 'Calendar')}
                 </button>
+                <button 
+                    className={`btn ${viewMode === 'map' ? 'btn-primary' : 'btn-outline-primary'}`}
+                    onClick={() => setViewMode('map')}
+                >
+                    <i className="bi bi-map me-2"></i>{t('appointments.view_map', 'Map')}
+                </button>
             </div>
             <Link to="/appointments/create" className="btn btn-primary">
               <i className="bi bi-plus-lg me-2"></i>{t('appointments.create_btn')}
@@ -156,7 +168,12 @@ export const AppointmentList = () => {
       </div>
       )}
 
-      {viewMode === 'calendar' ? (
+      {viewMode === 'map' ? (
+        <AppointmentMap 
+            currentDate={selectedDate}
+            onDateChange={setSelectedDate}
+        />
+      ) : viewMode === 'calendar' ? (
         <AppointmentCalendar 
             appointments={appointments}
             currentDate={currentMonth}
@@ -201,6 +218,12 @@ export const AppointmentList = () => {
                     <td className="text-truncate" style={{ maxWidth: '200px' }} title={apt.address}>
                       {apt.location_name && <strong>{apt.location_name}: </strong>}
                       {apt.address}
+                      {apt.latitude && apt.longitude && (
+                        <div className="small text-muted mt-1">
+                            <i className="bi bi-geo-alt-fill text-danger me-1"></i>
+                            {Number(apt.latitude).toFixed(4)}, {Number(apt.longitude).toFixed(4)}
+                        </div>
+                      )}
                     </td>
                     <td>
                       {apt.technicians.map((tech) => (
