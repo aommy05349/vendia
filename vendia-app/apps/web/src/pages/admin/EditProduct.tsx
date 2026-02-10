@@ -17,6 +17,12 @@ export const EditProduct = () => {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
     const origin = apiUrl.replace(/\/api\/?$/, '');
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    
+    // Ensure storage prefix exists if it's a local file
+    if (!normalizedPath.startsWith('/storage/') && !normalizedPath.startsWith('/images/')) {
+        return `${origin}/storage${normalizedPath}`;
+    }
+
     return `${origin}${normalizedPath}`;
   };
   

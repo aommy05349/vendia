@@ -24,6 +24,20 @@ export default function ShopSettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
 
+  const getImageUrl = (path: string) => {
+    if (path.startsWith('http')) return path;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    const origin = apiUrl.replace(/\/api\/?$/, '');
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    
+    // Shop images are stored as 'shops/filename.ext' but served from '/storage/shops/filename.ext'
+    if (!normalizedPath.startsWith('/storage/')) {
+        return `${origin}/storage${normalizedPath}`;
+    }
+    
+    return `${origin}${normalizedPath}`;
+  };
+
   useEffect(() => {
     if (!shop) {
       fetchShop();
@@ -112,46 +126,116 @@ export default function ShopSettings() {
       <div className="card shadow-sm">
         <div className="card-body p-4">
           <form onSubmit={handleSubmit}>
-            <div className="mb-4 text-center">
-              <label className="form-label d-block fw-bold">{t('settings.logo')}</label>
-              <div className="mb-3">
+            <div className="mb-4">
+              <label className="form-label d-block fw-bold mb-2">{t('settings.logo')}</label>
+              <div 
+                className="border rounded-3 p-4 text-center position-relative"
+                style={{ borderStyle: 'dashed', cursor: 'pointer', backgroundColor: '#f8f9fa', transition: 'all 0.2s' }}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.backgroundColor = '#e9ecef'; e.currentTarget.style.borderColor = '#0d6efd'; }}
+                onDragLeave={(e) => { e.preventDefault(); e.currentTarget.style.backgroundColor = '#f8f9fa'; e.currentTarget.style.borderColor = '#dee2e6'; }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.style.backgroundColor = '#f8f9fa';
+                  e.currentTarget.style.borderColor = '#dee2e6';
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    const file = e.dataTransfer.files[0];
+                    setLogo(file);
+                    setPreview(URL.createObjectURL(file));
+                  }
+                }}
+              >
                 {preview ? (
-                  <img src={preview} alt="Preview" className="img-thumbnail" style={{ maxHeight: '150px' }} />
+                  <div className="position-relative d-inline-block">
+                    <img src={preview} alt="Preview" className="img-thumbnail" style={{ maxHeight: '150px' }} />
+                    <button 
+                        type="button" 
+                        className="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm"
+                        style={{ width: '24px', height: '24px' }}
+                        onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setLogo(null); 
+                            setPreview(null); 
+                            if(fileInputRef.current) fileInputRef.current.value = ''; 
+                        }}
+                    >
+                        <i className="bi bi-x"></i>
+                    </button>
+                  </div>
                 ) : shop?.logo_path ? (
-                  <img src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.logo_path}`} alt="Current Logo" className="img-thumbnail" style={{ maxHeight: '150px' }} />
+                  <img src={getImageUrl(shop.logo_path)} alt="Current Logo" className="img-thumbnail" style={{ maxHeight: '150px' }} />
                 ) : (
-                  <div className="text-muted border p-3 d-inline-block rounded bg-light">{t('settings.no_logo')}</div>
+                  <div className="py-4">
+                    <i className="bi bi-cloud-arrow-up text-primary display-4 mb-2 d-block"></i>
+                    <span className="text-muted fw-medium d-block mb-1">Click to upload or drag and drop</span>
+                    <span className="text-muted small d-block">SVG, PNG, JPG or GIF</span>
+                  </div>
                 )}
+                <input 
+                  type="file" 
+                  className="d-none" 
+                  accept="image/*"
+                  onChange={handleLogoChange}
+                  ref={fileInputRef}
+                />
               </div>
-              <input 
-                type="file" 
-                className="form-control" 
-                accept="image/*"
-                onChange={handleLogoChange}
-                ref={fileInputRef}
-              />
-              <div className="form-text">{t('settings.logo_help')}</div>
+              <div className="form-text mt-2">{t('settings.logo_help')}</div>
             </div>
 
-            <div className="mb-4 text-center">
-              <label className="form-label d-block fw-bold">{t('settings.signature')}</label>
-              <div className="mb-3">
+            <div className="mb-4">
+              <label className="form-label d-block fw-bold mb-2">{t('settings.signature')}</label>
+              <div 
+                className="border rounded-3 p-4 text-center position-relative"
+                style={{ borderStyle: 'dashed', cursor: 'pointer', backgroundColor: '#f8f9fa', transition: 'all 0.2s' }}
+                onClick={() => signatureInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.backgroundColor = '#e9ecef'; e.currentTarget.style.borderColor = '#0d6efd'; }}
+                onDragLeave={(e) => { e.preventDefault(); e.currentTarget.style.backgroundColor = '#f8f9fa'; e.currentTarget.style.borderColor = '#dee2e6'; }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.style.backgroundColor = '#f8f9fa';
+                  e.currentTarget.style.borderColor = '#dee2e6';
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    const file = e.dataTransfer.files[0];
+                    setSignature(file);
+                    setSignaturePreview(URL.createObjectURL(file));
+                  }
+                }}
+              >
                 {signaturePreview ? (
-                  <img src={signaturePreview} alt="Signature Preview" className="img-thumbnail" style={{ maxHeight: '100px' }} />
+                  <div className="position-relative d-inline-block">
+                    <img src={signaturePreview} alt="Signature Preview" className="img-thumbnail" style={{ maxHeight: '100px' }} />
+                    <button 
+                        type="button" 
+                        className="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm"
+                        style={{ width: '24px', height: '24px' }}
+                        onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setSignature(null); 
+                            setSignaturePreview(null); 
+                            if(signatureInputRef.current) signatureInputRef.current.value = ''; 
+                        }}
+                    >
+                        <i className="bi bi-x"></i>
+                    </button>
+                  </div>
                 ) : shop?.signature_path ? (
-                  <img src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.signature_path}`} alt="Current Signature" className="img-thumbnail" style={{ maxHeight: '100px' }} />
+                  <img src={getImageUrl(shop.signature_path)} alt="Current Signature" className="img-thumbnail" style={{ maxHeight: '100px' }} />
                 ) : (
-                  <div className="text-muted border p-3 d-inline-block rounded bg-light">{t('settings.no_signature')}</div>
+                  <div className="py-4">
+                    <i className="bi bi-cloud-arrow-up text-primary display-4 mb-2 d-block"></i>
+                    <span className="text-muted fw-medium d-block mb-1">Click to upload or drag and drop</span>
+                    <span className="text-muted small d-block">SVG, PNG, JPG or GIF</span>
+                  </div>
                 )}
+                <input 
+                  type="file" 
+                  className="d-none" 
+                  accept="image/*"
+                  onChange={handleSignatureChange}
+                  ref={signatureInputRef}
+                />
               </div>
-              <input 
-                type="file" 
-                className="form-control" 
-                accept="image/*"
-                onChange={handleSignatureChange}
-                ref={signatureInputRef}
-              />
-              <div className="form-text">{t('settings.signature_help')}</div>
+              <div className="form-text mt-2">{t('settings.signature_help')}</div>
             </div>
 
             <div className="mb-3">
