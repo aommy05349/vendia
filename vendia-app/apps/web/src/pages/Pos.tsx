@@ -43,6 +43,18 @@ export const Pos = () => {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
   const [change, setChange] = useState<number | null>(null);
 
+  const getImageUrl = (path: string) => {
+    if (path.startsWith('http')) return path;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    const origin = apiUrl.replace(/\/api\/?$/, '');
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    
+    if (!normalizedPath.startsWith('/storage/') && !normalizedPath.startsWith('/images/')) {
+        return `${origin}/storage${normalizedPath}`;
+    }
+    return `${origin}${normalizedPath}`;
+  };
+
   useEffect(() => {
     fetchProducts({
       page: currentPage,
@@ -314,29 +326,79 @@ export const Pos = () => {
         ) : (
           <>
             <div className="row g-3">
-              {products.map((product) => (
+              {products.map((product) => {
+                const coverImage = product.images?.find(img => img.is_cover) || product.images?.[0];
+                const isOutOfStock = product.product_type !== 'service' && product.stock === 0;
+                
+                return (
                 <div key={product.id} className="col-12 col-md-6 col-lg-4 col-xl-3">
-                  <div className={`card h-100 shadow-sm ${product.stock === 0 && product.product_type !== 'service' ? 'opacity-50' : ''}`}>
-                    <div className="card-body d-flex flex-column">
-                      <h6 className="card-title">{product.name}</h6>
-                      <p className="card-text text-muted flex-grow-1" style={{ fontSize: 'x-small' }}>{product.description}</p>
-                      <div className="d-flex justify-content-between align-items-center mt-3">
-                        <span className="fw-bold fs-5">฿{Number(product.price).toLocaleString()}</span>
-                        <span className="small text-muted">
-                          {product.product_type === 'service' ? 'Service' : `Stock: ${product.stock}`}
-                        </span>
+                  <div 
+                    className={`card h-100 border-0 shadow-sm product-card ${isOutOfStock ? 'opacity-75' : ''}`}
+                    style={{ 
+                        cursor: isOutOfStock ? 'not-allowed' : 'pointer', 
+                        transition: 'transform 0.2s, box-shadow 0.2s',
+                        filter: isOutOfStock ? 'grayscale(1)' : 'none'
+                    }}
+                    onClick={() => !isOutOfStock && handleProductClick(product)}
+                    onMouseEnter={(e) => { if(!isOutOfStock) { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.classList.add('shadow'); } }}
+                    onMouseLeave={(e) => { if(!isOutOfStock) { e.currentTarget.style.transform = 'none'; e.currentTarget.classList.remove('shadow'); } }}
+                  >
+                    <div style={{ height: '180px', overflow: 'hidden', position: 'relative' }} className="bg-light rounded-top">
+                        {coverImage ? (
+                            <img 
+                                src={getImageUrl(coverImage.image_path)} 
+                                className="card-img-top" 
+                                alt={product.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                        ) : (
+                            <div className="d-flex align-items-center justify-content-center h-100 text-muted">
+                                <i className="bi bi-image fs-1 opacity-25"></i>
+                            </div>
+                        )}
+                        
+                        {/* Status Badges */}
+                        <div className="position-absolute top-0 end-0 p-2">
+                            {product.product_type === 'service' ? (
+                                <span className="badge bg-info text-white shadow-sm">Service</span>
+                            ) : isOutOfStock ? (
+                                <span className="badge bg-danger shadow-sm">{t('pos.out_of_stock')}</span>
+                            ) : (
+                                <span className="badge bg-white text-dark bg-opacity-75 shadow-sm" style={{ backdropFilter: 'blur(4px)' }}>
+                                    <i className="bi bi-box-seam me-1"></i>{product.stock}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="card-body d-flex flex-column p-3">
+                      <h6 className="card-title fw-bold mb-1 text-truncate" title={product.name}>{product.name}</h6>
+                      <p className="card-text text-muted small mb-3 flex-grow-1" style={{ 
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          fontSize: '0.85rem'
+                      }}>
+                        {product.description || '-'}
+                      </p>
+                      
+                      <div className="d-flex justify-content-between align-items-end mt-auto">
+                        <div>
+                           <span className="text-primary fw-bold fs-5">฿{Number(product.price).toLocaleString()}</span>
+                        </div>
+                        <button 
+                           className={`btn btn-sm rounded-circle d-flex align-items-center justify-content-center shadow-sm ${isOutOfStock ? 'btn-secondary' : 'btn-primary'}`}
+                           style={{ width: '32px', height: '32px' }}
+                           disabled={isOutOfStock}
+                        >
+                           <i className="bi bi-plus-lg"></i>
+                        </button>
                       </div>
-                      <button
-                        disabled={product.product_type !== 'service' && product.stock === 0}
-                        onClick={() => handleProductClick(product)}
-                        className={`btn w-100 mt-3 ${product.product_type !== 'service' && product.stock === 0 ? 'btn-secondary' : 'btn-primary'}`}
-                      >
-                        {product.product_type !== 'service' && product.stock === 0 ? t('pos.out_of_stock') : t('actions.add')}
-                      </button>
                     </div>
                   </div>
                 </div>
-              ))}
+              ); })}
             </div>
 
             {/* Pagination Controls */}
