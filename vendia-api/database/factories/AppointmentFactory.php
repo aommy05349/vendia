@@ -31,8 +31,8 @@ class AppointmentFactory extends Factory
             'end_time' => $endTime,
             'location_name' => $this->faker->word . ' Place',
             'address' => $this->faker->address,
-            'latitude' => $this->faker->latitude,
-            'longitude' => $this->faker->longitude,
+            'latitude' => $this->faker->latitude(5.6, 20.5), // Thailand Lat
+            'longitude' => $this->faker->longitude(97.3, 105.6), // Thailand Long
             'contact_name' => $this->faker->name,
             'contact_phone' => $this->faker->phoneNumber,
         ];

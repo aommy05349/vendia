@@ -21,8 +21,8 @@ class CustomerLocationFactory extends Factory
             'user_id' => User::factory(),
             'name' => $this->faker->randomElement(['Home', 'Office', 'Branch 1', 'Warehouse']),
             'address' => $this->faker->address,
-            'latitude' => $this->faker->latitude,
-            'longitude' => $this->faker->longitude,
+            'latitude' => $this->faker->latitude(5.6, 20.5), // Thailand Lat
+            'longitude' => $this->faker->longitude(97.3, 105.6), // Thailand Long
             'contact_person' => $this->faker->name,
             'contact_phone' => $this->faker->phoneNumber,
             'is_default' => $this->faker->boolean(20),

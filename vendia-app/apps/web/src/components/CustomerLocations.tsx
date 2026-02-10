@@ -171,7 +171,7 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
                         </a>
                       )}
                       {loc.latitude && loc.longitude && !loc.google_maps_link && (
-                         <span className="small text-muted">{loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}</span>
+                         <span className="small text-muted">{Number(loc.latitude).toFixed(4)}, {Number(loc.longitude).toFixed(4)}</span>
                       )}
                     </td>
                     <td className="p-3 text-center">
