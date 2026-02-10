@@ -17,6 +17,7 @@ export const EditUser = () => {
     role: 'staff',
     image: null as File | null,
   });
+  const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -38,6 +39,13 @@ export const EditUser = () => {
         role: user.role,
         image: null,
       });
+      if (user.image_url) {
+        setPreview(user.image_url);
+      } else if (user.image) {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+        const baseUrl = apiUrl.replace('/api', '');
+        setPreview(user.image.startsWith('http') ? user.image : `${baseUrl}/storage/${user.image}`);
+      }
     } catch (err: any) {
       console.error(err);
       setError(t('users.alerts.fetch_single_error'));
@@ -53,7 +61,18 @@ export const EditUser = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFormData(prev => ({ ...prev, image: e.target.files![0] }));
+      const file = e.target.files[0];
+      
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        setError('Image size must be less than 2MB');
+        e.target.value = ''; // Reset input
+        return;
+      }
+
+      setFormData(prev => ({ ...prev, image: file }));
+      setPreview(URL.createObjectURL(file));
+      setError('');
     }
   };
 
@@ -78,7 +97,7 @@ export const EditUser = () => {
       });
 
       await api.post(`/users/${id}`, data, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
       navigate('/users', { state: { success: t('users.alerts.update_success') } });
@@ -98,6 +117,46 @@ export const EditUser = () => {
       {error && <div className="alert alert-danger">{error}</div>}
       
       <form onSubmit={handleSubmit} className="card p-4 shadow-sm">
+        
+        {/* Profile Image Section */}
+        <div className="mb-4 text-center">
+          <div className="position-relative d-inline-block">
+            <div 
+              className="rounded-circle overflow-hidden border border-3 border-light shadow-sm bg-light d-flex align-items-center justify-content-center"
+              style={{ width: '150px', height: '150px' }}
+            >
+              {preview ? (
+                <img 
+                  src={preview} 
+                  alt="Profile" 
+                  className="w-100 h-100" 
+                  style={{ objectFit: 'cover' }} 
+                />
+              ) : (
+                <i className="bi bi-person-fill text-secondary" style={{ fontSize: '5rem' }}></i>
+              )}
+            </div>
+            
+            <label 
+              htmlFor="image-upload" 
+              className="position-absolute bottom-0 end-0 bg-primary text-white rounded-circle shadow-sm d-flex align-items-center justify-content-center"
+              style={{ cursor: 'pointer', width: '40px', height: '40px', transform: 'translate(10%, 10%)' }}
+              title={t('users.form.profile_image')}
+            >
+              <i className="bi bi-camera-fill"></i>
+            </label>
+            
+            <input 
+              id="image-upload"
+              type="file" 
+              name="image" 
+              className="d-none"
+              onChange={handleFileChange} 
+              accept="image/*" 
+            />
+          </div>
+        </div>
+
         <div className="row g-3 mb-3">
           <div className="col-md-6">
             <label className="form-label fw-bold">{t('users.form.first_name')}</label>
@@ -183,17 +242,6 @@ export const EditUser = () => {
             <option value="admin">{t('users.roles.admin')}</option>
             <option value="technician">{t('users.roles.technician')}</option>
           </select>
-        </div>
-
-        <div className="mb-4">
-          <label className="form-label fw-bold">{t('users.form.profile_image')}</label>
-          <input 
-            type="file" 
-            name="image" 
-            className="form-control"
-            onChange={handleFileChange} 
-            accept="image/*" 
-          />
         </div>
 
         <div className="d-grid gap-2">

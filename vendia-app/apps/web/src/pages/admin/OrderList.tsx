@@ -3,6 +3,7 @@ import { api, User } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { EditOrderModal } from './EditOrderModal';
+import { PullToRefresh } from '../../components/PullToRefresh';
 
 interface BundleItemSnapshot {
   id: number;
@@ -115,8 +116,8 @@ export const OrderList = () => {
     }
   };
 
-  const fetchOrders = async (page: number) => {
-    setLoading(true);
+  const fetchOrders = async (page: number, background = false) => {
+    if (!background) setLoading(true);
     try {
       const response = await api.get<PaginatedResponse<Order>>(`/orders?page=${page}&status=${filterStatus}`);
       setOrders(response.data.data);
@@ -125,7 +126,7 @@ export const OrderList = () => {
     } catch (error) {
       console.error('Failed to fetch orders:', error);
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   };
 
@@ -247,7 +248,8 @@ export const OrderList = () => {
   if (loading) return <div className="p-4 text-center">{t('common.loading')}</div>;
 
   return (
-    <div className="container-fluid p-4">
+    <PullToRefresh onRefresh={() => fetchOrders(1, true)}>
+      <div className="container-fluid p-4">
       {alertMessage && (
         <div className={`alert alert-${alertMessage.type} alert-dismissible fade show`} role="alert">
           {alertMessage.text}
@@ -735,6 +737,7 @@ export const OrderList = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </PullToRefresh>
   );
 };

@@ -11,6 +11,8 @@ interface User {
   role: string;
   first_name: string;
   last_name: string;
+  image?: string;
+  image_url?: string;
 }
 
 export const UserList = () => {
@@ -83,6 +85,7 @@ export const UserList = () => {
             <thead className="table-light">
               <tr>
                 <th className="p-3 border-bottom-2">{t('users.table.id')}</th>
+                <th className="p-3 border-bottom-2" style={{ width: '80px' }}></th>
                 <th className="p-3 border-bottom-2">{t('users.table.name')}</th>
                 <th className="p-3 border-bottom-2">{t('users.table.username')}</th>
                 <th className="p-3 border-bottom-2">{t('users.table.email')}</th>
@@ -94,6 +97,27 @@ export const UserList = () => {
               {users.map((user) => (
                 <tr key={user.id}>
                   <td className="p-3">{user.id}</td>
+                  <td className="p-3">
+                    <div className="rounded-circle overflow-hidden bg-light d-flex align-items-center justify-content-center border" style={{ width: '40px', height: '40px' }}>
+                      {user.image_url ? (
+                        <img 
+                          src={user.image_url} 
+                          alt={user.name} 
+                          className="w-100 h-100" 
+                          style={{ objectFit: 'cover' }} 
+                        />
+                      ) : user.image ? (
+                        <img 
+                          src={user.image.startsWith('http') ? user.image : `${(import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace('/api', '')}/storage/${user.image}`}
+                          alt={user.name} 
+                          className="w-100 h-100" 
+                          style={{ objectFit: 'cover' }} 
+                        />
+                      ) : (
+                        <i className="bi bi-person-fill text-secondary"></i>
+                      )}
+                    </div>
+                  </td>
                   <td className="p-3">{user.first_name} {user.last_name}</td>
                   <td className="p-3">{user.username}</td>
                   <td className="p-3">{user.email}</td>
