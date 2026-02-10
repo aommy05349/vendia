@@ -28,6 +28,10 @@ class AppointmentController extends Controller
             $query->whereBetween('start_time', [$start, $end]);
         }
 
+        if ($request->has('per_page')) {
+            return response()->json($query->paginate($request->per_page));
+        }
+
         return response()->json($query->get());
     }
 

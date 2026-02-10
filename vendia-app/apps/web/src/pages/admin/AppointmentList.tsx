@@ -45,12 +45,18 @@ export const AppointmentList = () => {
     start_date: '',
     end_date: '',
   });
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [perPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
 
   useEffect(() => {
     if (viewMode !== 'map') {
       fetchAppointments();
     }
-  }, [filters, viewMode, currentMonth]);
+  }, [filters, viewMode, currentMonth, currentPage]);
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -63,13 +69,35 @@ export const AppointmentList = () => {
         const end = endOfWeek(endOfMonth(currentMonth));
         params.append('start_date', format(start, 'yyyy-MM-dd'));
         params.append('end_date', format(end, 'yyyy-MM-dd'));
-      } else {
+        
+        const response = await api.get(`/appointments?${params.toString()}`);
+        setAppointments(response.data);
+      } else if (viewMode === 'list') {
         if (filters.start_date) params.append('start_date', filters.start_date);
         if (filters.end_date) params.append('end_date', filters.end_date);
+        
+        // Add pagination params
+        params.append('per_page', perPage.toString());
+        params.append('page', currentPage.toString());
+        
+        const response = await api.get(`/appointments?${params.toString()}`);
+        
+        if (response.data.data) {
+            // Paginated response
+            setAppointments(response.data.data);
+            setTotalPages(response.data.last_page);
+            setTotalItems(response.data.total);
+            setCurrentPage(response.data.current_page);
+        } else {
+            // Fallback for non-paginated response (should not happen if per_page is set)
+            setAppointments(response.data);
+        }
+      } else {
+         // Map view usually handles its own fetching or we can fetch all
+         // For now, let's keep it simple or let the map component handle it if it does
+         // But the original code didn't fetch for map in this effect if viewMode === 'map'
       }
 
-      const response = await api.get(`/appointments?${params.toString()}`);
-      setAppointments(response.data);
     } catch (error) {
       console.error('Failed to fetch appointments', error);
     } finally {
@@ -132,7 +160,10 @@ export const AppointmentList = () => {
               <select
                 className="form-select"
                 value={filters.status}
-                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                onChange={(e) => {
+                    setFilters({ ...filters, status: e.target.value });
+                    setCurrentPage(1);
+                }}
               >
                 <option value="">{t('appointments.status.all')}</option>
                 <option value="scheduled">{t('appointments.status.scheduled')}</option>
@@ -148,7 +179,10 @@ export const AppointmentList = () => {
                 type="date"
                 className="form-control"
                 value={filters.start_date}
-                onChange={(e) => setFilters({ ...filters, start_date: e.target.value })}
+                onChange={(e) => {
+                    setFilters({ ...filters, start_date: e.target.value });
+                    setCurrentPage(1);
+                }}
               />
             </div>
             <div className="col-md-3">
@@ -157,12 +191,18 @@ export const AppointmentList = () => {
                 type="date"
                 className="form-control"
                 value={filters.end_date}
-                onChange={(e) => setFilters({ ...filters, end_date: e.target.value })}
+                onChange={(e) => {
+                    setFilters({ ...filters, end_date: e.target.value });
+                    setCurrentPage(1);
+                }}
               />
             </div>
-             <div className="col-md-3 d-flex align-items-end">
-                 <button className="btn btn-outline-secondary w-100" onClick={() => setFilters({status: '', start_date: '', end_date: ''})}>{t('appointments.clear_filters')}</button>
-             </div>
+            <div className="col-md-3 d-flex align-items-end">
+                 <button className="btn btn-outline-secondary w-100" onClick={() => {
+                     setFilters({status: '', start_date: '', end_date: ''});
+                     setCurrentPage(1);
+                 }}>{t('appointments.clear_filters')}</button>
+            </div>
           </div>
         </div>
       </div>
@@ -187,6 +227,7 @@ export const AppointmentList = () => {
           <p className="mt-2">{t('appointments.loading')}</p>
         </div>
       ) : (
+        <>
         <div className="table-responsive card">
           <table className="table table-hover mb-0">
             <thead className="table-light">
@@ -255,6 +296,61 @@ export const AppointmentList = () => {
             </tbody>
           </table>
         </div>
+
+        {viewMode === 'list' && totalPages > 1 && (
+            <div className="d-flex justify-content-between align-items-center mt-3">
+                <div className="text-muted small">
+                    Showing {(currentPage - 1) * perPage + 1} to {Math.min(currentPage * perPage, totalItems)} of {totalItems} entries
+                </div>
+                <nav>
+                    <ul className="pagination justify-content-end mb-0">
+                        <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                            <button 
+                                className="page-link" 
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                            >
+                                <i className="bi bi-chevron-left"></i>
+                            </button>
+                        </li>
+                        
+                        {[...Array(totalPages)].map((_, i) => {
+                            const page = i + 1;
+                            if (
+                                page === 1 || 
+                                page === totalPages || 
+                                (page >= currentPage - 1 && page <= currentPage + 1)
+                            ) {
+                                return (
+                                    <li key={page} className={`page-item ${currentPage === page ? 'active' : ''}`}>
+                                        <button className="page-link" onClick={() => setCurrentPage(page)}>
+                                            {page}
+                                        </button>
+                                    </li>
+                                );
+                            } else if (
+                                (page === currentPage - 2 && page > 2) || 
+                                (page === currentPage + 2 && page < totalPages - 1)
+                            ) {
+                                return <li key={page} className="page-item disabled"><span className="page-link">...</span></li>;
+                            }
+                            return null;
+                        })}
+
+                        <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                            <button 
+                                className="page-link" 
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                            >
+                                <i className="bi bi-chevron-right"></i>
+                            </button>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        )}
+        </>
       )
       )}
     </div>
