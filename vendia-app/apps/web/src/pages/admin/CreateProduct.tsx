@@ -33,7 +33,7 @@ export const CreateProduct = () => {
   const [discountValue, setDiscountValue] = useState('0');
   
   // Images
-  const [images, setImages] = useState<FileList | null>(null);
+  const [images, setImages] = useState<File[]>([]);
 
   // Bundle Items
   const [bundleItems, setBundleItems] = useState<{id: number, name: string, quantity: number, price: number}[]>([]);
@@ -369,16 +369,65 @@ export const CreateProduct = () => {
               <div className="card-body">
                 <div className="mb-3">
                   <label className="form-label">{t('products.form.fields.upload_images')}</label>
-                  <input 
-                    type="file" 
-                    className="form-control" 
-                    multiple 
-                    accept="image/*"
-                    onChange={e => setImages(e.target.files)} 
-                  />
-                  <div className="form-text">{t('products.form.fields.upload_hint')}</div>
+                  <div 
+                    className="border rounded-3 p-4 text-center position-relative"
+                    style={{ borderStyle: 'dashed', cursor: 'pointer', backgroundColor: '#f8f9fa', transition: 'all 0.2s' }}
+                    onClick={() => document.getElementById('image-upload')?.click()}
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.backgroundColor = '#e9ecef'; e.currentTarget.style.borderColor = '#0d6efd'; }}
+                    onDragLeave={(e) => { e.preventDefault(); e.currentTarget.style.backgroundColor = '#f8f9fa'; e.currentTarget.style.borderColor = '#dee2e6'; }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.style.backgroundColor = '#f8f9fa';
+                      e.currentTarget.style.borderColor = '#dee2e6';
+                      if (e.dataTransfer.files) {
+                        setImages(prev => [...prev, ...Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'))]);
+                      }
+                    }}
+                  >
+                    <i className="bi bi-cloud-arrow-up text-primary display-4 mb-2 d-block"></i>
+                    <span className="text-muted fw-medium d-block mb-1">Click to upload or drag and drop</span>
+                    <span className="text-muted small d-block" style={{ fontSize: '0.8rem' }}>SVG, PNG, JPG or GIF</span>
+                    <input 
+                      id="image-upload"
+                      type="file" 
+                      className="d-none" 
+                      multiple 
+                      accept="image/*"
+                      onChange={e => {
+                        if (e.target.files) {
+                          const files = Array.from(e.target.files);
+                          setImages(prev => [...prev, ...files]);
+                          e.target.value = '';
+                        }
+                      }} 
+                    />
+                  </div>
                 </div>
-                {/* Preview could go here */}
+                
+                {images.length > 0 && (
+                  <div className="row g-2">
+                    {images.map((file, index) => (
+                      <div key={index} className="col-4 col-md-6 position-relative">
+                        <div className="border rounded overflow-hidden position-relative" style={{ paddingTop: '100%' }}>
+                          <img 
+                            src={URL.createObjectURL(file)} 
+                            alt={`Preview ${index}`} 
+                            className="position-absolute top-0 start-0 w-100 h-100"
+                            style={{ objectFit: 'cover' }} 
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm"
+                          style={{ width: '24px', height: '24px' }}
+                          onClick={() => setImages(prev => prev.filter((_, i) => i !== index))}
+                        >
+                          <i className="bi bi-x"></i>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

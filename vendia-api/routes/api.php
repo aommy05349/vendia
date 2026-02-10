@@ -22,6 +22,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/shop', [ShopController::class, 'update']);
 
     Route::apiResource('users', UserController::class);
+    Route::delete('/products/{product}/images/{image}', [ProductController::class, 'destroyImage']);
+    Route::post('/products/{product}/images/{image}/set-cover', [ProductController::class, 'setCoverImage']);
     Route::apiResource('products', ProductController::class);
     Route::apiResource('categories', CategoryController::class);
     Route::apiResource('brands', BrandController::class);

@@ -6,6 +6,7 @@ export interface ProductImage {
   id: number;
   product_id: number;
   image_path: string;
+  is_cover: boolean;
 }
 
 export interface BundleItem extends Product {
@@ -74,6 +75,8 @@ interface ProductState {
   createProduct: (data: FormData) => Promise<void>;
   updateProduct: (id: number, data: FormData | Partial<Product>) => Promise<void>;
   deleteProduct: (id: number) => Promise<void>;
+  deleteProductImage: (productId: number, imageId: number) => Promise<void>;
+  setCoverImage: (productId: number, imageId: number) => Promise<void>;
 }
 
 export const useProductStore = create<ProductState>((set, get) => ({
@@ -146,7 +149,56 @@ export const useProductStore = create<ProductState>((set, get) => ({
       // Refetch to update list
       await get().fetchProducts();
     } catch (error: any) {
-      set({ loading: false, error: error.message || 'Failed to delete product' });
+      set({ error: error.response?.data?.message || 'Failed to delete product', loading: false });
+      throw error;
+    }
+  },
+  deleteProductImage: async (productId: number, imageId: number) => {
+    set({ loading: true, error: null });
+    try {
+      await api.delete(`/products/${productId}/images/${imageId}`);
+      
+      // Update local state if the product is in the list
+      const { products } = get();
+      const updatedProducts = products.map(p => {
+        if (p.id === productId && p.images) {
+          return {
+            ...p,
+            images: p.images.filter(img => img.id !== imageId)
+          };
+        }
+        return p;
+      });
+      
+      set({ products: updatedProducts, loading: false });
+    } catch (error: any) {
+      set({ error: error.response?.data?.message || 'Failed to delete product image', loading: false });
+      throw error;
+    }
+  },
+  setCoverImage: async (productId: number, imageId: number) => {
+    set({ loading: true, error: null });
+    try {
+      await api.post(`/products/${productId}/images/${imageId}/set-cover`);
+      
+      // Update local state
+      const { products } = get();
+      const updatedProducts = products.map(p => {
+        if (p.id === productId && p.images) {
+          return {
+            ...p,
+            images: p.images.map(img => ({
+              ...img,
+              is_cover: img.id === imageId
+            }))
+          };
+        }
+        return p;
+      });
+      
+      set({ products: updatedProducts, loading: false });
+    } catch (error: any) {
+      set({ error: error.response?.data?.message || 'Failed to set cover image', loading: false });
       throw error;
     }
   },

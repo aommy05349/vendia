@@ -49,6 +49,14 @@ export const ProductList = () => {
     return category ? category.name : '-';
   };
 
+  const getImageUrl = (path: string) => {
+    if (path.startsWith('http')) return path;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    const origin = apiUrl.replace(/\/api\/?$/, '');
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${origin}${normalizedPath}`;
+  };
+
   const handlePageChange = (newPage: number) => {
     if (pagination && newPage >= 1 && newPage <= pagination.last_page) {
         setCurrentPage(newPage);
@@ -127,6 +135,7 @@ export const ProductList = () => {
                 <table className="table table-hover mb-0">
                     <thead className="table-light">
                     <tr>
+                        <th className="p-3 border-bottom-2" style={{ width: '80px' }}>{t('products.form.sections.images')}</th>
                         <th className="p-3 border-bottom-2">{t('products.list.table.name')}</th>
                         <th className="p-3 border-bottom-2">{t('products.list.table.price')}</th>
                         <th className="p-3 border-bottom-2">{t('products.list.table.stock')}</th>
@@ -138,8 +147,24 @@ export const ProductList = () => {
                     </tr>
                     </thead>
                     <tbody>
-                    {products.length > 0 ? products.map((product) => (
+                    {products.length > 0 ? products.map((product) => {
+                        const coverImage = product.images?.find(img => img.is_cover) || product.images?.[0];
+                        return (
                         <tr key={product.id}>
+                        <td className="p-3">
+                            <div className="border rounded bg-light d-flex align-items-center justify-content-center" style={{ width: '50px', height: '50px', overflow: 'hidden' }}>
+                                {coverImage ? (
+                                    <img 
+                                        src={getImageUrl(coverImage.image_path)} 
+                                        alt={product.name}
+                                        className="w-100 h-100"
+                                        style={{ objectFit: 'cover' }}
+                                    />
+                                ) : (
+                                    <i className="bi bi-image text-muted"></i>
+                                )}
+                            </div>
+                        </td>
                         <td className="p-3">
                             <div className="fw-bold">{product.name}</div>
                             <div className="small text-muted text-truncate" style={{ maxWidth: '200px' }}>{product.description}</div>
@@ -198,9 +223,10 @@ export const ProductList = () => {
                             </button>
                         </td>
                         </tr>
-                    )) : (
+                        );
+                    }) : (
                         <tr>
-                            <td colSpan={6} className="text-center p-5 text-muted">{t('common.no_data')}</td>
+                            <td colSpan={7} className="text-center p-5 text-muted">{t('common.no_data')}</td>
                         </tr>
                     )}
                     </tbody>

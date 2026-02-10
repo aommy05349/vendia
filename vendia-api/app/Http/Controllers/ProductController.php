@@ -82,12 +82,15 @@ class ProductController extends Controller
         }
 
         if ($request->hasFile('images')) {
+            $isFirst = true;
             foreach ($request->file('images') as $image) {
                 $path = $image->store('products', 'public');
                 ProductImage::create([
                     'product_id' => $product->id,
                     'image_path' => Storage::url($path),
+                    'is_cover' => $isFirst,
                 ]);
+                $isFirst = false;
             }
         }
 
@@ -143,12 +146,17 @@ class ProductController extends Controller
         }
 
         if ($request->hasFile('images')) {
+            // Check if product already has images
+            $hasImages = $product->images()->exists();
+
             foreach ($request->file('images') as $image) {
                 $path = $image->store('products', 'public');
                 ProductImage::create([
                     'product_id' => $product->id,
                     'image_path' => Storage::url($path),
+                    'is_cover' => !$hasImages,
                 ]);
+                $hasImages = true;
             }
         }
 
@@ -165,5 +173,39 @@ class ProductController extends Controller
         $product->delete();
 
         return response()->noContent();
+    }
+
+    public function destroyImage(Product $product, ProductImage $image)
+    {
+        // Ensure image belongs to product
+        if ($image->product_id !== $product->id) {
+            return response()->json(['message' => 'Image does not belong to this product'], 403);
+        }
+
+        // Delete from storage
+        // image_path is like "/storage/products/..."
+        // We need "products/..." for Storage::disk('public')->delete()
+        $path = str_replace('/storage/', '', $image->image_path);
+        Storage::disk('public')->delete($path);
+
+        $image->delete();
+
+        return response()->noContent();
+    }
+
+    public function setCoverImage(Product $product, ProductImage $image)
+    {
+        // Ensure image belongs to product
+        if ($image->product_id !== $product->id) {
+            return response()->json(['message' => 'Image does not belong to this product'], 403);
+        }
+
+        // Set all images of this product to is_cover = false
+        $product->images()->update(['is_cover' => false]);
+
+        // Set the specific image to is_cover = true
+        $image->update(['is_cover' => true]);
+
+        return response()->json($image);
     }
 }
