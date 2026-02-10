@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api, User } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { EditOrderModal } from './EditOrderModal';
 
 interface BundleItemSnapshot {
   id: number;
@@ -26,6 +27,14 @@ interface OrderItem {
   };
 }
 
+interface Document {
+  id: number;
+  type: string;
+  number: string;
+  status: string;
+  created_at: string;
+}
+
 interface Order {
   id: number;
   parent_id?: number;
@@ -35,6 +44,12 @@ interface Order {
   };
   total: string;
   status: string;
+  quotation_number?: string;
+  quotation_status?: string;
+  billing_note_number?: string;
+  billing_note_status?: string;
+  receipt_number?: string;
+  receipt_status?: string;
   payment_method: string;
   created_at: string;
   user?: {
@@ -43,6 +58,7 @@ interface Order {
   };
   customer?: User;
   items: OrderItem[];
+  documents?: Document[];
 }
 
 interface DailySales {
@@ -77,6 +93,7 @@ export const OrderList = () => {
 
   // Payment Modal State
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [receivedAmount, setReceivedAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
   const [change, setChange] = useState<number | null>(null);
@@ -129,9 +146,41 @@ export const OrderList = () => {
     setPaymentMethod('cash');
   };
 
+  const handleEditOrder = (e: React.MouseEvent, order: Order) => {
+    e.stopPropagation();
+    setEditingOrder(order);
+    setExpandedOrderId(order.id);
+  };
+
   const handlePrint = (e: React.MouseEvent, orderId: number, type: 'receipt' | 'quotation' | 'billing_note') => {
     e.stopPropagation();
     window.open(`/print/order/${orderId}?type=${type}`, '_blank');
+  };
+
+  const handleCancelDocument = async (orderId: number, type: 'quotation' | 'billing_note' | 'receipt', number: string) => {
+    if (!window.confirm(t('orders.confirm_cancel_document', { number }))) {
+        return;
+    }
+
+    try {
+        await api.post(`/orders/${orderId}/cancel-document`, { type });
+        fetchOrders(currentPage);
+        setAlertMessage({ type: 'success', text: t('orders.update_success') });
+    } catch (error) {
+        console.error('Failed to cancel document:', error);
+        setAlertMessage({ type: 'danger', text: t('orders.update_failed') });
+    }
+  };
+
+  const handleIssueDocument = async (orderId: number, type: 'quotation' | 'billing_note' | 'receipt') => {
+    try {
+        await api.post(`/orders/${orderId}/issue-document`, { type });
+        fetchOrders(currentPage);
+        setAlertMessage({ type: 'success', text: t('orders.update_success') });
+    } catch (error) {
+        console.error('Failed to issue document:', error);
+        setAlertMessage({ type: 'danger', text: t('orders.update_failed') });
+    }
   };
 
   const handleConvertQuotation = async (e: React.MouseEvent, orderId: number) => {
@@ -142,6 +191,19 @@ export const OrderList = () => {
       fetchOrders(currentPage);
     } catch (err) {
         setAlertMessage({ type: 'danger', text: t('orders.convert_failed') });
+    }
+  };
+
+  const handleCancelOrder = async (e: React.MouseEvent, orderId: number) => {
+    e.stopPropagation();
+    if (!confirm(t('orders.confirm_cancel_order'))) return;
+    try {
+      await api.put(`/orders/${orderId}`, { status: 'cancelled' });
+      fetchOrders(currentPage);
+      setAlertMessage({ type: 'success', text: t('orders.update_success') });
+    } catch (err) {
+      console.error('Failed to cancel order:', err);
+      setAlertMessage({ type: 'danger', text: t('orders.update_failed') });
     }
   };
 
@@ -223,6 +285,17 @@ export const OrderList = () => {
         <button className="btn btn-primary" onClick={() => fetchOrders(1)}>{t('orders.refresh')}</button>
       </div>
 
+      {editingOrder && (
+        <EditOrderModal
+            orderId={editingOrder.id}
+            onClose={() => setEditingOrder(null)}
+            onSuccess={() => {
+                fetchOrders(currentPage);
+                setAlertMessage({ type: 'success', text: t('orders.update_success') });
+            }}
+        />
+      )}
+
       <ul className="nav nav-tabs mb-3">
         {['all', 'completed', 'pending', 'quotation', 'cancelled'].map(status => (
             <li className="nav-item" key={status}>
@@ -285,12 +358,6 @@ export const OrderList = () => {
                         {order.status === 'quotation' && (
                             <>
                                 <button 
-                                    className="btn btn-info btn-sm me-2 text-white"
-                                    onClick={(e) => handlePrint(e, order.id, 'quotation')}
-                                >
-                                    {t('orders.print_quote')}
-                                </button>
-                                <button 
                                     className="btn btn-success btn-sm me-2"
                                     onClick={(e) => handleConvertQuotation(e, order.id)}
                                 >
@@ -298,12 +365,15 @@ export const OrderList = () => {
                                 </button>
                                 <button 
                                     className="btn btn-warning btn-sm me-2"
-                                    onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/pos?order_id=${order.id}`);
-                                    }}
+                                    onClick={(e) => handleEditOrder(e, order)}
                                 >
                                     {t('actions.edit')}
+                                </button>
+                                <button 
+                                    className="btn btn-danger btn-sm"
+                                    onClick={(e) => handleCancelOrder(e, order.id)}
+                                >
+                                    {t('common.cancel')}
                                 </button>
                             </>
                         )}
@@ -316,23 +386,8 @@ export const OrderList = () => {
                               {t('orders.pay_now')}
                             </button>
                             <button 
-                                className="btn btn-info btn-sm me-2 text-white"
-                                onClick={(e) => handlePrint(e, order.id, 'billing_note')}
-                            >
-                                {t('orders.billing_note')}
-                            </button>
-                            <button 
-                                className="btn btn-secondary btn-sm me-2"
-                                onClick={(e) => handlePrint(e, order.id, 'receipt')}
-                            >
-                                {t('orders.receipt')}
-                            </button>
-                            <button 
                                 className="btn btn-warning btn-sm me-2"
-                                onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/pos?order_id=${order.id}`);
-                                }}
+                                onClick={(e) => handleEditOrder(e, order)}
                             >
                                 {t('actions.edit')}
                             </button>
@@ -345,16 +400,16 @@ export const OrderList = () => {
                             >
                                 {t('orders.create_appt')}
                             </button>
+                            <button 
+                                className="btn btn-danger btn-sm"
+                                onClick={(e) => handleCancelOrder(e, order.id)}
+                            >
+                                {t('common.cancel')}
+                            </button>
                           </>
                         )}
                         {order.status === 'completed' && (
                             <>
-                            <button 
-                                className="btn btn-secondary btn-sm me-2"
-                                onClick={(e) => handlePrint(e, order.id, 'receipt')}
-                            >
-                                {t('orders.receipt')}
-                            </button>
                             <button 
                                 className="btn btn-primary btn-sm me-2"
                                 onClick={(e) => {
@@ -374,46 +429,200 @@ export const OrderList = () => {
                     {expandedOrderId === order.id && (
                       <tr className="bg-light">
                         <td colSpan={7} className="p-4">
-                          <div className="card border-0">
-                            <div className="card-header bg-white fw-bold">{t('orders.order_items_breakdown')}</div>
-                            <div className="card-body p-0">
-                              <table className="table table-sm table-bordered mb-0">
-                                <thead>
-                                  <tr>
-                                    <th>{t('orders.product')}</th>
-                                    <th>{t('orders.sku')}</th>
-                                    <th>{t('orders.price')}</th>
-                                    <th>{t('orders.qty')}</th>
-                                    <th>{t('orders.subtotal')}</th>
-                                    <th>{t('orders.details')}</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {order.items.map((item) => (
-                                    <tr key={item.id}>
-                                      <td>{item.product?.name || t('orders.unknown_product')}</td>
-                                      <td>{item.product?.sku}</td>
-                                      <td>฿{Number(item.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                      <td>{item.quantity}</td>
-                                      <td>฿{(Number(item.price) * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                      <td>
-                                        {item.metadata?.bundle_items ? (
-                                          <div className="small text-muted">
-                                            <strong>{t('orders.bundle_contents')}:</strong>
-                                            <ul className="mb-0 ps-3">
-                                              {item.metadata.bundle_items.map((bItem, idx) => (
-                                                <li key={idx}>
-                                                  {bItem.name} (Qty: {bItem.total_quantity_deducted}) 
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          </div>
-                                        ) : '-'}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                          <div className="row">
+                            <div className="col-md-8">
+                                <div className="card border-0 h-100">
+                                    <div className="card-header bg-white fw-bold">{t('orders.order_items_breakdown')}</div>
+                                    <div className="card-body p-0">
+                                    <table className="table table-sm table-bordered mb-0">
+                                        <thead>
+                                        <tr>
+                                            <th>{t('orders.product')}</th>
+                                            <th>{t('orders.sku')}</th>
+                                            <th>{t('orders.price')}</th>
+                                            <th>{t('orders.qty')}</th>
+                                            <th>{t('orders.subtotal')}</th>
+                                            <th>{t('orders.details')}</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {order.items.map((item) => (
+                                            <tr key={item.id}>
+                                            <td>{item.product?.name || t('orders.unknown_product')}</td>
+                                            <td>{item.product?.sku}</td>
+                                            <td>฿{Number(item.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                            <td>{item.quantity}</td>
+                                            <td>฿{(Number(item.price) * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                            <td>
+                                                {item.metadata?.bundle_items ? (
+                                                <div className="small text-muted">
+                                                    <strong>{t('orders.bundle_contents')}:</strong>
+                                                    <ul className="mb-0 ps-3">
+                                                    {item.metadata.bundle_items.map((bItem, idx) => (
+                                                        <li key={idx}>
+                                                        {bItem.name} (Qty: {bItem.total_quantity_deducted}) 
+                                                        </li>
+                                                    ))}
+                                                    </ul>
+                                                </div>
+                                                ) : '-'}
+                                            </td>
+                                            </tr>
+                                        ))}
+                                        </tbody>
+                                    </table>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="col-md-4">
+                                <div className="card border-0 h-100">
+                                    <div className="card-header bg-white fw-bold">{t('orders.issued_documents')}</div>
+                                    <div className="card-body">
+                                        <ul className="list-group list-group-flush">
+                                            {/* Quotation Section */}
+                                            <li className="list-group-item px-0">
+                                                <div className="d-flex justify-content-between align-items-center mb-1">
+                                                    <span className="fw-bold">{t('orders.quotation')}</span>
+                                                    {!order.quotation_number && (
+                                                        <button 
+                                                            className="btn btn-sm btn-outline-primary" 
+                                                            onClick={() => handleIssueDocument(order.id, 'quotation')}
+                                                            title={t('orders.create')}
+                                                        >
+                                                            <i className="bi bi-plus-lg"></i>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                
+                                                {/* History List */}
+                                                {order.documents?.filter(d => d.type === 'quotation').map(doc => (
+                                                    <div key={doc.id} className="d-flex justify-content-between align-items-center mb-1 ps-2 border-start border-3">
+                                                        <div>
+                                                            <span className={`font-monospace d-block small ${doc.status === 'cancelled' ? 'text-decoration-line-through text-danger' : 'text-success'}`}>
+                                                                {doc.number}
+                                                            </span>
+                                                            <span className="text-muted" style={{ fontSize: '0.7em' }}>
+                                                                {new Date(doc.created_at).toLocaleDateString()}
+                                                            </span>
+                                                        </div>
+                                                        <div className="btn-group">
+                                                            {doc.status !== 'cancelled' && (
+                                                                <>
+                                                                    <button className="btn btn-sm btn-outline-secondary py-0" onClick={(e) => handlePrint(e, order.id, 'quotation')} title={t('orders.print')}>
+                                                                        <i className="bi bi-printer" style={{ fontSize: '0.8em' }}></i>
+                                                                    </button>
+                                                                    <button className="btn btn-sm btn-outline-danger py-0" onClick={() => handleCancelDocument(order.id, 'quotation', doc.number)} title={t('common.cancel')}>
+                                                                        <i className="bi bi-x-lg" style={{ fontSize: '0.8em' }}></i>
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                            {doc.status === 'cancelled' && (
+                                                                <span className="badge bg-danger" style={{ fontSize: '0.6em' }}>{t('orders.document_cancelled')}</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {(!order.documents || !order.documents.some(d => d.type === 'quotation')) && (
+                                                    <div className="text-muted small ps-2">{t('orders.not_issued')}</div>
+                                                )}
+                                            </li>
+
+                                            {/* Billing Note Section */}
+                                            <li className="list-group-item px-0">
+                                                <div className="d-flex justify-content-between align-items-center mb-1">
+                                                    <span className="fw-bold">{t('orders.billing_note')}</span>
+                                                    {!order.billing_note_number && (
+                                                        <button 
+                                                            className="btn btn-sm btn-outline-primary" 
+                                                            onClick={() => handleIssueDocument(order.id, 'billing_note')}
+                                                            title={t('orders.create')}
+                                                        >
+                                                            <i className="bi bi-plus-lg"></i>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                
+                                                {order.documents?.filter(d => d.type === 'billing_note').map(doc => (
+                                                    <div key={doc.id} className="d-flex justify-content-between align-items-center mb-1 ps-2 border-start border-3">
+                                                        <div>
+                                                            <span className={`font-monospace d-block small ${doc.status === 'cancelled' ? 'text-decoration-line-through text-danger' : 'text-success'}`}>
+                                                                {doc.number}
+                                                            </span>
+                                                            <span className="text-muted" style={{ fontSize: '0.7em' }}>
+                                                                {new Date(doc.created_at).toLocaleDateString()}
+                                                            </span>
+                                                        </div>
+                                                        <div className="btn-group">
+                                                            {doc.status !== 'cancelled' && (
+                                                                <>
+                                                                    <button className="btn btn-sm btn-outline-secondary py-0" onClick={(e) => handlePrint(e, order.id, 'billing_note')} title={t('orders.print')}>
+                                                                        <i className="bi bi-printer" style={{ fontSize: '0.8em' }}></i>
+                                                                    </button>
+                                                                    <button className="btn btn-sm btn-outline-danger py-0" onClick={() => handleCancelDocument(order.id, 'billing_note', doc.number)} title={t('common.cancel')}>
+                                                                        <i className="bi bi-x-lg" style={{ fontSize: '0.8em' }}></i>
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                            {doc.status === 'cancelled' && (
+                                                                <span className="badge bg-danger" style={{ fontSize: '0.6em' }}>{t('orders.document_cancelled')}</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {(!order.documents || !order.documents.some(d => d.type === 'billing_note')) && (
+                                                    <div className="text-muted small ps-2">{t('orders.not_issued')}</div>
+                                                )}
+                                            </li>
+
+                                            {/* Receipt Section */}
+                                            <li className="list-group-item px-0">
+                                                <div className="d-flex justify-content-between align-items-center mb-1">
+                                                    <span className="fw-bold">{t('orders.receipt')}</span>
+                                                    {!order.receipt_number && (
+                                                        <button 
+                                                            className="btn btn-sm btn-outline-primary" 
+                                                            onClick={() => handleIssueDocument(order.id, 'receipt')}
+                                                            title={t('orders.create')}
+                                                        >
+                                                            <i className="bi bi-plus-lg"></i>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                
+                                                {order.documents?.filter(d => d.type === 'receipt').map(doc => (
+                                                    <div key={doc.id} className="d-flex justify-content-between align-items-center mb-1 ps-2 border-start border-3">
+                                                        <div>
+                                                            <span className={`font-monospace d-block small ${doc.status === 'cancelled' ? 'text-decoration-line-through text-danger' : 'text-success'}`}>
+                                                                {doc.number}
+                                                            </span>
+                                                            <span className="text-muted" style={{ fontSize: '0.7em' }}>
+                                                                {new Date(doc.created_at).toLocaleDateString()}
+                                                            </span>
+                                                        </div>
+                                                        <div className="btn-group">
+                                                            {doc.status !== 'cancelled' && (
+                                                                <>
+                                                                    <button className="btn btn-sm btn-outline-secondary py-0" onClick={(e) => handlePrint(e, order.id, 'receipt')} title={t('orders.print')}>
+                                                                        <i className="bi bi-printer" style={{ fontSize: '0.8em' }}></i>
+                                                                    </button>
+                                                                    <button className="btn btn-sm btn-outline-danger py-0" onClick={() => handleCancelDocument(order.id, 'receipt', doc.number)} title={t('common.cancel')}>
+                                                                        <i className="bi bi-x-lg" style={{ fontSize: '0.8em' }}></i>
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                            {doc.status === 'cancelled' && (
+                                                                <span className="badge bg-danger" style={{ fontSize: '0.6em' }}>{t('orders.document_cancelled')}</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {(!order.documents || !order.documents.some(d => d.type === 'receipt')) && (
+                                                    <div className="text-muted small ps-2">{t('orders.not_issued')}</div>
+                                                )}
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
                           </div>
                         </td>

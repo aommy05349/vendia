@@ -12,6 +12,7 @@
     "@types/react-select": "^5.0.1",
     "@vendia/shared": "workspace:*",
     "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.1",
     "date-fns": "^4.1.0",
     "i18next": "^25.8.0",
     "i18next-browser-languagedetector": "^8.2.0",

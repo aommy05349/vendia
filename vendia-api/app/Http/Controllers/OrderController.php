@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\Document;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -35,7 +36,7 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
-        $query = Order::with('items.product', 'user', 'customer', 'parent')->latest();
+        $query = Order::with('items.product', 'user', 'customer', 'parent', 'documents')->latest();
 
         if ($request->has('status') && $request->input('status') !== 'all') {
             $status = $request->input('status');
@@ -90,7 +91,8 @@ class OrderController extends Controller
         return DB::transaction(function () use ($request) {
             $total = 0;
             $items = [];
-            $isQuotation = $request->input('status') === 'quotation';
+            $status = $request->input('status', 'completed');
+            $isQuotation = $status === 'quotation';
 
             foreach ($request->items as $item) {
                 $product = Product::with('bundleItems')->find($item['product_id']);
@@ -169,15 +171,21 @@ class OrderController extends Controller
                 unset($i['_sort_order']);
             }
 
+            // Create Order first (without document numbers)
             $order = Order::create([
                 'user_id' => $request->user()->id,
                 'customer_id' => $request->customer_id,
                 'parent_id' => $request->parent_id,
                 'total' => $total,
-                'status' => $request->input('status', 'completed'),
+                'status' => $status,
                 'payment_method' => $request->payment_method,
+                'quotation_number' => null,
+                'billing_note_number' => null,
+                'receipt_number' => null,
             ]);
 
+            // No automatic document generation anymore
+            
             $order->items()->createMany($items);
 
             return $order->load('items.product', 'customer', 'parent');
@@ -187,6 +195,8 @@ class OrderController extends Controller
     public function show($id)
     {
         $order = Order::with(['items.product', 'user', 'customer', 'parent'])->findOrFail($id);
+        
+        // No automatic/lazy generation anymore
         
         $sortedItems = $order->items->sortBy(function($item) {
             $product = $item->product;
@@ -228,6 +238,8 @@ class OrderController extends Controller
             if ($request->has('payment_method')) $order->payment_method = $request->payment_method;
             if ($request->has('customer_id')) $order->customer_id = $request->customer_id;
 
+            // No automatic document generation anymore
+            
             // Logic 1: Items are being updated
             if ($request->has('items')) {
                 // A. Revert Old Stock (if it was reserved)
@@ -341,6 +353,131 @@ class OrderController extends Controller
 
             return $order->load('items.product');
         });
+    }
+
+    public function cancelDocument(Request $request, $id)
+    {
+        $request->validate([
+            'type' => 'required|in:quotation,billing_note,receipt'
+        ]);
+
+        $order = Order::findOrFail($id);
+        $type = $request->input('type');
+        $column = '';
+
+        if ($type === 'quotation') {
+            $column = 'quotation_number';
+            $order->quotation_status = 'cancelled';
+        } elseif ($type === 'billing_note') {
+            $column = 'billing_note_number';
+            $order->billing_note_status = 'cancelled';
+        } elseif ($type === 'receipt') {
+            $column = 'receipt_number';
+            $order->receipt_status = 'cancelled';
+        }
+
+        // Find the document record and update it
+        $document = Document::where('order_id', $order->id)
+            ->where('number', $order->$column)
+            ->first();
+
+        if ($document) {
+            $document->status = 'cancelled';
+            $document->save();
+        }
+
+        // We DO NOT clear the number from the order, so it still shows as "cancelled" in the UI
+        // until a new one is generated.
+        // Wait, if we want to allow re-issuing, we need to allow generateDocumentNumber to run again.
+        // But generateDocumentNumber only runs if the field is empty?
+        // Let's modify generateDocumentNumber logic or the calling logic.
+        
+        // Actually, if we want to allow re-issue, we should probably clear the field on the Order model
+        // BUT keep the record in Document model.
+        // If we clear it, the UI will show "Not Issued" and allow issuing again.
+        // But we want to show history.
+        // So the frontend should look at `documents` relation for history, and `quotation_number` for current active one.
+        
+        $order->$column = null; // Clear the current active number
+        $order->save();
+
+        return response()->json($order->load('documents'));
+    }
+
+    public function issueDocument(Request $request, $id)
+    {
+        $request->validate([
+            'type' => 'required|in:quotation,billing_note,receipt'
+        ]);
+
+        $order = Order::findOrFail($id);
+        $type = $request->input('type');
+        $code = '';
+
+        if ($type === 'quotation') {
+            $code = 'QT';
+            if ($order->quotation_number) return response()->json(['message' => 'Already issued'], 400);
+            $order->quotation_number = $this->generateDocumentNumber('QT', $order->id);
+            $order->quotation_status = 'active';
+        } elseif ($type === 'billing_note') {
+            $code = 'BN';
+            if ($order->billing_note_number) return response()->json(['message' => 'Already issued'], 400);
+            $order->billing_note_number = $this->generateDocumentNumber('BN', $order->id);
+            $order->billing_note_status = 'active';
+        } elseif ($type === 'receipt') {
+            $code = 'RE';
+            if ($order->receipt_number) return response()->json(['message' => 'Already issued'], 400);
+            $order->receipt_number = $this->generateDocumentNumber('RE', $order->id);
+            $order->receipt_status = 'active';
+        }
+
+        $order->save();
+        return response()->json($order->load('documents'));
+    }
+
+    private function generateDocumentNumber($type, $orderId)
+    {
+        $dateStr = date('Ymd'); // e.g. 20240205
+        $fullPrefix = "PT-{$type}-{$dateStr}-"; // e.g. PT-QT-20240205-
+        
+        // Find highest number in Documents table
+        $lastDoc = Document::where('number', 'like', "{$fullPrefix}%")
+            ->orderBy('number', 'desc')
+            ->lockForUpdate()
+            ->first();
+
+        if ($lastDoc) {
+            $lastNumber = intval(substr($lastDoc->number, -4));
+            $newNumber = $lastNumber + 1;
+        } else {
+            // Fallback to checking Orders table for migration safety (optional, but good)
+            $column = 'receipt_number';
+            if ($type === 'QT') $column = 'quotation_number';
+            if ($type === 'BN') $column = 'billing_note_number';
+            
+            $lastOrder = Order::where($column, 'like', "{$fullPrefix}%")
+                ->orderBy($column, 'desc')
+                ->first();
+                
+            if ($lastOrder) {
+                $lastNumber = intval(substr($lastOrder->$column, -4));
+                $newNumber = $lastNumber + 1;
+            } else {
+                $newNumber = 1;
+            }
+        }
+
+        $number = $fullPrefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+
+        // Create Document record
+        Document::create([
+            'order_id' => $orderId,
+            'type' => $type === 'QT' ? 'quotation' : ($type === 'BN' ? 'billing_note' : 'receipt'),
+            'number' => $number,
+            'status' => 'active'
+        ]);
+
+        return $number;
     }
 
     private function revertItemStock($item)

@@ -16,6 +16,12 @@ class Order extends Model
         'total',
         'status',
         'payment_method',
+        'quotation_number',
+        'quotation_status',
+        'billing_note_number',
+        'billing_note_status',
+        'receipt_number',
+        'receipt_status',
     ];
 
     public function parent()
@@ -46,5 +52,10 @@ class Order extends Model
     public function appointments()
     {
         return $this->hasMany(Appointment::class);
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(Document::class);
     }
 }

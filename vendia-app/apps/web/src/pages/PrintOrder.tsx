@@ -34,6 +34,9 @@ interface Order {
     status: string;
     payment_method: string;
     created_at: string;
+    quotation_number?: string;
+    billing_note_number?: string;
+    receipt_number?: string;
     user?: {
         name: string;
     };
@@ -148,7 +151,14 @@ export const PrintOrder = () => {
                 <div className="col-5">
                     <div className="row mb-1">
                         <div className="col-4 fw-bold text-end">{t('print.document.no')}</div>
-                        <div className="col-8">{order.id}</div>
+                        <div className="col-8">
+                            {isQuotation 
+                                ? (order.quotation_number || order.id) 
+                                : isBillingNote 
+                                    ? (order.billing_note_number || order.id) 
+                                    : (order.receipt_number || order.id)
+                            }
+                        </div>
                     </div>
                     <div className="row mb-1">
                         <div className="col-4 fw-bold text-end">{t('print.document.date')}</div>

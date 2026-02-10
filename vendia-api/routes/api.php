@@ -28,6 +28,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('units', UnitController::class);
     Route::apiResource('warehouses', WarehouseController::class);
     Route::get('/orders/daily-sales', [OrderController::class, 'dailySales']);
+    Route::post('/orders/{id}/cancel-document', [OrderController::class, 'cancelDocument']);
+    Route::post('/orders/{id}/issue-document', [OrderController::class, 'issueDocument']);
     Route::apiResource('orders', OrderController::class);
 
     // Attendance
