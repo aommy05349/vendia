@@ -13,7 +13,7 @@ class RandomTechnicianSeeder extends Seeder
     public function run(): void
     {
         User::factory()
-            ->count(20)
+            ->count(15)
             ->create(['role' => 'technician']);
     }
 }

@@ -30,6 +30,10 @@ class AttendanceController extends Controller
             $query->whereDate('date', '<=', $request->end_date);
         }
 
+        if ($request->has('per_page')) {
+            return $query->paginate($request->per_page);
+        }
+
         return $query->paginate(20);
     }
 

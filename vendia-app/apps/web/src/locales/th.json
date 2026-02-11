@@ -337,6 +337,18 @@
     }
   },
   "attendance": {
+    "dashboard": {
+      "title": "ติดตามสถานะเรียลไทม์",
+      "no_technicians": "ไม่พบข้อมูลช่างเทคนิค",
+      "checked_in": "เข้างานแล้ว",
+      "duration": "ระยะเวลาทำงาน",
+      "weekly_off": "วันหยุดประจำสัปดาห์",
+      "absent": "ขาดงาน",
+      "no_reason": "ไม่ระบุเหตุผล",
+      "last_seen": "พบเห็นล่าสุด",
+      "no_activity": "ไม่มีความเคลื่อนไหว",
+      "mark_absent": "ระบุว่าขาดงาน"
+    },
     "status": {
       "completed": "เสร็จสิ้น",
       "absent": "ขาดงาน",
@@ -354,15 +366,33 @@
         "end_date": "วันที่สิ้นสุด",
         "clear": "ล้างตัวกรอง"
       },
+      "view": {
+        "monitor": "ติดตามงานแบบเรียลไทม์",
+        "dashboard": "ภาพรวม",
+        "card": "มุมมองการ์ด",
+        "list": "มุมมองรายการ",
+        "timesheet": "ตารางลงเวลา (รายเดือน)"
+      },
+      "dashboard": {
+        "total_work_days": "วันทำงานรวม",
+        "total_late": "สาย (ครั้ง)",
+        "total_leave": "ลา (วัน)",
+        "active_technicians": "ช่างที่ใช้งานอยู่",
+        "top_attendance": "มาทำงานสูงสุด",
+        "most_late": "มาสายสูงสุด",
+        "most_leave": "ลาสูงสุด",
+        "most_absent": "ขาดงานสูงสุด"
+      },
       "summary": {
         "days_worked": "วันที่มาทำงาน",
         "total_hours": "ชั่วโมงรวม",
         "weekly_off": "วันหยุดประจำสัปดาห์",
-        "absent": "ขาดงาน (ไม่ระบุเหตุผล)"
+        "absent": "ขาดงาน"
       },
       "table": {
         "technician": "ช่างเทคนิค",
         "date": "วันที่",
+        "no_records": "ไม่พบข้อมูลในช่วงเวลานี้",
         "check_in": "เวลาเข้างาน",
         "check_out": "เวลาออกงาน",
         "duration": "ระยะเวลา",
