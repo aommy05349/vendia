@@ -10,6 +10,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\UnitController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\CustomerLocationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -47,10 +48,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendance', [AttendanceController::class, 'index']);
 
     // Customer Locations
-    Route::get('/users/{user}/locations', [\App\Http\Controllers\CustomerLocationController::class, 'index']);
-    Route::post('/customer-locations', [\App\Http\Controllers\CustomerLocationController::class, 'store']);
-    Route::put('/customer-locations/{id}', [\App\Http\Controllers\CustomerLocationController::class, 'update']);
-    Route::delete('/customer-locations/{id}', [\App\Http\Controllers\CustomerLocationController::class, 'destroy']);
+    Route::get('/users/{user}/locations', [CustomerLocationController::class, 'index']);
+    Route::post('/customer-locations', [CustomerLocationController::class, 'store']);
+    Route::put('/customer-locations/{id}', [CustomerLocationController::class, 'update']);
+    Route::delete('/customer-locations/{id}', [CustomerLocationController::class, 'destroy']);
+    Route::get('/customer-locations/geocode', [CustomerLocationController::class, 'geocode'])->middleware('throttle:10,1');
 
     // Appointments
     Route::apiResource('appointments', \App\Http\Controllers\AppointmentController::class);

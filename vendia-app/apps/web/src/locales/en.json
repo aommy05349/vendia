@@ -47,7 +47,9 @@
     "invalid_credentials": "Invalid credentials",
     "demo_credentials": "Demo Credentials",
     "admin": "Admin",
-    "technician": "Technician"
+    "technician": "Technician",
+    "email": "Email",
+    "password": "Password"
   },
   "pos": {
     "title": "POS System",
@@ -209,7 +211,12 @@
       "get_current_location": "Get Current Location",
       "delete_confirm": "Are you sure you want to delete this location?",
       "save_failed": "Failed to save location",
-      "no_locations": "No locations added yet"
+      "no_locations": "No locations added yet",
+      "geocode_from_address": "Geocode from address",
+      "geocoding": "Finding coordinates...",
+      "geocode_failed": "Could not find coordinates for this address",
+      "geocode_no_results": "No results found for this address",
+      "geocode_address_required": "Please enter an address before geocoding"
     },
     "fields": {
       "id": "ID",
@@ -367,7 +374,12 @@
         "all_technicians": "All Technicians",
         "start_date": "Start Date",
         "end_date": "End Date",
-        "clear": "Clear Filters"
+        "clear": "Clear Filters",
+        "status_all": "All",
+        "status_working": "Working",
+        "status_completed": "Completed",
+        "status_absent": "Absent",
+        "status_weekly_off": "Weekly Off"
       },
       "summary": {
         "days_worked": "Days Worked",
@@ -386,7 +398,9 @@
         "no_records": "No attendance records found",
         "active": "Active",
         "edit": "Edit",
-        "note": "Note"
+        "note": "Note",
+        "not_checked_in": "Marked as absent. Please contact admin to add record.",
+        "today_not_checked_in": "Not checked in yet"
       },
       "edit_modal": {
         "title": "Edit Attendance",
@@ -425,7 +439,9 @@
       },
       "history_modal": {
         "title": "History: {{name}}"
-      }
+      },
+      "leave_short": "LV",
+      "today_not_checked_in": "Not checked in today"
     },
     "technician_view": {
       "title": "Technician Dashboard",

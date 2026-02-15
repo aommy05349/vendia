@@ -100,6 +100,8 @@ export const AppointmentDetail = () => {
   const [isEditingJob, setIsEditingJob] = useState(false);
   const [savingJob, setSavingJob] = useState(false);
   const [orders, setOrders] = useState<any[]>([]);
+  const [customerLocations, setCustomerLocations] = useState<any[]>([]);
+  const [jobLocationId, setJobLocationId] = useState<string>('manual');
   const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
   const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
   const [payingOrder, setPayingOrder] = useState<any | null>(null);
@@ -115,6 +117,8 @@ export const AppointmentDetail = () => {
     admin_notes: '',
     location_name: '',
     address: '',
+    latitude: '',
+    longitude: '',
     google_maps_link: '',
     contact_name: '',
     contact_phone: '',
@@ -261,11 +265,14 @@ export const AppointmentDetail = () => {
           admin_notes: appt.admin_notes || '',
           location_name: appt.location_name || '',
           address: appt.address,
+          latitude: appt.latitude ? String(appt.latitude) : '',
+          longitude: appt.longitude ? String(appt.longitude) : '',
           google_maps_link: appt.google_maps_link || '',
           contact_name: appt.customer?.name || '',
           contact_phone: appt.customer?.phone || appt.customer?.phone_number || '',
           order_id: appt.order ? String(appt.order.id) : '',
         });
+        setJobLocationId('manual');
       }
     } catch (error) {
       console.error('Failed to fetch appointment', error);
@@ -377,10 +384,46 @@ export const AppointmentDetail = () => {
       if (currentOrderId) {
         orderQuery += `&include_order_id=${currentOrderId}`;
       }
-      const res = await api.get(orderQuery);
-      setOrders(res.data.data || res.data);
+      const [ordersRes, locationsRes] = await Promise.all([
+        api.get(orderQuery),
+        api.get(`/users/${customerId}/locations`),
+      ]);
+      setOrders(ordersRes.data.data || ordersRes.data);
+      setCustomerLocations(locationsRes.data || []);
     } catch (error) {
       console.error('Failed to fetch customer orders', error);
+    }
+  };
+
+  const handleJobLocationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const locId = e.target.value;
+    setJobLocationId(locId);
+
+    if (locId !== 'manual') {
+      const loc = customerLocations.find(l => l.id === parseInt(locId, 10));
+      if (loc) {
+        setJobForm(prev => ({
+          ...prev,
+          location_name: loc.name || '',
+          address: loc.address,
+          latitude: loc.latitude ? String(loc.latitude) : '',
+          longitude: loc.longitude ? String(loc.longitude) : '',
+          google_maps_link: loc.google_maps_link || '',
+          contact_name: loc.contact_person || '',
+          contact_phone: loc.contact_phone || '',
+        }));
+      }
+    } else if (appointment) {
+      setJobForm(prev => ({
+        ...prev,
+        location_name: appointment.location_name || '',
+        address: appointment.address,
+        latitude: appointment.latitude ? String(appointment.latitude) : '',
+        longitude: appointment.longitude ? String(appointment.longitude) : '',
+        google_maps_link: appointment.google_maps_link || '',
+        contact_name: appointment.customer?.name || '',
+        contact_phone: appointment.customer?.phone || appointment.customer?.phone_number || '',
+      }));
     }
   };
 
@@ -398,6 +441,8 @@ export const AppointmentDetail = () => {
         admin_notes: jobForm.admin_notes,
         location_name: jobForm.location_name || null,
         address: jobForm.address,
+        latitude: jobForm.latitude ? Number(jobForm.latitude) : null,
+        longitude: jobForm.longitude ? Number(jobForm.longitude) : null,
         google_maps_link: jobForm.google_maps_link || null,
         contact_name: jobForm.contact_name || null,
         contact_phone: jobForm.contact_phone || null,
@@ -544,6 +589,8 @@ export const AppointmentDetail = () => {
                       admin_notes: appointment.admin_notes || '',
                       location_name: appointment.location_name || '',
                       address: appointment.address,
+                      latitude: appointment.latitude ? String(appointment.latitude) : '',
+                      longitude: appointment.longitude ? String(appointment.longitude) : '',
                       google_maps_link: appointment.google_maps_link || '',
                       contact_name: appointment.customer?.name || '',
                       contact_phone: appointment.customer?.phone || appointment.customer?.phone_number || '',
@@ -670,6 +717,26 @@ export const AppointmentDetail = () => {
             <div className="card-body">
               {isEditingJob ? (
                 <>
+                  {appointment?.customer && (
+                    <div className="mb-3">
+                      <label className="form-label">
+                        {t('appointments.create.select_location')}
+                      </label>
+                      <select
+                        className="form-select"
+                        value={jobLocationId}
+                        onChange={handleJobLocationChange}
+                      >
+                        <option value="manual">{t('appointments.create.manual_location')}</option>
+                        {customerLocations.map(loc => (
+                          <option key={loc.id} value={loc.id}>
+                            {loc.name ? `${loc.name} - ` : ''}
+                            {loc.address.substring(0, 50)}...
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div className="mb-3">
                     <label className="form-label">
                       {t('appointments.create.location_name')}
@@ -771,6 +838,8 @@ export const AppointmentDetail = () => {
                       admin_notes: appointment.admin_notes || '',
                       location_name: appointment.location_name || '',
                       address: appointment.address,
+                      latitude: appointment.latitude ? String(appointment.latitude) : '',
+                      longitude: appointment.longitude ? String(appointment.longitude) : '',
                       google_maps_link: appointment.google_maps_link || '',
                       contact_name: appointment.customer?.name || '',
                       contact_phone: appointment.customer?.phone || appointment.customer?.phone_number || '',

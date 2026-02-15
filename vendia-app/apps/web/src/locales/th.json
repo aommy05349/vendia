@@ -47,7 +47,9 @@
     "invalid_credentials": "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
     "demo_credentials": "บัญชีทดลอง",
     "admin": "ผู้ดูแลระบบ",
-    "technician": "ช่างเทคนิค"
+    "technician": "ช่างเทคนิค",
+    "email": "อีเมล",
+    "password": "รหัสผ่าน"
   },
   "pos": {
     "title": "ระบบขายหน้าร้าน",
@@ -210,7 +212,12 @@
       "get_current_location": "ระบุตำแหน่งปัจจุบัน",
       "delete_confirm": "คุณแน่ใจหรือไม่ว่าต้องการลบที่อยู่นี้?",
       "save_failed": "บันทึกที่อยู่ไม่สำเร็จ",
-      "no_locations": "ยังไม่ได้เพิ่มที่อยู่"
+      "no_locations": "ยังไม่ได้เพิ่มที่อยู่",
+      "geocode_from_address": "ค้นหาพิกัดจากที่อยู่",
+      "geocoding": "กำลังค้นหาพิกัด...",
+      "geocode_failed": "ไม่สามารถค้นหาพิกัดจากที่อยู่นี้ได้",
+      "geocode_no_results": "ไม่พบพิกัดจากที่อยู่นี้",
+      "geocode_address_required": "กรุณากรอกที่อยู่ก่อนค้นหาพิกัด"
     },
     "fields": {
       "id": "รหัส",
@@ -380,7 +387,12 @@
         "all_technicians": "ช่างเทคนิคทั้งหมด",
         "start_date": "วันที่เริ่มต้น",
         "end_date": "วันที่สิ้นสุด",
-        "clear": "ล้างตัวกรอง"
+        "clear": "ล้างตัวกรอง",
+        "status_all": "ทั้งหมด",
+        "status_working": "กำลังทำงาน",
+        "status_completed": "เสร็จสิ้น",
+        "status_absent": "ขาดงาน",
+        "status_weekly_off": "วันหยุดประจำสัปดาห์"
       },
       "view": {
         "monitor": "ติดตามงานแบบเรียลไทม์",
@@ -408,7 +420,6 @@
       "table": {
         "technician": "ช่างเทคนิค",
         "date": "วันที่",
-        "no_records": "ไม่พบข้อมูลในช่วงเวลานี้",
         "check_in": "เวลาเข้างาน",
         "check_out": "เวลาออกงาน",
         "duration": "ระยะเวลา",
@@ -417,7 +428,9 @@
         "no_records": "ไม่พบข้อมูลการลงเวลา",
         "active": "กำลังทำงาน",
         "edit": "แก้ไข",
-        "note": "หมายเหตุ"
+        "note": "หมายเหตุ",
+        "not_checked_in": "ถือว่าขาดงาน โปรดติดต่อผู้ดูแลระบบเพื่อเพิ่มรายการ",
+        "today_not_checked_in": "ยังไม่เข้างาน"
       },
       "edit_modal": {
         "title": "แก้ไขการลงเวลา",
@@ -456,7 +469,9 @@
       },
       "history_modal": {
         "title": "ประวัติ: {{name}}"
-      }
+      },
+      "leave_short": "ลา",
+      "today_not_checked_in": "ยังไม่เข้างานวันนี้"
     },
     "technician_view": {
       "title": "ลงเวลาทำงาน",

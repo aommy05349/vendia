@@ -30,6 +30,27 @@ class AttendanceController extends Controller
             $query->whereDate('date', '<=', $request->end_date);
         }
 
+        if ($request->has('status_filter') && $request->status_filter) {
+            if (in_array($request->status_filter, ['working', 'completed'])) {
+                $query->where('status', $request->status_filter);
+            } elseif ($request->status_filter === 'absent') {
+                $query->where('status', 'absent')
+                      ->where(function ($q) {
+                          $q->whereNull('reason')
+                            ->orWhere('reason', '')
+                            ->orWhere('reason', '!=', 'วันหยุดประจำสัปดาห์');
+                      });
+            } elseif ($request->status_filter === 'weekly_off') {
+                $query->where(function ($q) {
+                    $q->where('status', 'weekly_off')
+                      ->orWhere(function ($sub) {
+                          $sub->where('status', 'absent')
+                              ->where('reason', 'วันหยุดประจำสัปดาห์');
+                      });
+                });
+            }
+        }
+
         if ($request->has('per_page')) {
             return $query->paginate($request->per_page);
         }
@@ -86,9 +107,10 @@ class AttendanceController extends Controller
     {
         $user = Auth::user();
 
-        // Check for active session first
+        // Check for active working session first (exclude non-working statuses)
         $active = Attendance::where('user_id', $user->id)
             ->whereNull('check_out')
+            ->whereNotIn('status', ['absent', 'weekly_off'])
             ->latest()
             ->first();
 
@@ -118,7 +140,7 @@ class AttendanceController extends Controller
 
             $activeSession = Attendance::where('user_id', $tech->id)
                 ->whereNull('check_out')
-                ->where('status', '!=', 'absent')
+                ->whereNotIn('status', ['absent', 'weekly_off'])
                 ->latest()
                 ->first();
                 
@@ -302,8 +324,7 @@ class AttendanceController extends Controller
         }
         $totalHours = round($totalMinutes / 60, 2);
 
-        // 2. Absent Days (No Reason / Other Reason)
-        // We defined "Absent without reason" as status='absent' AND reason != 'วันหยุดประจำสัปดาห์'
+        // 2. Absent / Weekly Off Days
         $absentRecords = $absentQuery->whereIn('status', ['absent', 'weekly_off'])->get();
         
         $weeklyOffDays = $absentRecords->where('status', 'weekly_off')->count() 
@@ -327,17 +348,27 @@ class AttendanceController extends Controller
         }
 
         $request->validate([
-            'check_in' => 'required|date',
+            'check_in' => 'nullable|date',
             'check_out' => 'nullable|date|after_or_equal:check_in',
             'status' => 'nullable|string|in:working,completed,absent,weekly_off',
             'reason' => 'nullable|string',
         ]);
 
         $attendance = Attendance::findOrFail($id);
+
+        $checkIn = $attendance->check_in;
+        if ($request->has('check_in') && $request->check_in) {
+            $checkIn = Carbon::parse($request->check_in);
+        }
+
+        $checkOut = $attendance->check_out;
+        if ($request->has('check_out')) {
+            $checkOut = $request->check_out ? Carbon::parse($request->check_out) : null;
+        }
         
         $attendance->update([
-            'check_in' => Carbon::parse($request->check_in),
-            'check_out' => $request->check_out ? Carbon::parse($request->check_out) : null,
+            'check_in' => $checkIn,
+            'check_out' => $checkOut,
             'status' => $request->status ?? $attendance->status,
             'reason' => $request->reason,
         ]);

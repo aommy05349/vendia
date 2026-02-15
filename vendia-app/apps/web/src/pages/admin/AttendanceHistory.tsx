@@ -105,6 +105,8 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
         weekly_off_days: 0
     });
 
+    const [statusFilter, setStatusFilter] = useState<'all' | 'working' | 'completed' | 'absent' | 'weekly_off'>('all');
+
     // Edit Modal State
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingAttendance, setEditingAttendance] = useState<Attendance | null>(null);
@@ -112,6 +114,7 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
     const [editCheckOut, setEditCheckOut] = useState('');
     const [editStatus, setEditStatus] = useState('');
     const [editReason, setEditReason] = useState('');
+    const isNonWorkingEditStatus = editStatus === 'weekly_off' || editStatus === 'absent';
 
     useEffect(() => {
         fetchUsers();
@@ -132,7 +135,7 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
             return () => clearInterval(poll);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, selectedUser, startDate, endDate, viewMode, currentMonth]);
+    }, [page, selectedUser, startDate, endDate, viewMode, currentMonth, statusFilter]);
 
     const fetchMonitorData = async () => {
         try {
@@ -255,6 +258,7 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
             if (selectedUser) query += `&user_id=${selectedUser}`;
             if (startDate) query += `&start_date=${startDate}`;
             if (endDate) query += `&end_date=${endDate}`;
+            if (statusFilter !== 'all') query += `&status_filter=${statusFilter}`;
 
             const response = await api.get(query);
             setAttendances(response.data.data);
@@ -269,9 +273,13 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
 
     const handleEditClick = (attendance: Attendance) => {
         setEditingAttendance(attendance);
-        // Format for datetime-local input: YYYY-MM-DDTHH:mm
-        setEditCheckIn(format(new Date(attendance.check_in), "yyyy-MM-dd'T'HH:mm"));
-        setEditCheckOut(attendance.check_out ? format(new Date(attendance.check_out), "yyyy-MM-dd'T'HH:mm") : '');
+        if (attendance.status === 'weekly_off' || attendance.status === 'absent') {
+            setEditCheckIn('');
+            setEditCheckOut('');
+        } else {
+            setEditCheckIn(format(new Date(attendance.check_in), "yyyy-MM-dd'T'HH:mm"));
+            setEditCheckOut(attendance.check_out ? format(new Date(attendance.check_out), "yyyy-MM-dd'T'HH:mm") : '');
+        }
         setEditStatus(attendance.status);
         setEditReason(attendance.reason || '');
         setShowEditModal(true);
@@ -282,9 +290,23 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
         if (!editingAttendance) return;
 
         try {
+            const isNonWorking = editStatus === 'weekly_off' || editStatus === 'absent';
+
+            let payloadCheckIn: string;
+            let payloadCheckOut: string | null;
+
+            if (isNonWorking) {
+                const date = editingAttendance.date;
+                payloadCheckIn = `${date}T00:00:00`;
+                payloadCheckOut = `${date}T23:59:59`;
+            } else {
+                payloadCheckIn = editCheckIn;
+                payloadCheckOut = editCheckOut || null;
+            }
+
             await api.put(`/attendance/${editingAttendance.id}`, {
-                check_in: editCheckIn,
-                check_out: editCheckOut || null,
+                check_in: payloadCheckIn,
+                check_out: payloadCheckOut,
                 status: editStatus,
                 reason: editReason
             });
@@ -315,12 +337,21 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
         const totalLate = timesheetData.filter(a => (a.status === 'working' || a.status === 'completed') && isLate(a.check_in)).length;
         const totalLeave = timesheetData.filter(a => ['leave', 'sick_leave', 'personal_leave'].includes(a.status)).length;
         
-        // Calculate per-user stats
         const userStats = users.map(u => {
             const userAtts = timesheetData.filter(a => a.user_id === u.id);
             const present = userAtts.filter(a => a.status === 'working' || a.status === 'completed').length;
             const late = userAtts.filter(a => (a.status === 'working' || a.status === 'completed') && isLate(a.check_in)).length;
-            const absent = userAtts.filter(a => a.status === 'absent').length; 
+            const recordedAbsent = userAtts.filter(a => a.status === 'absent').length;
+
+            const todayKey = format(new Date(), 'yyyy-MM-dd');
+            const daysInRange = eachDayOfInterval({ start: startDate || startOfMonth(currentMonth), end: endDate || endOfMonth(currentMonth) });
+            const recordedDates = new Set(userAtts.map(a => a.date));
+            const missingDays = daysInRange.filter(d => {
+                const dKey = format(d, 'yyyy-MM-dd');
+                return dKey < todayKey && !recordedDates.has(dKey);
+            }).length;
+            const absent = recordedAbsent + missingDays;
+
             const leave = userAtts.filter(a => ['leave', 'sick_leave', 'personal_leave'].includes(a.status)).length;
             return { ...u, present, late, absent, leave };
         });
@@ -491,7 +522,13 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
                                                     </div>
                                                 </div>
                                                 <span className={`badge ${tech.status === 'working' ? 'bg-success' : (tech.status === 'absent' ? 'bg-danger' : (tech.status === 'weekly_off' ? 'bg-warning text-dark' : 'bg-secondary'))}`} style={{ fontSize: '0.7rem' }}>
-                                                    {tech.status === 'working' ? 'ON' : (tech.status === 'absent' ? 'ABS' : (tech.status === 'weekly_off' ? 'OFF' : 'OFF'))}
+                                                    {tech.status === 'working'
+                                                        ? 'ON'
+                                                        : tech.status === 'absent'
+                                                            ? 'ABS'
+                                                            : tech.status === 'weekly_off'
+                                                                ? t('attendance.dashboard.leave_short', 'ลา')
+                                                                : 'OFF'}
                                                 </span>
                                             </div>
                                             <div className="card-body text-center d-flex flex-column justify-content-center p-2">
@@ -509,7 +546,7 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
                                                 ) : tech.status === 'absent' || tech.status === 'weekly_off' ? (
                                                     <div className={`${tech.status === 'absent' ? 'text-danger' : 'text-warning'} py-2`}>
                                                         <div className="fw-bold mb-1" style={{ fontSize: '1rem' }}>
-                                                            {tech.status === 'weekly_off' ? t('attendance.dashboard.weekly_off', 'Weekly Off') : t('attendance.dashboard.absent', 'Absent')}
+                                                            {tech.status === 'weekly_off' ? t('attendance.dashboard.leave_short', 'ลา') : t('attendance.dashboard.absent', 'Absent')}
                                                         </div>
                                                         <div className={`text-muted fst-italic text-truncate`} style={{ fontSize: '0.8rem', maxWidth: '100%' }}>{tech.reason || t('attendance.dashboard.no_reason', 'No Reason')}</div>
                                                     </div>
@@ -522,7 +559,9 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
                                                             </>
                                                         ) : (
                                                             <div className="d-flex flex-column gap-2">
-                                                                <span className="fst-italic small">{t('attendance.dashboard.no_activity', 'No Activity')}</span>
+                                                                <span className="fst-italic small text-warning">
+                                                                    {t('attendance.dashboard.today_not_checked_in', 'Not checked in yet')}
+                                                                </span>
                                                                 <button 
                                                                     className="btn btn-sm btn-outline-danger mx-auto"
                                                                     style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
@@ -692,6 +731,7 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
                             </thead>
                             <tbody>
                                 {paginatedUsers.map(user => {
+                                    const todayKey = format(new Date(), 'yyyy-MM-dd');
                                     let workedDays = 0;
                                     let absentDays = 0;
                                     return (
@@ -703,8 +743,9 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
                                                 const dateKey = format(day, 'yyyy-MM-dd');
                                                 const att = userAttendance[user.id]?.[dateKey];
                                                 let cellClass = '';
-                                                let content: React.ReactNode = '-';
-                                                
+                                                let content: React.ReactNode = '';
+                                                let cellTitle = '';
+
                                                 if (att) {
                                                     if (att.status === 'working' || att.status === 'completed') {
                                                         cellClass = 'bg-success text-white';
@@ -715,18 +756,43 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
                                                             </div>
                                                         );
                                                         workedDays++;
+                                                        cellTitle = `${att.status}\n${att.reason || ''}\n${att.check_in ? format(new Date(att.check_in), 'HH:mm') : ''} - ${att.check_out ? format(new Date(att.check_out), 'HH:mm') : ''}`;
                                                     } else if (att.status === 'absent') {
                                                         cellClass = 'bg-danger text-white';
-                                                        content = 'ABS';
+                                                        content = t('attendance.status.absent');
                                                         absentDays++;
+                                                        cellTitle = att.reason || t('attendance.status.absent');
                                                     } else if (att.status === 'weekly_off') {
                                                         cellClass = 'bg-secondary text-white';
-                                                        content = 'OFF';
+                                                        content = t('attendance.dashboard.leave_short', 'ลา');
+                                                        cellTitle = att.reason || t('attendance.dashboard.leave_short', 'ลา');
+                                                    }
+                                                } else {
+                                                    if (dateKey < todayKey) {
+                                                        cellClass = 'text-danger';
+                                                        content = t('attendance.status.absent');
+                                                        absentDays++;
+                                                        cellTitle = t('attendance.history.table.not_checked_in');
+                                                    } else if (dateKey === todayKey) {
+                                                        cellClass = 'text-warning';
+                                                        content = t('attendance.history.table.today_not_checked_in');
+                                                        cellTitle = t('attendance.history.table.today_not_checked_in');
+                                                    } else {
+                                                        cellClass = 'text-muted';
+                                                        content = '';
+                                                        cellTitle = '';
                                                     }
                                                 }
+
+                                                const isEditableCell = !!att && user && (user as any).role === 'admin';
                                                 
                                                 return (
-                                                    <td key={day.toString()} className={`text-center align-middle p-1 ${cellClass}`} title={att ? `${att.status}\n${att.reason || ''}\n${att.check_in ? format(new Date(att.check_in), 'HH:mm') : ''} - ${att.check_out ? format(new Date(att.check_out), 'HH:mm') : ''}` : ''}>
+                                                    <td
+                                                        key={day.toString()}
+                                                        className={`text-center align-middle p-1 ${cellClass} ${isEditableCell ? 'cursor-pointer' : ''}`}
+                                                        title={cellTitle}
+                                                        onClick={isEditableCell ? () => handleEditClick(att) : undefined}
+                                                    >
                                                         {content}
                                                     </td>
                                                 );
@@ -916,6 +982,64 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
                             </>
                         )}
                     </div>
+                    {viewMode === 'list' && (
+                        <div className="row mt-2">
+                            <div className="col-12">
+                                <div className="btn-group" role="group">
+                                    <button
+                                        type="button"
+                                        className={`btn btn-outline-secondary btn-sm ${statusFilter === 'all' ? 'active' : ''}`}
+                                        onClick={() => {
+                                            setStatusFilter('all');
+                                            setPage(1);
+                                        }}
+                                    >
+                                        {t('attendance.history.filter.status_all')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`btn btn-outline-secondary btn-sm ${statusFilter === 'working' ? 'active' : ''}`}
+                                        onClick={() => {
+                                            setStatusFilter('working');
+                                            setPage(1);
+                                        }}
+                                    >
+                                        {t('attendance.history.filter.status_working')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`btn btn-outline-secondary btn-sm ${statusFilter === 'completed' ? 'active' : ''}`}
+                                        onClick={() => {
+                                            setStatusFilter('completed');
+                                            setPage(1);
+                                        }}
+                                    >
+                                        {t('attendance.history.filter.status_completed')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`btn btn-outline-secondary btn-sm ${statusFilter === 'absent' ? 'active' : ''}`}
+                                        onClick={() => {
+                                            setStatusFilter('absent');
+                                            setPage(1);
+                                        }}
+                                    >
+                                        {t('attendance.history.filter.status_absent')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`btn btn-outline-secondary btn-sm ${statusFilter === 'weekly_off' ? 'active' : ''}`}
+                                        onClick={() => {
+                                            setStatusFilter('weekly_off');
+                                            setPage(1);
+                                        }}
+                                    >
+                                        {t('attendance.history.filter.status_weekly_off')}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -997,8 +1121,10 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
                                         </tr>
                                     ) : (
                                         attendances.map((record) => {
-                                            const duration = calculateDuration(record.check_in, record.check_out);
                                             const isNonWorking = record.status === 'absent' || record.status === 'weekly_off';
+                                            const duration = isNonWorking
+                                                ? { text: '-', minutes: 0, percentage: 0 }
+                                                : calculateDuration(record.check_in, record.check_out);
                                             
                                             return (
                                             <tr key={record.id} className={isNonWorking ? 'bg-light' : ''}>
@@ -1013,13 +1139,19 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
                                                     <div className="small text-muted">{format(new Date(record.date), 'EEEE', { locale })}</div>
                                                 </td>
                                                 <td>
-                                                    <div className="text-success fw-bold d-flex align-items-center gap-2">
-                                                        <i className="bi bi-box-arrow-in-right"></i>
-                                                        {format(new Date(record.check_in), 'HH:mm')}
-                                                    </div>
+                                                    {isNonWorking || !record.check_in ? (
+                                                        <span className="text-muted">-</span>
+                                                    ) : (
+                                                        <div className="text-success fw-bold d-flex align-items-center gap-2">
+                                                            <i className="bi bi-box-arrow-in-right"></i>
+                                                            {format(new Date(record.check_in), 'HH:mm')}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td>
-                                                    {record.check_out ? (
+                                                    {isNonWorking ? (
+                                                        <span className="text-muted">-</span>
+                                                    ) : record.check_out ? (
                                                         <div className="text-danger fw-bold d-flex align-items-center gap-2">
                                                             <i className="bi bi-box-arrow-left"></i>
                                                             {format(new Date(record.check_out), 'HH:mm')}
@@ -1113,33 +1245,44 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
                                         <label className="form-label">{t('attendance.history.table.technician')}</label>
                                         <input type="text" className="form-control" value={editingAttendance?.user.name} disabled />
                                     </div>
-                                    <div className="mb-3">
-                                        <label className="form-label">{t('attendance.history.edit_modal.check_in_time')}</label>
-                                        <input 
-                                            type="datetime-local" 
-                                            className="form-control" 
-                                            value={editCheckIn}
-                                            onChange={(e) => setEditCheckIn(e.target.value)}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="mb-3">
-                                        <label className="form-label">{t('attendance.history.edit_modal.check_out_time')}</label>
-                                        <input 
-                                            type="datetime-local" 
-                                            className="form-control" 
-                                            value={editCheckOut}
-                                            onChange={(e) => setEditCheckOut(e.target.value)}
-                                        />
-                                        <div className="form-text">{t('attendance.history.edit_modal.leave_empty')}</div>
-                                    </div>
+                                    {!isNonWorkingEditStatus && (
+                                        <>
+                                            <div className="mb-3">
+                                                <label className="form-label">{t('attendance.history.edit_modal.check_in_time')}</label>
+                                                <input 
+                                                    type="datetime-local" 
+                                                    className="form-control" 
+                                                    value={editCheckIn}
+                                                    onChange={(e) => setEditCheckIn(e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="mb-3">
+                                                <label className="form-label">{t('attendance.history.edit_modal.check_out_time')}</label>
+                                                <input 
+                                                    type="datetime-local" 
+                                                    className="form-control" 
+                                                    value={editCheckOut}
+                                                    onChange={(e) => setEditCheckOut(e.target.value)}
+                                                />
+                                                <div className="form-text">{t('attendance.history.edit_modal.leave_empty')}</div>
+                                            </div>
+                                        </>
+                                    )}
                                     
                                     <div className="mb-3">
                                         <label className="form-label">{t('attendance.history.table.status')}</label>
                                         <select 
                                             className="form-select"
                                             value={editStatus}
-                                            onChange={(e) => setEditStatus(e.target.value)}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                setEditStatus(value);
+                                                if (value === 'weekly_off' || value === 'absent') {
+                                                    setEditCheckIn('');
+                                                    setEditCheckOut('');
+                                                }
+                                            }}
                                         >
                                             <option value="working">{t('attendance.status.working')}</option>
                                             <option value="completed">{t('attendance.status.completed')}</option>

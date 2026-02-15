@@ -25,6 +25,8 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingLocation, setEditingLocation] = useState<CustomerLocation | null>(null);
+  const [geocodeLoading, setGeocodeLoading] = useState(false);
+  const [geocodeError, setGeocodeError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -40,6 +42,62 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
     fetchLocations();
   }, [customerId]);
 
+  const extractLatLngFromGoogleMapsLink = (value: string) => {
+    try {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+
+      let url: URL | null = null;
+      if (trimmed.startsWith('http')) {
+        try {
+          url = new URL(trimmed);
+        } catch {
+          url = null;
+        }
+      }
+
+      if (url) {
+        const q = url.searchParams.get('q') || url.searchParams.get('query');
+        if (q) {
+          const match = q.match(/(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)/);
+          if (match) {
+            return {
+              lat: parseFloat(match[1]),
+              lng: parseFloat(match[3]),
+            };
+          }
+        }
+
+        const pathMatch = url.pathname.match(/@(-?\d+(\.\d+)?),(-?\d+(\.\d+)?)/);
+        if (pathMatch) {
+          return {
+            lat: parseFloat(pathMatch[1]),
+            lng: parseFloat(pathMatch[3]),
+          };
+        }
+      }
+
+      const exMatch = trimmed.match(/!3d(-?\d+(\.\d+)?)!4d(-?\d+(\.\d+)?)/);
+      if (exMatch) {
+        return {
+          lat: parseFloat(exMatch[1]),
+          lng: parseFloat(exMatch[3]),
+        };
+      }
+
+      const plainMatch = trimmed.match(/(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)/);
+      if (plainMatch) {
+        return {
+          lat: parseFloat(plainMatch[1]),
+          lng: parseFloat(plainMatch[3]),
+        };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  };
   const fetchLocations = async () => {
     setLoading(true);
     try {
@@ -102,6 +160,45 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
     } catch (error) {
       console.error('Failed to save location', error);
       alert(t('customers.locations.save_failed'));
+    }
+  };
+
+  const handleGeocodeFromAddress = async () => {
+    if (!formData.address.trim()) {
+      setGeocodeError(t('customers.locations.geocode_address_required'));
+      return;
+    }
+
+    setGeocodeLoading(true);
+    setGeocodeError('');
+
+    try {
+      const response = await api.get('/customer-locations/geocode', {
+        params: { query: formData.address },
+      });
+
+      const results = response.data as { lat: number; lon: number; display_name: string }[];
+
+      if (!results || results.length === 0) {
+        setGeocodeError(t('customers.locations.geocode_no_results'));
+        return;
+      }
+
+      const best = results[0];
+      const lat = best.lat;
+      const lon = best.lon;
+
+      setFormData(prev => ({
+        ...prev,
+        latitude: lat.toString(),
+        longitude: lon.toString(),
+        google_maps_link: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=18/${lat}/${lon}`,
+      }));
+    } catch (error) {
+      console.error('Failed to geocode address', error);
+      setGeocodeError(t('customers.locations.geocode_failed'));
+    } finally {
+      setGeocodeLoading(false);
     }
   };
 
@@ -220,7 +317,17 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
                       />
                     </div>
                     <div className="col-md-12">
-                      <label className="form-label">{t('customers.locations.address_label')} <span className="text-danger">*</span></label>
+                      <label className="form-label d-flex justify-content-between align-items-center">
+                        <span>{t('customers.locations.address_label')} <span className="text-danger">*</span></span>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary py-0"
+                          onClick={handleGeocodeFromAddress}
+                          disabled={geocodeLoading}
+                        >
+                          {geocodeLoading ? t('customers.locations.geocoding') : t('customers.locations.geocode_from_address')}
+                        </button>
+                      </label>
                       <textarea 
                         className="form-control" 
                         rows={3}
@@ -228,6 +335,11 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
                         onChange={e => setFormData({...formData, address: e.target.value})}
                         required
                       ></textarea>
+                      {geocodeError && (
+                        <div className="alert alert-warning mt-2 py-1 px-2 mb-0" style={{ fontSize: '0.8rem' }}>
+                          {geocodeError}
+                        </div>
+                      )}
                     </div>
                     
                     <div className="col-md-12">
@@ -241,7 +353,23 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
                         type="text" 
                         className="form-control" 
                         value={formData.google_maps_link}
-                        onChange={e => setFormData({...formData, google_maps_link: e.target.value})}
+                        onChange={e => {
+                          const value = e.target.value;
+                          const coords = extractLatLngFromGoogleMapsLink(value);
+                          if (coords) {
+                            setFormData(prev => ({
+                              ...prev,
+                              google_maps_link: value,
+                              latitude: coords.lat.toString(),
+                              longitude: coords.lng.toString(),
+                            }));
+                          } else {
+                            setFormData(prev => ({
+                              ...prev,
+                              google_maps_link: value,
+                            }));
+                          }
+                        }}
                         placeholder="https://maps.google.com/..."
                       />
                     </div>

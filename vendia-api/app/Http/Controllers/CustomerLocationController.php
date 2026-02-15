@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Config;
 
 class CustomerLocationController extends Controller
 {
@@ -66,5 +68,45 @@ class CustomerLocationController extends Controller
     {
         \App\Models\CustomerLocation::destroy($id);
         return response()->noContent();
+    }
+
+    public function geocode(Request $request)
+    {
+        $validated = $request->validate([
+            'query' => 'required|string|max:500',
+        ]);
+
+        $userAgent = Config::get('app.name', 'vendia-app') . ' (contact: ' . (Config::get('mail.from.address', 'noreply@example.com')) . ')';
+
+        /** @var \Illuminate\Http\Client\Response $response */
+        $response = Http::withHeaders([
+            'User-Agent' => $userAgent,
+        ])->get('https://nominatim.openstreetmap.org/search', [
+            'q' => $validated['query'],
+            'format' => 'json',
+            'addressdetails' => 1,
+            'limit' => 5,
+            'countrycodes' => 'th',
+        ]);
+
+        if ($response->status() !== 200) {
+            return response()->json([
+                'message' => 'Geocoding service unavailable',
+            ], 502);
+        }
+
+        $data = json_decode($response->body(), true) ?? [];
+
+        $results = collect($data)->map(function ($item) {
+            return [
+                'display_name' => $item['display_name'] ?? '',
+                'lat' => isset($item['lat']) ? (float) $item['lat'] : null,
+                'lon' => isset($item['lon']) ? (float) $item['lon'] : null,
+            ];
+        })->filter(function ($item) {
+            return $item['lat'] !== null && $item['lon'] !== null;
+        })->values();
+
+        return response()->json($results);
     }
 }
