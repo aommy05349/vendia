@@ -88,7 +88,18 @@ class AppointmentController extends Controller
     public function show($id)
     {
         return response()->json(
-            \App\Models\Appointment::with(['customer', 'technicians', 'order', 'order.items', 'order.items.product', 'order.items.product.images'])->findOrFail($id)
+            \App\Models\Appointment::with([
+                'customer',
+                'technicians',
+                'order',
+                'order.items',
+                'order.items.product',
+                'order.items.product.images',
+                'order.children',
+                'order.children.items',
+                'order.children.items.product',
+                'order.children.items.product.images',
+            ])->findOrFail($id)
         );
     }
 
@@ -105,10 +116,26 @@ class AppointmentController extends Controller
             'admin_notes' => 'nullable|string',
             'technician_notes' => 'nullable|string',
             // Location updates allowed if needed
+            'location_name' => 'sometimes|nullable|string',
             'address' => 'sometimes|string',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'google_maps_link' => 'nullable|string',
+            'contact_name' => 'nullable|string',
+            'contact_phone' => 'nullable|string',
+            // Order relink
+            'order_id' => [
+                'nullable',
+                'exists:orders,id',
+                function ($attribute, $value, $fail) use ($appointment) {
+                    if ($value) {
+                        $order = \App\Models\Order::find($value);
+                        if ($order && $order->customer_id != $appointment->customer_id) {
+                            $fail('The selected order does not belong to the customer.');
+                        }
+                    }
+                },
+            ],
         ]);
 
         $appointment->update($validated);
@@ -125,7 +152,7 @@ class AppointmentController extends Controller
             }
         }
 
-        return response()->json($appointment->load(['customer', 'technicians']));
+        return response()->json($appointment->load(['customer', 'technicians', 'order', 'order.items', 'order.items.product', 'order.items.product.images']));
     }
 
     public function destroy($id)

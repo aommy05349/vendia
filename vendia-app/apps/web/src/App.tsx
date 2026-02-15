@@ -117,7 +117,12 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<DashboardLayout />}>
-          <Route index element={<Pos />} />
+          <Route
+            index
+            element={
+              user.role === 'technician' ? <Navigate to="/technician" replace /> : <Pos />
+            }
+          />
           <Route path="pos" element={<Pos />} />
           <Route path="users" element={
             user.role === 'admin' ? <UserList /> : <Navigate to="/" />

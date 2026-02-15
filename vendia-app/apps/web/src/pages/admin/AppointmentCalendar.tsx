@@ -177,11 +177,30 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
             
             <div className="d-flex flex-column gap-1 overflow-auto custom-scrollbar" style={{ maxHeight: '150px' }}>
               {daysAppointments.slice(0, 3).map((apt) => {
-                 // Find lead
                  const lead = apt.technicians.find(tech => tech.pivot.is_lead);
-                 const leadName = lead 
-                    ? (lead.first_name || `Tech #${lead.id}`) 
-                    : (apt.technicians.length > 0 ? (apt.technicians[0].first_name || 'Tech') : 'No Tech');
+                 const hasValidLeadFirstName =
+                   lead &&
+                   lead.first_name &&
+                   lead.first_name !== '0' &&
+                   lead.first_name !== '1';
+
+                 const fallbackTech =
+                   apt.technicians.length > 0 ? apt.technicians[0] : null;
+                 const hasValidFallbackFirstName =
+                   fallbackTech &&
+                   fallbackTech.first_name &&
+                   fallbackTech.first_name !== '0' &&
+                   fallbackTech.first_name !== '1';
+
+                 const leadName = lead
+                   ? hasValidLeadFirstName
+                     ? lead.first_name
+                     : `Tech #${lead.id}`
+                   : fallbackTech
+                   ? hasValidFallbackFirstName
+                     ? fallbackTech.first_name
+                     : 'Tech'
+                   : 'No Tech';
 
                  return (
                   <Link 

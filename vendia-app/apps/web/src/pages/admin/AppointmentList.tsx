@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@vendia/shared';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from 'date-fns';
 import { th, enUS } from 'date-fns/locale';
@@ -37,6 +37,7 @@ interface Appointment {
 export const AppointmentList = () => {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'th' ? th : enUS;
+  const location = useLocation() as any;
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'map'>('list');
@@ -122,8 +123,31 @@ export const AppointmentList = () => {
     return t(`appointments.status.${status}`, status.replace('_', ' ').toUpperCase());
   };
 
+  const showCreatedAlert = location.state?.appointmentCreated;
+  const showDetailErrorAlert = location.state?.appointmentDetailLoadError;
+  const showEditErrorAlert = location.state?.appointmentEditLoadError;
+
   return (
     <div className="container-fluid p-4">
+      {(showCreatedAlert || showDetailErrorAlert || showEditErrorAlert) && (
+        <div className="mb-3">
+          {showCreatedAlert && (
+            <div className="alert alert-success" role="alert">
+              {t('appointments.create.success')}
+            </div>
+          )}
+          {showDetailErrorAlert && (
+            <div className="alert alert-danger" role="alert">
+              {t('appointments.detail.load_failed')}
+            </div>
+          )}
+          {showEditErrorAlert && (
+            <div className="alert alert-danger" role="alert">
+              {t('appointments.edit.failed_update')}
+            </div>
+          )}
+        </div>
+      )}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>{t('appointments.title')}</h2>
         <div className="d-flex gap-2">
@@ -271,12 +295,26 @@ export const AppointmentList = () => {
                       )}
                     </td>
                     <td>
-                      {apt.technicians.map((tech) => (
-                        <div key={tech.id} className="d-flex align-items-center gap-1">
-                          {tech.pivot.is_lead && <span className="badge bg-warning text-dark" style={{fontSize: '0.6rem'}}>{t('appointments.table.lead')}</span>}
-                          <small>{tech.first_name || tech.id}</small>
-                        </div>
-                      ))}
+                      {apt.technicians.map((tech) => {
+                        const hasValidFirstName =
+                          tech.first_name &&
+                          tech.first_name !== '0' &&
+                          tech.first_name !== '1';
+
+                        return (
+                          <div key={tech.id} className="d-flex align-items-center gap-1">
+                            {tech.pivot.is_lead && (
+                              <span
+                                className="badge bg-warning text-dark"
+                                style={{ fontSize: '0.6rem' }}
+                              >
+                                {t('appointments.table.lead')}
+                              </span>
+                            )}
+                            <small>{hasValidFirstName ? tech.first_name : ''}</small>
+                          </div>
+                        );
+                      })}
                     </td>
                     <td>
                       <span className={`badge ${getStatusBadge(apt.status)}`}>

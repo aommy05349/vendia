@@ -19,6 +19,7 @@ export const EditAppointment = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [technicians, setTechnicians] = useState<User[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -79,8 +80,7 @@ export const EditAppointment = () => {
       setLoading(false);
     } catch (error) {
       console.error('Failed to fetch appointment', error);
-      alert(t('appointments.edit.failed_load'));
-      navigate('/appointments');
+      navigate('/appointments', { state: { appointmentEditLoadError: true } });
     }
   };
 
@@ -111,9 +111,18 @@ export const EditAppointment = () => {
     setSelectedTechnicians(newSelected);
   };
 
+  const handleStartTimeChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      start_time: value,
+      end_time: prev.end_time && prev.end_time < value ? '' : prev.end_time,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setErrorMessage(null);
     try {
       const payload = {
         ...formData,
@@ -124,7 +133,7 @@ export const EditAppointment = () => {
       navigate(`/appointments/${id}`);
     } catch (error) {
       console.error('Failed to update appointment', error);
-      alert(t('appointments.edit.failed_update'));
+      setErrorMessage(t('appointments.edit.failed_update'));
     } finally {
       setSaving(false);
     }
@@ -137,6 +146,11 @@ export const EditAppointment = () => {
       <h2 className="mb-4">{t('appointments.edit.title', { id })}</h2>
       
       <form onSubmit={handleSubmit} className="card p-4 shadow-sm">
+        {errorMessage && (
+          <div className="alert alert-danger mb-3" role="alert">
+            {errorMessage}
+          </div>
+        )}
         
         <div className="mb-3">
           <label className="form-label">{t('appointments.create.title_label')} <span className="text-danger">*</span></label>
@@ -167,7 +181,7 @@ export const EditAppointment = () => {
               className="form-control"
               required
               value={formData.start_time}
-              onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+              onChange={(e) => handleStartTimeChange(e.target.value)}
             />
           </div>
           <div className="col-md-6">
@@ -176,6 +190,7 @@ export const EditAppointment = () => {
               type="datetime-local"
               className="form-control"
               value={formData.end_time}
+              min={formData.start_time || undefined}
               onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
             />
           </div>

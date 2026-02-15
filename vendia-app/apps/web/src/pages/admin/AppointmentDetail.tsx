@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api, useAuthStore } from '@vendia/shared';
 import Select from 'react-select';
 import { useTranslation } from 'react-i18next';
+import { EditOrderModal } from './EditOrderModal';
+import { CreateSupplementaryOrderModal } from './CreateSupplementaryOrderModal';
 
 interface Appointment {
   id: number;
@@ -39,21 +41,39 @@ interface Appointment {
     id: number;
     code: string;
     status: string;
+    total: string;
     items: {
+      id: number;
+      product_name: string;
+      quantity: number;
+      price: number;
+      product?: {
         id: number;
-        product_name: string; // Keep for fallback if needed, but primary is product.name
+        name: string;
+        images?: {
+          id: number;
+          image_path: string;
+        }[];
+      };
+    }[];
+    children?: {
+      id: number;
+      code: string;
+      status: string;
+      total: string;
+      items: {
+        id: number;
+        product_name: string;
         quantity: number;
         price: number;
         product?: {
-            id: number;
-            name: string;
-            images?: {
-                id: number;
-                image_path: string;
-            }[];
+          id: number;
+          name: string;
         };
+      }[];
     }[];
   };
+  admin_notes?: string | null;
 }
 
 export const AppointmentDetail = () => {
@@ -74,6 +94,142 @@ export const AppointmentDetail = () => {
   const [technicians, setTechnicians] = useState<any[]>([]);
   const [selectedTechnicians, setSelectedTechnicians] = useState<{ id: number; is_lead: boolean }[]>([]);
   const [savingTeam, setSavingTeam] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const [isEditingJob, setIsEditingJob] = useState(false);
+  const [savingJob, setSavingJob] = useState(false);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
+  const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
+  const [payingOrder, setPayingOrder] = useState<any | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
+  const [receivedAmount, setReceivedAmount] = useState('');
+  const [paymentChange, setPaymentChange] = useState<number | null>(null);
+  const [orderToCancel, setOrderToCancel] = useState<any | null>(null);
+  const [jobForm, setJobForm] = useState({
+    title: '',
+    description: '',
+    start_time: '',
+    end_time: '',
+    admin_notes: '',
+    location_name: '',
+    address: '',
+    google_maps_link: '',
+    contact_name: '',
+    contact_phone: '',
+    order_id: '',
+  });
+
+  const combinedOrderItems = useMemo<
+    {
+      item: {
+        id: number;
+        product_name: string;
+        quantity: number;
+        price: number;
+        product?: {
+          id: number;
+          name: string;
+          images?: {
+            id: number;
+            image_path: string;
+          }[];
+        };
+      };
+      orderCode: string;
+      orderId: number;
+      isMain: boolean;
+    }[]
+  >(() => {
+    if (!appointment?.order) return [];
+    const baseItems = (appointment.order.items || []).map(item => ({
+      item,
+      orderCode: appointment.order!.code,
+      orderId: appointment.order!.id,
+      isMain: true,
+    }));
+    const childItems = (appointment.order.children || [])
+      .filter(child => child.status !== 'cancelled')
+      .flatMap(child =>
+        (child.items || []).map(item => ({
+          item: {
+            ...item,
+            product: item.product
+              ? {
+                  id: item.product.id,
+                  name: item.product.name,
+                  images: (item as any).product?.images,
+                }
+              : undefined,
+          },
+          orderCode: child.code,
+          orderId: child.id,
+          isMain: false,
+        }))
+      );
+    return [...baseItems, ...childItems];
+  }, [appointment]);
+
+  const pendingSupplementaryOrder = useMemo(
+    () =>
+      appointment?.order?.children
+        ? appointment.order.children.find(child => child.status === 'pending') || null
+        : null,
+    [appointment]
+  );
+
+  useEffect(() => {
+    if (payingOrder && paymentMethod === 'cash' && receivedAmount) {
+      const received = parseFloat(receivedAmount);
+      const totalAmount = parseFloat(payingOrder.total);
+      setPaymentChange(received - totalAmount);
+    } else {
+      setPaymentChange(null);
+    }
+  }, [payingOrder, paymentMethod, receivedAmount]);
+
+  const handleProcessPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payingOrder) return;
+    try {
+      await api.put(`/orders/${payingOrder.id}`, {
+        status: 'completed',
+        payment_method: paymentMethod,
+      });
+      setPayingOrder(null);
+      setReceivedAmount('');
+      setPaymentChange(null);
+      fetchAppointment();
+      setSuccessMessage(t('orders.payment_success'));
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(t('orders.payment_failed'));
+    }
+  };
+
+  const handleCancelOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orderToCancel) return;
+    try {
+      await api.put(`/orders/${orderToCancel.id}`, { status: 'cancelled' });
+      setOrderToCancel(null);
+      fetchAppointment();
+      setSuccessMessage(t('orders.update_success'));
+    } catch (error) {
+      console.error('Failed to cancel order:', error);
+      setErrorMessage(t('orders.update_failed'));
+    }
+  };
+
+  const formatForInput = (dateString: string | null) => {
+    if (!dateString) return '';
+    const safeDateString = dateString.includes('T') ? dateString : dateString.replace(' ', 'T');
+    const date = new Date(safeDateString);
+    if (isNaN(date.getTime())) return '';
+    const pad = (n: number) => (n < 10 ? '0' + n : n);
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
 
   useEffect(() => {
     fetchAppointment();
@@ -94,11 +250,26 @@ export const AppointmentDetail = () => {
   const fetchAppointment = async () => {
     try {
       const response = await api.get(`/appointments/${id}`);
-      setAppointment(response.data);
+      const appt: Appointment = response.data;
+      setAppointment(appt);
+      if (!isEditingJob) {
+        setJobForm({
+          title: appt.title,
+          description: appt.description || '',
+          start_time: formatForInput(appt.start_time),
+          end_time: formatForInput(appt.end_time),
+          admin_notes: appt.admin_notes || '',
+          location_name: appt.location_name || '',
+          address: appt.address,
+          google_maps_link: appt.google_maps_link || '',
+          contact_name: appt.customer?.name || '',
+          contact_phone: appt.customer?.phone || appt.customer?.phone_number || '',
+          order_id: appt.order ? String(appt.order.id) : '',
+        });
+      }
     } catch (error) {
       console.error('Failed to fetch appointment', error);
-      alert(t('appointments.detail.load_failed'));
-      navigate('/appointments');
+      navigate('/appointments', { state: { appointmentDetailLoadError: true } });
     } finally {
       setLoading(false);
     }
@@ -133,6 +304,8 @@ export const AppointmentDetail = () => {
   };
 
   const handleSaveTeam = async () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
     setSavingTeam(true);
     try {
         await api.patch(`/appointments/${id}`, {
@@ -140,39 +313,40 @@ export const AppointmentDetail = () => {
         });
         await fetchAppointment();
         setShowTeamModal(false);
-        // Optional: show success message if needed, but UI updates automatically
+        setSuccessMessage(t('appointments.detail.update_success', 'บันทึกข้อมูลสำเร็จ'));
     } catch (error) {
         console.error('Failed to update team', error);
-        alert(t('appointments.detail.update_failed'));
+        setErrorMessage(t('appointments.detail.update_failed'));
     } finally {
         setSavingTeam(false);
     }
   };
 
   const handleStatusUpdateClick = (newStatus: string) => {
-    if (newStatus === 'completed') {
-        setPendingStatusUpdate(newStatus);
-        setShowCompleteModal(true);
-    } else {
-        // For other statuses, maybe just a simple confirm or direct update?
-        // Let's keep simple confirm for others to avoid too much UI overhead, 
-        // or just do it directly. The user originally had a confirm for everything.
-        // Translating the confirm message might be tricky if dynamic, let's keep it simple or use a generic confirm.
-        if (confirm(t('common.confirm') + '?')) {
-            handleStatusUpdate(newStatus);
-        }
-    }
+    setPendingStatusUpdate(newStatus);
+    setShowCompleteModal(true);
   };
 
   const handleStatusUpdate = async (newStatus: string) => {
     setUpdating(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
     try {
-      const response = await api.patch(`/appointments/${id}`, { status: newStatus });
-      setAppointment(response.data);
-      setShowCompleteModal(false); // Close modal if open
+      await api.patch(`/appointments/${id}`, { status: newStatus });
+      setAppointment(prev =>
+        prev
+          ? {
+              ...prev,
+              status: newStatus,
+            }
+          : prev
+      );
+      setShowCompleteModal(false);
+      setPendingStatusUpdate(null);
+      setSuccessMessage(t('appointments.detail.status_update_success', 'อัปเดตสถานะนัดหมายสำเร็จ'));
     } catch (error) {
       console.error('Failed to update status', error);
-      alert(t('appointments.detail.status_update_failed'));
+      setErrorMessage(t('appointments.detail.status_update_failed'));
     } finally {
       setUpdating(false);
     }
@@ -189,11 +363,76 @@ export const AppointmentDetail = () => {
     }
   };
 
+  const handleJobStartTimeChange = (value: string) => {
+    setJobForm(prev => ({
+      ...prev,
+      start_time: value,
+      end_time: prev.end_time && prev.end_time < value ? '' : prev.end_time,
+    }));
+  };
+
+  const fetchCustomerOrders = async (customerId: number, currentOrderId?: number) => {
+    try {
+      let orderQuery = `/orders?customer_id=${customerId}&exclude_has_appointment=true&status=pending,completed`;
+      if (currentOrderId) {
+        orderQuery += `&include_order_id=${currentOrderId}`;
+      }
+      const res = await api.get(orderQuery);
+      setOrders(res.data.data || res.data);
+    } catch (error) {
+      console.error('Failed to fetch customer orders', error);
+    }
+  };
+
+  const handleSaveJob = async () => {
+    if (!appointment) return;
+    setSavingJob(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const payload = {
+        title: jobForm.title,
+        description: jobForm.description,
+        start_time: jobForm.start_time,
+        end_time: jobForm.end_time || null,
+        admin_notes: jobForm.admin_notes,
+        location_name: jobForm.location_name || null,
+        address: jobForm.address,
+        google_maps_link: jobForm.google_maps_link || null,
+        contact_name: jobForm.contact_name || null,
+        contact_phone: jobForm.contact_phone || null,
+        order_id: jobForm.order_id ? Number(jobForm.order_id) : null,
+      };
+      await api.patch(`/appointments/${appointment.id}`, payload);
+      await fetchAppointment();
+      setIsEditingJob(false);
+      setSuccessMessage(t('appointments.detail.update_success', 'บันทึกข้อมูลสำเร็จ'));
+    } catch (error: any) {
+      console.error('Failed to update appointment', error);
+      if (error.response?.status === 422 && error.response.data?.errors) {
+        const errors = error.response.data.errors;
+        const firstKey = Object.keys(errors)[0];
+        const firstMessage = errors[firstKey]?.[0];
+        setErrorMessage(firstMessage || t('appointments.detail.update_failed'));
+      } else {
+        setErrorMessage(t('appointments.detail.update_failed'));
+      }
+    } finally {
+      setSavingJob(false);
+    }
+  };
+
   if (loading) return <div className="p-4">{t('common.loading')}</div>;
   if (!appointment) return <div className="p-4">{t('appointments.detail.load_failed')}</div>;
 
   const isTechnician = user?.role === 'technician';
   const isAdmin = user?.role === 'admin';
+  const isLeadTechnician =
+    isTechnician &&
+    appointment.technicians.some(
+      tech => tech.id === user?.id && tech.pivot?.is_lead
+    );
+  const canSeePrices = isAdmin || isLeadTechnician;
   
   // Logic for allowed status transitions
   const getNextActions = (currentStatus: string) => {
@@ -228,6 +467,26 @@ export const AppointmentDetail = () => {
 
   return (
     <div className="container-fluid p-4">
+      {successMessage && (
+        <div className="alert alert-success alert-dismissible fade show mb-3" role="alert">
+          {successMessage}
+          <button
+            type="button"
+            className="btn-close"
+            onClick={() => setSuccessMessage(null)}
+          ></button>
+        </div>
+      )}
+      {errorMessage && (
+        <div className="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+          {errorMessage}
+          <button
+            type="button"
+            className="btn-close"
+            onClick={() => setErrorMessage(null)}
+          ></button>
+        </div>
+      )}
       <div className="mb-4">
         <button onClick={() => navigate(-1)} className="btn btn-outline-secondary mb-3">
           <i className="bi bi-arrow-left me-2"></i>{t('appointments.detail.back')}
@@ -256,12 +515,7 @@ export const AppointmentDetail = () => {
                <button
                  key={action.value}
                  className={`btn ${action.btn}`}
-                 onClick={() => {
-                     if (action.value === 'completed' && showPaymentWarning) {
-                         if(!confirm(t('appointments.detail.unpaid_confirm'))) return;
-                     }
-                     handleStatusUpdate(action.value);
-                 }}
+                 onClick={() => handleStatusUpdateClick(action.value)}
                  disabled={updating}
                >
                  {action.label}
@@ -277,84 +531,133 @@ export const AppointmentDetail = () => {
           <div className="card mb-4">
             <div className="card-header d-flex justify-content-between align-items-center">
               <h5 className="mb-0">{t('appointments.detail.job_details')}</h5>
-              {isAdmin && (
-                <button 
-                    className="btn btn-sm btn-outline-primary" 
-                    onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
+              {isAdmin && !isEditingJob && (
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => {
+                    setJobForm(prev => ({
+                      ...prev,
+                      title: appointment.title,
+                      description: appointment.description || '',
+                      start_time: formatForInput(appointment.start_time),
+                      end_time: formatForInput(appointment.end_time),
+                      admin_notes: appointment.admin_notes || '',
+                      location_name: appointment.location_name || '',
+                      address: appointment.address,
+                      google_maps_link: appointment.google_maps_link || '',
+                      contact_name: appointment.customer?.name || '',
+                      contact_phone: appointment.customer?.phone || appointment.customer?.phone_number || '',
+                      order_id: appointment.order ? String(appointment.order.id) : '',
+                    }));
+                    fetchCustomerOrders(appointment.customer.id, appointment.order?.id);
+                    setIsEditingJob(true);
+                  }}
                 >
-                    <i className="bi bi-pencil me-1"></i>{t('common.edit')}
+                  <i className="bi bi-pencil me-1"></i>{t('common.edit')}
                 </button>
               )}
             </div>
             <div className="card-body">
-              <h4 className="card-title">{appointment.title}</h4>
-              <p className="text-muted mb-4">{appointment.description || t('appointments.detail.no_description')}</p>
-              
-              <div className="row mb-3">
-                <div className="col-md-6">
-                  <strong>{t('appointments.detail.start_time')}:</strong>
-                  <div className="fs-5">{new Date(appointment.start_time).toLocaleString()}</div>
-                </div>
-                <div className="col-md-6">
-                  <strong>{t('appointments.detail.end_time')}:</strong>
-                  <div className="fs-5">
-                    {appointment.end_time ? new Date(appointment.end_time).toLocaleString() : '-'}
+              {isEditingJob ? (
+                <>
+                  <div className="mb-3">
+                    <label className="form-label">
+                      {t('appointments.create.title_label')} <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      required
+                      value={jobForm.title}
+                      onChange={e => setJobForm(prev => ({ ...prev, title: e.target.value }))}
+                    />
                   </div>
-                </div>
-              </div>
 
-              {appointment.order && (
-                   <div className="mt-4 pt-3 border-top">
-                       <div className="d-flex justify-content-between align-items-center mb-3">
-                           <h6 className="mb-0">{t('appointments.detail.products_materials', { code: appointment.order.code })}</h6>
-                           {['pending', 'quotation'].includes(appointment.order.status) ? (
-                               <button 
-                                   className="btn btn-sm btn-warning"
-                                   onClick={() => navigate(`/pos?order_id=${appointment.order!.id}`)}
-                               >
-                                   <i className="bi bi-pencil-square me-1"></i>{t('appointments.detail.edit_order')}
-                               </button>
-                           ) : (
-                               <button 
-                                   className="btn btn-sm btn-outline-primary"
-                                   onClick={() => navigate(`/pos?customer_id=${appointment.customer.id}&parent_order_id=${appointment.order!.id}`)}
-                                   title="Create a new supplementary order for additional costs"
-                               >
-                                   <i className="bi bi-plus-circle me-1"></i>{t('appointments.detail.add_extra_charge')}
-                               </button>
-                           )}
-                       </div>
-                       <div className="table-responsive">
-                           <table className="table table-sm table-bordered">
-                              <thead className="table-light">
-                                  <tr>
-                                      <th>{t('appointments.detail.product')}</th>
-                                      <th className="text-center" style={{ width: '100px' }}>{t('appointments.detail.qty')}</th>
-                                  </tr>
-                              </thead>
-                              <tbody>
-                                  {appointment.order.items.map(item => (
-                                      <tr key={item.id}>
-                                          <td>
-                                              <div className="d-flex align-items-center">
-                                                  {item.product?.images && item.product.images.length > 0 && (
-                                                      <img 
-                                                          src={item.product.images[0].image_path} 
-                                                          alt="" 
-                                                          className="me-2 rounded" 
-                                                          style={{ width: '30px', height: '30px', objectFit: 'cover' }}
-                                                      />
-                                                  )}
-                                                  <span>{item.product?.name || item.product_name || t('appointments.detail.unknown_product')}</span>
-                                              </div>
-                                          </td>
-                                          <td className="text-center">{item.quantity}</td>
-                                      </tr>
-                                  ))}
-                              </tbody>
-                          </table>
-                      </div>
+                  <div className="mb-3">
+                    <label className="form-label">{t('appointments.create.description')}</label>
+                    <textarea
+                      className="form-control"
+                      rows={2}
+                      value={jobForm.description}
+                      onChange={e => setJobForm(prev => ({ ...prev, description: e.target.value }))}
+                    ></textarea>
                   </div>
+
+                  <div className="row mb-3">
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        {t('appointments.create.start_time')} <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        type="datetime-local"
+                        className="form-control"
+                        required
+                        value={jobForm.start_time}
+                        onChange={e => handleJobStartTimeChange(e.target.value)}
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label">{t('appointments.create.end_time')}</label>
+                      <input
+                        type="datetime-local"
+                        className="form-control"
+                        value={jobForm.end_time}
+                        min={jobForm.start_time || undefined}
+                        onChange={e => setJobForm(prev => ({ ...prev, end_time: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label">{t('appointments.create.admin_notes')}</label>
+                    <textarea
+                      className="form-control"
+                      rows={2}
+                      value={jobForm.admin_notes}
+                      onChange={e => setJobForm(prev => ({ ...prev, admin_notes: e.target.value }))}
+                    ></textarea>
+                  </div>
+
+                  {isAdmin && (
+                    <div className="mb-3">
+                      <label className="form-label">{t('appointments.create.link_order')}</label>
+                      <select
+                        className="form-select"
+                        value={jobForm.order_id}
+                        onChange={e =>
+                          setJobForm(prev => ({ ...prev, order_id: e.target.value }))
+                        }
+                      >
+                        <option value="">{t('appointments.create.select_order')}</option>
+                        {orders.map(order => (
+                          <option key={order.id} value={order.id}>
+                            #{order.code} ({order.status})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <h4 className="card-title">{appointment.title}</h4>
+                  <p className="text-muted mb-4">
+                    {appointment.description || t('appointments.detail.no_description')}
+                  </p>
+
+                  <div className="row mb-3">
+                    <div className="col-md-6">
+                      <strong>{t('appointments.detail.start_time')}:</strong>
+                      <div className="fs-5">{new Date(appointment.start_time).toLocaleString()}</div>
+                    </div>
+                    <div className="col-md-6">
+                      <strong>{t('appointments.detail.end_time')}:</strong>
+                      <div className="fs-5">
+                        {appointment.end_time ? new Date(appointment.end_time).toLocaleString() : '-'}
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -365,20 +668,391 @@ export const AppointmentDetail = () => {
               <h5 className="mb-0">{t('appointments.detail.location')}</h5>
             </div>
             <div className="card-body">
-              <h5>{appointment.location_name || t('appointments.detail.customer_location')}</h5>
-              <p className="fs-5">{appointment.address}</p>
-              {appointment.google_maps_link && (
-                <a 
-                  href={appointment.google_maps_link} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="btn btn-outline-primary"
-                >
-                  <i className="bi bi-geo-alt me-2"></i>{t('appointments.detail.open_maps')}
-                </a>
+              {isEditingJob ? (
+                <>
+                  <div className="mb-3">
+                    <label className="form-label">
+                      {t('appointments.create.location_name')}
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={jobForm.location_name}
+                      onChange={e => setJobForm(prev => ({ ...prev, location_name: e.target.value }))}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">
+                      {t('appointments.create.address')} <span className="text-danger">*</span>
+                    </label>
+                    <textarea
+                      className="form-control"
+                      rows={3}
+                      value={jobForm.address}
+                      onChange={e => setJobForm(prev => ({ ...prev, address: e.target.value }))}
+                    ></textarea>
+                  </div>
+                  <div className="row mb-3">
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        {t('appointments.create.google_maps_link')}
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={jobForm.google_maps_link}
+                        onChange={e =>
+                          setJobForm(prev => ({ ...prev, google_maps_link: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        {t('appointments.create.contact_person')}
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={jobForm.contact_name}
+                        onChange={e =>
+                          setJobForm(prev => ({ ...prev, contact_name: e.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        {t('appointments.create.contact_phone')}
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={jobForm.contact_phone}
+                        onChange={e =>
+                          setJobForm(prev => ({ ...prev, contact_phone: e.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h5>{appointment.location_name || t('appointments.detail.customer_location')}</h5>
+                  <p className="fs-5">{appointment.address}</p>
+                  {appointment.google_maps_link && (
+                    <a
+                      href={appointment.google_maps_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-outline-primary"
+                    >
+                      <i className="bi bi-geo-alt me-2"></i>{t('appointments.detail.open_maps')}
+                    </a>
+                  )}
+                </>
               )}
             </div>
           </div>
+
+          {isEditingJob && (
+            <div className="d-flex justify-content-end gap-2 mb-4">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  if (appointment) {
+                    setJobForm(prev => ({
+                      ...prev,
+                      title: appointment.title,
+                      description: appointment.description || '',
+                      start_time: formatForInput(appointment.start_time),
+                      end_time: formatForInput(appointment.end_time),
+                      admin_notes: appointment.admin_notes || '',
+                      location_name: appointment.location_name || '',
+                      address: appointment.address,
+                      google_maps_link: appointment.google_maps_link || '',
+                      contact_name: appointment.customer?.name || '',
+                      contact_phone: appointment.customer?.phone || appointment.customer?.phone_number || '',
+                      order_id: appointment.order ? String(appointment.order.id) : '',
+                    }));
+                  }
+                  setIsEditingJob(false);
+                }}
+              >
+                {t('appointments.create.cancel')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSaveJob}
+                disabled={savingJob}
+              >
+                {savingJob ? t('appointments.edit.saving') : t('appointments.edit.save')}
+              </button>
+            </div>
+          )}
+
+          {appointment.order && (
+            <>
+              <div className="card mb-4">
+                <div className="card-header d-flex justify-content-between align-items-center">
+                  <h5 className="mb-0">
+                    {t('appointments.detail.products_materials', { code: appointment.order.code })}
+                  </h5>
+                  <div className="d-flex align-items-center gap-2">
+                    {canSeePrices && (
+                      <span className="badge bg-light text-dark">
+                        ฿
+                        {parseFloat(appointment.order.total).toLocaleString('en-US', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    )}
+                    {(isAdmin || isLeadTechnician) &&
+                      (['pending', 'quotation'].includes(appointment.order.status) ? (
+                        <button
+                          className="btn btn-sm btn-warning"
+                          onClick={() => setEditingOrderId(appointment.order!.id)}
+                        >
+                          <i className="bi bi-pencil-square me-1"></i>
+                          {t('appointments.detail.edit_order')}
+                        </button>
+                      ) : pendingSupplementaryOrder ? (
+                        <button
+                          className="btn btn-sm btn-warning"
+                          onClick={() => setEditingOrderId(pendingSupplementaryOrder.id)}
+                          title="Edit existing supplementary order"
+                        >
+                          <i className="bi bi-pencil-square me-1"></i>
+                          {t(
+                            'appointments.detail.edit_extra_charge',
+                            'แก้ไขค่าใช้จ่ายเพิ่มเติม'
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => setShowCreateOrderModal(true)}
+                          title="Create a new supplementary order for additional costs"
+                        >
+                          <i className="bi bi-plus-circle me-1"></i>
+                          {t('appointments.detail.add_extra_charge')}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+                <div className="card-body">
+                  <div className="table-responsive">
+                    <table className="table table-sm table-bordered mb-0">
+                      <thead className="table-light">
+                        <tr>
+                          <th>{t('appointments.detail.product')}</th>
+                          <th className="text-center" style={{ width: '140px' }}>
+                            {t('appointments.detail.order_source', 'จากออเดอร์')}
+                          </th>
+                          <th className="text-center" style={{ width: '80px' }}>
+                            {t('appointments.detail.qty')}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {combinedOrderItems.map((row, index) => (
+                          <tr key={row.item.id ?? `combined-${index}`}>
+                            <td>
+                              <div className="d-flex align-items-center">
+                                {row.item.product?.images && row.item.product.images.length > 0 && (
+                                  <img
+                                    src={row.item.product.images[0].image_path}
+                                    alt=""
+                                    className="me-2 rounded"
+                                    style={{
+                                      width: '30px',
+                                      height: '30px',
+                                      objectFit: 'cover',
+                                    }}
+                                  />
+                                )}
+                                <span>
+                                  {row.item.product?.name ||
+                                    row.item.product_name ||
+                                    t('appointments.detail.unknown_product')}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="text-center">
+                              <span className="badge bg-light text-dark">
+                                #{row.orderCode}
+                              </span>
+                              {!row.isMain && (
+                                <span className="badge bg-secondary ms-1">
+                                  {t('orders.supplementary_order')}
+                                </span>
+                              )}
+                            </td>
+                            <td className="text-center">{row.item.quantity}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card mb-4">
+                <div className="card-header d-flex justify-content-between align-items-center">
+                  <h5 className="mb-0">
+                    {t('appointments.detail.orders_summary_title', 'สรุปค่าใช้จ่ายรวม')}
+                  </h5>
+                </div>
+                <div className="card-body">
+                  <div className="table-responsive">
+                    <table className="table table-sm table-bordered mb-0">
+                      <thead className="table-light">
+                        <tr>
+                          <th style={{ width: '40%' }}>
+                            {t('appointments.detail.orders_summary_order', 'ออเดอร์')}
+                          </th>
+                          <th style={{ width: '30%' }}>
+                            {t('appointments.detail.orders_summary_status', 'สถานะ')}
+                          </th>
+                          {canSeePrices && (
+                            <th className="text-end" style={{ width: '30%' }}>
+                              {t('appointments.detail.orders_summary_total', 'ยอดรวม')}
+                            </th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>#{appointment.order.code}</td>
+                          <td>
+                            <span
+                              className={`badge bg-${
+                                appointment.order.status === 'completed'
+                                  ? 'success'
+                                  : appointment.order.status === 'pending'
+                                  ? 'warning'
+                                  : appointment.order.status === 'quotation'
+                                  ? 'info'
+                                  : 'secondary'
+                              }`}
+                            >
+                              {t(`status.${appointment.order.status}`)}
+                            </span>
+                            {appointment.order.status === 'pending' && (
+                              <button
+                                className="btn btn-sm btn-success ms-2"
+                                onClick={() => {
+                                  setPayingOrder(appointment.order);
+                                  setPaymentMethod('cash');
+                                  setReceivedAmount('');
+                                  setPaymentChange(null);
+                                }}
+                              >
+                                {t('orders.pay_now')}
+                              </button>
+                            )}
+                          </td>
+                          {canSeePrices && (
+                            <td className="text-end">
+                              ฿
+                              {parseFloat(appointment.order.total).toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </td>
+                          )}
+                        </tr>
+                        {(appointment.order.children || [])
+                          .filter(child => child.status !== 'cancelled')
+                          .map(child => (
+                            <tr key={child.id}>
+                              <td>#{child.code}</td>
+                              <td>
+                                <span
+                                  className={`badge bg-${
+                                    child.status === 'completed'
+                                      ? 'success'
+                                      : child.status === 'pending'
+                                      ? 'warning'
+                                      : child.status === 'quotation'
+                                      ? 'info'
+                                      : 'secondary'
+                                  }`}
+                                >
+                                  {t(`status.${child.status}`)}
+                                </span>
+                                {(isAdmin || isLeadTechnician) &&
+                                  child.status === 'pending' && (
+                                    <button
+                                      className="btn btn-sm btn-outline-warning ms-2"
+                                      onClick={() => setEditingOrderId(child.id)}
+                                    >
+                                      <i className="bi bi-pencil-square me-1"></i>
+                                      {t('appointments.detail.edit_order')}
+                                    </button>
+                                  )}
+                                {child.status === 'pending' && (
+                                  <button
+                                    className="btn btn-sm btn-success ms-2"
+                                    onClick={() => {
+                                      setPayingOrder(child);
+                                      setPaymentMethod('cash');
+                                      setReceivedAmount('');
+                                      setPaymentChange(null);
+                                    }}
+                                  >
+                                    {t('orders.pay_now')}
+                                  </button>
+                                )}
+                                {(isAdmin || isLeadTechnician) &&
+                                  child.status === 'pending' && (
+                                    <button
+                                      className="btn btn-sm btn-outline-danger ms-2"
+                                      onClick={() => setOrderToCancel(child)}
+                                    >
+                                      <i className="bi bi-x-circle me-1"></i>
+                                      {t('common.cancel')}
+                                    </button>
+                                  )}
+                              </td>
+                              {canSeePrices && (
+                                <td className="text-end">
+                                  ฿
+                                  {parseFloat(child.total).toLocaleString('en-US', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        <tr className="table-light">
+                          <td colSpan={2} className="text-end fw-bold">
+                            {t('appointments.detail.orders_summary_grand_total', 'รวมทั้งหมด')}
+                          </td>
+                          <td className="text-end fw-bold">
+                            ฿
+                            {(
+                              parseFloat(appointment.order.total) +
+                              (appointment.order.children || [])
+                                .filter(child => child.status !== 'cancelled')
+                                .reduce((sum, child) => sum + parseFloat(child.total), 0)
+                            ).toLocaleString('en-US', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="col-md-4">
@@ -446,16 +1120,35 @@ export const AppointmentDetail = () => {
             </div>
             <ul className="list-group list-group-flush">
               {appointment.technicians.length === 0 && <li className="list-group-item text-muted">{t('appointments.detail.no_technicians')}</li>}
-              {appointment.technicians.map(tech => (
-                <li key={tech.id} className="list-group-item d-flex justify-content-between align-items-center">
-                  <div>
-                    {tech.first_name} {tech.last_name}
-                    {tech.pivot.is_lead && (
-                      <span className="badge bg-primary ms-2">{t('appointments.detail.team_lead')}</span>
-                    )}
-                  </div>
-                </li>
-              ))}
+              {appointment.technicians.map(tech => {
+                const hasValidFirstName =
+                  tech.first_name &&
+                  tech.first_name !== '0' &&
+                  tech.first_name !== '1';
+                const hasValidLastName =
+                  tech.last_name &&
+                  tech.last_name !== '0' &&
+                  tech.last_name !== '1';
+
+                return (
+                  <li
+                    key={tech.id}
+                    className="list-group-item d-flex justify-content-between align-items-center"
+                  >
+                    <div>
+                      {hasValidFirstName ? tech.first_name : ''}
+                      {hasValidLastName
+                        ? `${hasValidFirstName ? ' ' : ''}${tech.last_name}`
+                        : ''}
+                      {tech.pivot.is_lead && (
+                        <span className="badge bg-primary ms-2">
+                          {t('appointments.detail.team_lead')}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
@@ -469,7 +1162,7 @@ export const AppointmentDetail = () => {
                     <p className="card-text text-muted small">{t('appointments.detail.cancel_warning')}</p>
                     <button 
                         className="btn btn-outline-danger w-100" 
-                        onClick={() => handleStatusUpdate('cancelled')}
+                        onClick={() => handleStatusUpdateClick('cancelled')}
                         disabled={updating}
                     >
                         {t('appointments.detail.cancel_btn')}
@@ -479,6 +1172,66 @@ export const AppointmentDetail = () => {
           )}
         </div>
       </div>
+
+      {showCompleteModal && pendingStatusUpdate && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  {t('appointments.detail.status_confirm_title', 'ยืนยันเปลี่ยนสถานะนัดหมาย')}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => {
+                    setShowCompleteModal(false);
+                    setPendingStatusUpdate(null);
+                  }}
+                ></button>
+              </div>
+              <div className="modal-body">
+                {pendingStatusUpdate === 'completed' && showPaymentWarning && (
+                  <div className="alert alert-warning" role="alert">
+                    <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                    {t('appointments.detail.unpaid_warning')}
+                  </div>
+                )}
+                <p className="mb-0">
+                  {t(
+                    'appointments.detail.status_confirm_message',
+                    'คุณต้องการเปลี่ยนสถานะนัดหมายนี้ใช่หรือไม่?'
+                  )}
+                </p>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowCompleteModal(false);
+                    setPendingStatusUpdate(null);
+                  }}
+                >
+                  {t('actions.cancel')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (pendingStatusUpdate) {
+                      handleStatusUpdate(pendingStatusUpdate);
+                    }
+                  }}
+                  disabled={updating}
+                >
+                  {updating ? t('appointments.detail.saving') : t('common.confirm')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Manage Team Modal */}
       {showTeamModal && (
@@ -551,6 +1304,194 @@ export const AppointmentDetail = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {editingOrderId && (
+        <EditOrderModal
+          orderId={editingOrderId}
+          onClose={() => setEditingOrderId(null)}
+          onSuccess={() => {
+            setEditingOrderId(null);
+            fetchAppointment();
+            setSuccessMessage(t('orders.order_updated'));
+          }}
+        />
+      )}
+
+      {showCreateOrderModal && appointment?.order && (
+        <CreateSupplementaryOrderModal
+          parentOrderId={appointment.order.id}
+          parentOrderCode={appointment.order.code}
+          initialCustomer={
+            appointment.customer
+              ? {
+                  id: appointment.customer.id,
+                  name: appointment.customer.name,
+                  phone: appointment.customer.phone || appointment.customer.phone_number,
+                }
+              : null
+          }
+          onClose={() => setShowCreateOrderModal(false)}
+          onSuccess={() => {
+            setShowCreateOrderModal(false);
+            fetchAppointment();
+            setSuccessMessage(t('pos.order_placed'));
+          }}
+        />
+      )}
+
+      {payingOrder && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <form className="modal-content" onSubmit={handleProcessPayment}>
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  {t('orders.pay_now')} #{payingOrder.code}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => {
+                    setPayingOrder(null);
+                    setReceivedAmount('');
+                    setPaymentChange(null);
+                  }}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <div className="mb-3">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="fw-bold">{t('appointments.detail.orders_summary_total', 'ยอดรวม')}</span>
+                    <span className="fs-5">
+                      ฿
+                      {parseFloat(payingOrder.total).toLocaleString('en-US', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label fw-bold">{t('pos.payment_method')}</label>
+                  <div className="btn-group w-100" role="group">
+                    <input
+                      type="radio"
+                      className="btn-check"
+                      name="paymentMethodAppointment"
+                      id="paymentCashAppointment"
+                      autoComplete="off"
+                      checked={paymentMethod === 'cash'}
+                      onChange={() => setPaymentMethod('cash')}
+                    />
+                    <label className="btn btn-outline-primary" htmlFor="paymentCashAppointment">
+                      {t('pos.cash')}
+                    </label>
+
+                    <input
+                      type="radio"
+                      className="btn-check"
+                      name="paymentMethodAppointment"
+                      id="paymentTransferAppointment"
+                      autoComplete="off"
+                      checked={paymentMethod === 'transfer'}
+                      onChange={() => setPaymentMethod('transfer')}
+                    />
+                    <label className="btn btn-outline-primary" htmlFor="paymentTransferAppointment">
+                      {t('pos.transfer')}
+                    </label>
+                  </div>
+                </div>
+
+                {paymentMethod === 'cash' && (
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">{t('pos.received_amount')}</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="form-control form-control-lg"
+                      value={receivedAmount}
+                      onChange={e => setReceivedAmount(e.target.value)}
+                    />
+                    {paymentChange !== null && (
+                      <div className={`mt-2 fw-bold ${paymentChange < 0 ? 'text-danger' : 'text-success'}`}>
+                        {paymentChange < 0
+                          ? t('pos.not_enough_cash', {
+                              amount: Math.abs(paymentChange).toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }),
+                            })
+                          : t('pos.change_amount', {
+                              amount: paymentChange.toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }),
+                            })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setPayingOrder(null);
+                    setReceivedAmount('');
+                    setPaymentChange(null);
+                  }}
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-success"
+                  disabled={paymentMethod === 'cash' && paymentChange !== null && paymentChange < 0}
+                >
+                  {t('orders.pay_now')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {orderToCancel && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <form className="modal-content" onSubmit={handleCancelOrder}>
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  {t('orders.confirm_cancel_order')}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setOrderToCancel(null)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <p className="mb-0">
+                  {t('orders.confirm_cancel_order')}
+                </p>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setOrderToCancel(null)}
+                >
+                  {t('common.cancel')}
+                </button>
+                <button type="submit" className="btn btn-danger">
+                  {t('common.confirm')}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
