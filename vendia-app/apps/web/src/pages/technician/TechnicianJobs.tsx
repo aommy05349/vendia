@@ -83,9 +83,6 @@ export const TechnicianJobs = () => {
     <div className="container-fluid p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>{t('technician.jobs.title')}</h2>
-        <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>
-          <i className="bi bi-house me-2"></i>{t('technician.jobs.dashboard_btn')}
-        </button>
       </div>
 
       {/* Tabs */}

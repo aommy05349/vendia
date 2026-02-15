@@ -33,9 +33,13 @@
     "warehouses": "คลังสินค้า",
     "cancel": "ยกเลิก",
     "save": "บันทึก",
+    "list": "รายการ",
+    "calendar": "ปฏิทิน",
+    "map": "แผนที่",
     "technician_section": "ช่างเทคนิค",
     "admin_section": "ผู้ดูแลระบบ",
-    "please_login": "กรุณาเข้าสู่ระบบ"
+    "please_login": "กรุณาเข้าสู่ระบบ",
+    "today": "วันนี้"
   },
   "login": {
     "title": "เข้าสู่ระบบ",
@@ -235,6 +239,9 @@
     "loading": "กำลังโหลด...",
     "no_appointments": "ไม่พบนัดหมาย",
     "view": "ดูรายละเอียด",
+    "view_list": "มุมมองรายการ",
+    "view_calendar": "ปฏิทิน",
+    "view_map": "แผนที่",
     "table": {
       "date_time": "วัน/เวลา",
       "title": "หัวข้อ",

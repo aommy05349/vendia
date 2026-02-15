@@ -11,11 +11,33 @@ export const DashboardLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
     setShowMobileSidebar(false);
   }, [location]);
+
+  const getPageTitle = () => {
+    const path = location.pathname;
+
+    if (path === '/') return t('common.pos');
+    if (path.startsWith('/orders')) return t('common.orders');
+    if (path.startsWith('/customers')) return t('common.customers');
+    if (path.startsWith('/profile')) return t('common.profile');
+    if (path.startsWith('/appointments')) return t('common.appointments');
+    if (path === '/technician') return t('common.attendance');
+    if (path.startsWith('/technician/jobs')) return t('common.my_jobs');
+    if (path.startsWith('/users')) return t('common.users');
+    if (path.startsWith('/categories')) return t('common.categories');
+    if (path.startsWith('/products')) return t('common.products');
+    if (path.startsWith('/brands')) return t('common.brands');
+    if (path.startsWith('/units')) return t('common.units');
+    if (path.startsWith('/warehouses')) return t('common.warehouses');
+    if (path.startsWith('/settings')) return t('common.settings');
+
+    return shop?.name || 'Vendia POS';
+  };
 
   const handleLogout = () => {
     logout();
@@ -109,15 +131,6 @@ export const DashboardLayout = () => {
                 </Link>
               </>
             )}
-
-            <Link
-              to="/profile"
-              className={`nav-link border rounded text-dark w-100 ${
-                location.pathname === '/profile' ? 'bg-primary text-white border-primary' : 'bg-white'
-              }`}
-            >
-              👤 {t('common.profile')}
-            </Link>
             
             {user.role === 'admin' && (
               <Link to="/appointments" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/appointments') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 {t('common.appointments')}</Link>
@@ -148,31 +161,64 @@ export const DashboardLayout = () => {
               </>
             )}
           </nav>
-          
-          <div className="mt-3 pt-3 border-top">
-            <div className="mb-3">
-               <LanguageSwitcher />
-            </div>
-            <div className="d-flex align-items-center gap-2 mb-3">
-              <div className="rounded-circle bg-secondary bg-opacity-25 d-flex align-items-center justify-content-center overflow-hidden" style={{ width: '40px', height: '40px', minWidth: '40px' }}>
-                 {/* Placeholder for user image if available, else initials */}
-                 <div className="fw-bold text-secondary">
-                   {user.name.charAt(0)}
-                 </div>
-              </div>
-              <div className="overflow-hidden">
-                  <div className="fw-bold small text-truncate">{user.name}</div>
-                  <div className="small text-muted text-capitalize">{user.role}</div>
-              </div>
-            </div>
-            <button onClick={handleLogout} className="btn btn-danger w-100 bg-danger bg-opacity-10 text-danger border-0 fw-bold">
-              {t('common.logout')}
-            </button>
-          </div>
+
         </aside>
 
         {/* Main Content */}
         <main className="flex-grow-1 overflow-auto bg-white w-100">
+          <div className="border-bottom bg-white d-none d-lg-flex align-items-center justify-content-between px-4 py-3 position-sticky top-0" style={{ zIndex: 5 }}>
+            <div>
+              <h1 className="h5 mb-0">{getPageTitle()}</h1>
+            </div>
+            <div className="d-flex align-items-center gap-3">
+              <LanguageSwitcher />
+              <div className="dropdown">
+                <button
+                  className="btn btn-light border-0 d-flex align-items-center gap-2"
+                  type="button"
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  aria-expanded={showProfileMenu}
+                >
+                  <div className="rounded-circle bg-secondary bg-opacity-25 d-flex align-items-center justify-content-center overflow-hidden" style={{ width: '36px', height: '36px', minWidth: '36px' }}>
+                    <div className="fw-bold text-secondary">
+                      {user.name.charAt(0)}
+                    </div>
+                  </div>
+                  <div className="d-none d-xl-block text-start">
+                    <div className="fw-bold small text-truncate" style={{ maxWidth: '160px' }}>{user.name}</div>
+                    <div className="small text-muted text-capitalize">{user.role}</div>
+                  </div>
+                  <span className="ms-1 small">
+                    <i className="bi bi-caret-down-fill"></i>
+                  </span>
+                </button>
+                <ul className={`dropdown-menu dropdown-menu-end ${showProfileMenu ? 'show' : ''}`}>
+                  <li>
+                    <button
+                      className="dropdown-item"
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        navigate('/profile');
+                      }}
+                    >
+                      {t('common.profile')}
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      className="dropdown-item text-danger"
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        handleLogout();
+                      }}
+                    >
+                      {t('common.logout')}
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
           <Outlet />
         </main>
       </div>

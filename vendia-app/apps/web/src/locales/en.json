@@ -33,9 +33,13 @@
     "warehouses": "Warehouses",
     "cancel": "Cancel",
     "save": "Save",
+    "list": "List",
+    "calendar": "Calendar",
+    "map": "Map",
     "technician_section": "TECHNICIAN",
     "admin_section": "ADMIN",
-    "please_login": "Please login"
+    "please_login": "Please login",
+    "today": "Today"
   },
   "login": {
     "title": "Login",
@@ -234,6 +238,9 @@
     "loading": "Loading...",
     "no_appointments": "No appointments found",
     "view": "View",
+    "view_list": "List",
+    "view_calendar": "Calendar",
+    "view_map": "Map",
     "table": {
       "date_time": "Date/Time",
       "title": "Title",

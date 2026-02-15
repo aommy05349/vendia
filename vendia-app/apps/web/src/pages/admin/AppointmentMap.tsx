@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { format, addDays, subDays, parseISO } from 'date-fns';
+import { th, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { api } from '@vendia/shared';
 
@@ -61,7 +62,8 @@ export const AppointmentMap: React.FC<AppointmentMapProps> = ({
     appointments: propAppointments,
     showControls = true 
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === 'th' ? th : enUS;
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
   // Default center (Thailand)
@@ -121,7 +123,9 @@ export const AppointmentMap: React.FC<AppointmentMapProps> = ({
         </button>
         
         <div className="d-flex align-items-center gap-2">
-            <h5 className="mb-0 fw-bold">{format(currentDate, 'EEEE, d MMMM yyyy')}</h5>
+            <h5 className="mb-0 fw-bold">
+              {format(currentDate, 'EEEE, d MMMM yyyy', { locale })}
+            </h5>
             <input 
                 type="date" 
                 className="form-control form-control-sm" 

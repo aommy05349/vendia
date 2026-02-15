@@ -3,6 +3,7 @@ import { api } from '@vendia/shared';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from 'date-fns';
+import { th, enUS } from 'date-fns/locale';
 import { AppointmentCalendar } from './AppointmentCalendar';
 import { AppointmentMap } from './AppointmentMap';
 
@@ -34,7 +35,8 @@ interface Appointment {
 }
 
 export const AppointmentList = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === 'th' ? th : enUS;
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'map'>('list');
@@ -246,9 +248,11 @@ export const AppointmentList = () => {
                 appointments.map((apt) => (
                   <tr key={apt.id}>
                     <td>
-                      <div>{new Date(apt.start_time).toLocaleDateString()}</div>
+                      <div>
+                        {format(new Date(apt.start_time), 'dd/MM/yyyy', { locale })}
+                      </div>
                       <small className="text-muted">
-                        {new Date(apt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {format(new Date(apt.start_time), 'HH:mm', { locale })}
                       </small>
                     </td>
                     <td>{apt.title}</td>
