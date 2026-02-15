@@ -59,6 +59,12 @@ export const TechnicianDashboard = () => {
   const [absentReason, setAbsentReason] = useState('');
   const [absentLoading, setAbsentLoading] = useState(false);
 
+  // Technician Leave Request State
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [leaveDate, setLeaveDate] = useState<string>('');
+  const [leaveReason, setLeaveReason] = useState('');
+  const [leaveSubmitting, setLeaveSubmitting] = useState(false);
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -184,6 +190,39 @@ export const TechnicianDashboard = () => {
     setHistoryPage(1);
   };
 
+  const openLeaveModal = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    setLeaveDate(`${yyyy}-${mm}-${dd}`);
+    setLeaveReason('');
+    setShowLeaveModal(true);
+  };
+
+  const submitLeaveRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leaveDate || !leaveReason.trim()) {
+      alert(t('attendance.technician_view.leave_reason_required'));
+      return;
+    }
+
+    setLeaveSubmitting(true);
+    try {
+      await api.post('/attendance/leave-request', {
+        date: leaveDate,
+        reason: leaveReason.trim(),
+      });
+      setShowLeaveModal(false);
+      alert(t('attendance.technician_view.leave_request_success'));
+    } catch (error) {
+      console.error('Failed to submit leave request', error);
+      alert(t('attendance.technician_view.leave_request_failed'));
+    } finally {
+      setLeaveSubmitting(false);
+    }
+  };
+
   const calculateDuration = (start: string, end: string | null) => {
     if (!end) return 'In Progress';
     const startTime = new Date(start).getTime();
@@ -263,13 +302,90 @@ export const TechnicianDashboard = () => {
               
               <div className="d-grid gap-3 mt-3">
                 <Link to="/technician/jobs" className="btn btn-outline-primary btn-lg py-3 fw-bold">
-                   <i className="bi bi-calendar-check me-2"></i>{t('attendance.technician_view.my_jobs_button')}
+                  <i className="bi bi-calendar-check me-2"></i>{t('attendance.technician_view.my_jobs_button')}
                 </Link>
+                {status === 'checked_out' && (
+                  <button
+                    className="btn btn-outline-warning btn-lg py-3 fw-bold"
+                    type="button"
+                    onClick={openLeaveModal}
+                  >
+                    <i className="bi bi-file-earmark-text me-2"></i>
+                    {t('attendance.technician_view.request_leave_button')}
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {showLeaveModal && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  {t('attendance.technician_view.leave_modal_title')}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowLeaveModal(false)}
+                ></button>
+              </div>
+              <form onSubmit={submitLeaveRequest}>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label">
+                      {t('attendance.technician_view.leave_date_label')}
+                    </label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={leaveDate}
+                      onChange={(e) => setLeaveDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">
+                      {t('attendance.technician_view.leave_reason_label')}
+                    </label>
+                    <textarea
+                      className="form-control"
+                      rows={3}
+                      value={leaveReason}
+                      onChange={(e) => setLeaveReason(e.target.value)}
+                      placeholder={t('attendance.technician_view.leave_reason_placeholder')}
+                    />
+                  </div>
+                  <div className="alert alert-warning small mb-0">
+                    {t('attendance.technician_view.leave_note')}
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowLeaveModal(false)}
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={leaveSubmitting}
+                  >
+                    {leaveSubmitting
+                      ? t('attendance.technician_view.processing')
+                      : t('attendance.technician_view.leave_submit_button')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

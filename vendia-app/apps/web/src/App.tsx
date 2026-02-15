@@ -36,6 +36,7 @@ import { CreateAppointment } from './pages/admin/CreateAppointment';
 import { AppointmentDetail } from './pages/admin/AppointmentDetail';
 import { EditAppointment } from './pages/admin/EditAppointment';
 import { TechnicianJobs } from './pages/technician/TechnicianJobs';
+import { Profile } from './pages/Profile';
 
 function App() {
   const { user, login } = useAuthStore();
@@ -204,6 +205,7 @@ function App() {
           <Route path="technician/jobs" element={
             user.role === 'technician' || user.role === 'admin' ? <TechnicianJobs /> : <Navigate to="/" />
           } />
+          <Route path="profile" element={<Profile />} />
         </Route>
         <Route path="/print/order/:id" element={<PrintOrder />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -217,6 +217,48 @@ class AttendanceController extends Controller
         return response()->json($attendance);
     }
 
+    public function requestLeave(Request $request)
+    {
+        $user = Auth::user();
+
+        if ($user->role !== 'technician') {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $request->validate([
+            'date' => 'nullable|date',
+            'reason' => 'required|string',
+        ]);
+
+        $date = $request->date ? Carbon::parse($request->date) : Carbon::today();
+
+        $existing = Attendance::where('user_id', $user->id)
+            ->whereDate('date', $date)
+            ->first();
+
+        if ($existing) {
+            if (in_array($existing->status, ['absent', 'weekly_off'])) {
+                $existing->update([
+                    'reason' => $request->reason,
+                ]);
+                return response()->json($existing);
+            }
+
+            return response()->json(['message' => 'Attendance already recorded for this date'], 400);
+        }
+
+        $attendance = Attendance::create([
+            'user_id' => $user->id,
+            'date' => $date,
+            'check_in' => $date->copy()->startOfDay(),
+            'check_out' => $date->copy()->endOfDay(),
+            'status' => 'absent',
+            'reason' => $request->reason,
+        ]);
+
+        return response()->json($attendance, 201);
+    }
+
     public function history($userId)
     {
         $attendances = Attendance::where('user_id', $userId)

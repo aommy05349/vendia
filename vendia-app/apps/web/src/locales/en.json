@@ -422,7 +422,17 @@
       "check_in_button": "CHECK IN",
       "check_out_button": "CHECK OUT",
       "processing": "Processing...",
-      "my_jobs_button": "MY JOBS"
+      "my_jobs_button": "MY JOBS",
+      "request_leave_button": "Request Leave",
+      "leave_modal_title": "Request Leave",
+      "leave_date_label": "Leave Date",
+      "leave_reason_label": "Leave Reason",
+      "leave_reason_placeholder": "e.g. Sick leave, personal errand...",
+      "leave_note": "The system will record an absence for the selected date with your reason.",
+      "leave_submit_button": "Submit Leave Request",
+      "leave_reason_required": "Please provide a leave reason",
+      "leave_request_success": "Leave request submitted successfully",
+      "leave_request_failed": "Failed to submit leave request"
     }
   },
   "users": {

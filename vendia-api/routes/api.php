@@ -41,6 +41,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendance/overview', [AttendanceController::class, 'overview']);
     Route::get('/attendance/summary', [AttendanceController::class, 'summary']);
     Route::get('/attendance/history/{user}', [AttendanceController::class, 'history']);
+    Route::post('/attendance/leave-request', [AttendanceController::class, 'requestLeave']);
     Route::post('/attendance/absent', [AttendanceController::class, 'markAbsent']);
     Route::put('/attendance/{id}', [AttendanceController::class, 'update']);
     Route::get('/attendance', [AttendanceController::class, 'index']);

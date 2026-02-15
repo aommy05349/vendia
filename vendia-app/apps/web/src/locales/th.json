@@ -453,7 +453,17 @@
       "check_in_button": "CHECK IN (เข้างาน)",
       "check_out_button": "CHECK OUT (ออกงาน)",
       "processing": "กำลังดำเนินการ...",
-      "my_jobs_button": "MY JOBS (งานของฉัน)"
+      "my_jobs_button": "MY JOBS (งานของฉัน)",
+      "request_leave_button": "ขอลางาน",
+      "leave_modal_title": "ขอลางาน",
+      "leave_date_label": "วันที่ต้องการลางาน",
+      "leave_reason_label": "เหตุผลการลา",
+      "leave_reason_placeholder": "เช่น ลาป่วย, ลากิจส่วนตัว...",
+      "leave_note": "ระบบจะบันทึกเป็นการขาดงานในวันที่เลือก พร้อมเหตุผลที่ระบุ",
+      "leave_submit_button": "ส่งคำขอลางาน",
+      "leave_reason_required": "กรุณาระบุเหตุผลการลา",
+      "leave_request_success": "ส่งคำขอลางานเรียบร้อยแล้ว",
+      "leave_request_failed": "ไม่สามารถส่งคำขอลางานได้"
     }
   },
   "users": {

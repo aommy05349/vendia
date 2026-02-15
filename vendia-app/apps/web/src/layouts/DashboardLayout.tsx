@@ -81,9 +81,43 @@ export const DashboardLayout = () => {
             <h2 className="h5 text-dark m-0 fw-bold">{shop?.name || 'Vendia POS'}</h2>
           </div>
           <nav className="nav flex-column gap-2 overflow-y-auto overflow-x-hidden flex-grow-1" style={{ scrollbarWidth: 'thin', minHeight: 0 }}>
-            <Link to="/" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🛒 {t('common.pos')}</Link>
-            <Link to="/orders" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/orders' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📄 {t('common.orders')}</Link>
-            <Link to="/customers" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/customers' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 {t('common.customers')}</Link>
+            {user.role !== 'technician' && (
+              <>
+                <Link
+                  to="/"
+                  className={`nav-link border rounded text-dark w-100 ${
+                    location.pathname === '/' ? 'bg-primary text-white border-primary' : 'bg-white'
+                  }`}
+                >
+                  🛒 {t('common.pos')}
+                </Link>
+                <Link
+                  to="/orders"
+                  className={`nav-link border rounded text-dark w-100 ${
+                    location.pathname === '/orders' ? 'bg-primary text-white border-primary' : 'bg-white'
+                  }`}
+                >
+                  📄 {t('common.orders')}
+                </Link>
+                <Link
+                  to="/customers"
+                  className={`nav-link border rounded text-dark w-100 ${
+                    location.pathname === '/customers' ? 'bg-primary text-white border-primary' : 'bg-white'
+                  }`}
+                >
+                  👥 {t('common.customers')}
+                </Link>
+              </>
+            )}
+
+            <Link
+              to="/profile"
+              className={`nav-link border rounded text-dark w-100 ${
+                location.pathname === '/profile' ? 'bg-primary text-white border-primary' : 'bg-white'
+              }`}
+            >
+              👤 {t('common.profile')}
+            </Link>
             
             {user.role === 'admin' && (
               <Link to="/appointments" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/appointments') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 {t('common.appointments')}</Link>
