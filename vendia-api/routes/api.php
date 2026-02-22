@@ -12,6 +12,7 @@ use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\CustomerLocationController;
 use Illuminate\Http\Request;
+use App\Http\Controllers\TeamController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -56,4 +57,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Appointments
     Route::apiResource('appointments', \App\Http\Controllers\AppointmentController::class);
+
+    // Teams
+    Route::get('/teams/technicians', [TeamController::class, 'technicians']);
+    Route::apiResource('teams', TeamController::class);
 });

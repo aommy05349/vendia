@@ -24,6 +24,10 @@ interface Appointment {
     tax_id?: string;
     address?: string;
   };
+  team?: {
+    id: number;
+    name: string;
+  } | null;
   technicians: {
     id: number;
     first_name: string;
@@ -96,6 +100,9 @@ export const AppointmentDetail = () => {
   const [savingTeam, setSavingTeam] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+  const [applyingTeam, setApplyingTeam] = useState(false);
 
   const [isEditingJob, setIsEditingJob] = useState(false);
   const [savingJob, setSavingJob] = useState(false);
@@ -239,6 +246,7 @@ export const AppointmentDetail = () => {
     fetchAppointment();
     if (user?.role === 'admin') {
         fetchTechnicians();
+        fetchTeams();
     }
   }, [id]);
 
@@ -248,6 +256,20 @@ export const AppointmentDetail = () => {
       setTechnicians(response.data.data || response.data);
     } catch (error) {
       console.error('Failed to fetch technicians', error);
+    }
+  };
+
+  const fetchTeams = async () => {
+    try {
+      const response = await api.get('/teams');
+      const data = response.data || [];
+      setTeams(
+        data
+          .filter((t: any) => t.is_active)
+          .map((t: any) => ({ id: t.id, name: t.name })),
+      );
+    } catch (error) {
+      console.error('Failed to fetch teams', error);
     }
   };
 
@@ -289,6 +311,7 @@ export const AppointmentDetail = () => {
             is_lead: t.pivot.is_lead
         })));
     }
+    setSelectedTeamId(appointment?.team ? appointment.team.id : null);
     setShowTeamModal(true);
   };
 
@@ -326,6 +349,34 @@ export const AppointmentDetail = () => {
         setErrorMessage(t('appointments.detail.update_failed'));
     } finally {
         setSavingTeam(false);
+    }
+  };
+
+  const handleApplyTeam = async () => {
+    if (!selectedTeamId) return;
+    setApplyingTeam(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const teamResponse = await api.get(`/teams/${selectedTeamId}`);
+      const teamData = teamResponse.data;
+      const members = Array.isArray(teamData.members) ? teamData.members : [];
+      const techniciansPayload = members.map((m: any) => ({
+        id: m.user_id,
+        is_lead: !!m.is_lead,
+      }));
+
+      await api.patch(`/appointments/${id}`, {
+        team_id: selectedTeamId,
+        technicians: techniciansPayload,
+      });
+      await fetchAppointment();
+      setSuccessMessage(t('appointments.detail.update_success', 'บันทึกข้อมูลสำเร็จ'));
+    } catch (error) {
+      console.error('Failed to apply team', error);
+      setErrorMessage(t('appointments.detail.update_failed'));
+    } finally {
+      setApplyingTeam(false);
     }
   };
 
@@ -1177,18 +1228,29 @@ export const AppointmentDetail = () => {
             </div>
           </div>
 
-          {/* Technicians */}
+          {/* Technicians / Team */}
           <div className="card mb-4">
             <div className="card-header d-flex justify-content-between align-items-center">
-              <h5 className="mb-0">{t('appointments.detail.assigned_team')}</h5>
+              <div>
+                <h5 className="mb-0">{t('appointments.detail.assigned_team')}</h5>
+                {appointment.team && (
+                  <div className="small text-muted">
+                    {t('appointments.detail.current_team', 'ทีมปัจจุบัน')}: {appointment.team.name}
+                  </div>
+                )}
+              </div>
               {isAdmin && appointment.status === 'scheduled' && (
-                  <button className="btn btn-sm btn-outline-primary" onClick={openTeamModal}>
-                      {t('appointments.detail.manage_team')}
-                  </button>
+                <button className="btn btn-sm btn-outline-primary" onClick={openTeamModal}>
+                  {t('appointments.detail.manage_team')}
+                </button>
               )}
             </div>
             <ul className="list-group list-group-flush">
-              {appointment.technicians.length === 0 && <li className="list-group-item text-muted">{t('appointments.detail.no_technicians')}</li>}
+              {appointment.technicians.length === 0 && (
+                <li className="list-group-item text-muted">
+                  {t('appointments.detail.no_technicians')}
+                </li>
+              )}
               {appointment.technicians.map(tech => {
                 const hasValidFirstName =
                   tech.first_name &&
@@ -1305,61 +1367,137 @@ export const AppointmentDetail = () => {
       {/* Manage Team Modal */}
       {showTeamModal && (
         <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
-          <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-dialog modal-dialog-centered modal-lg">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">{t('appointments.detail.manage_team_modal')}</h5>
                 <button type="button" className="btn-close" onClick={() => setShowTeamModal(false)}></button>
               </div>
               <div className="modal-body">
-                 <div className="mb-3">
-                     <label className="form-label">{t('appointments.detail.select_technicians')}</label>
-                     <Select
+                 <div className="row">
+                   <div className="col-md-5">
+                     <div className="mb-3">
+                       <label className="form-label">
+                         {t('appointments.detail.select_team', 'เลือกทีม')}
+                       </label>
+                       <select
+                         className="form-select"
+                         value={selectedTeamId ?? ''}
+                         onChange={e =>
+                           setSelectedTeamId(
+                             e.target.value ? Number(e.target.value) : null,
+                           )
+                         }
+                       >
+                         <option value="">
+                           {t('appointments.detail.no_team', 'ยังไม่เลือกทีม')}
+                         </option>
+                         {teams.map(team => (
+                           <option key={team.id} value={team.id}>
+                             {team.name}
+                           </option>
+                         ))}
+                       </select>
+                       {selectedTeamId && (
+                         <small className="text-muted d-block mt-1">
+                           {t(
+                             'appointments.detail.apply_team_hint',
+                             'การเลือกทีมจะบันทึกชื่อทีมในงานนี้',
+                           )}
+                         </small>
+                       )}
+                     </div>
+                     <button
+                       type="button"
+                       className="btn btn-outline-primary w-100 mb-3"
+                       disabled={!selectedTeamId || applyingTeam}
+                       onClick={handleApplyTeam}
+                     >
+                       {applyingTeam
+                         ? t('appointments.detail.saving')
+                         : t('appointments.detail.apply_team_button', 'บันทึกทีมให้กับงานนี้')}
+                     </button>
+                     <hr />
+                     <button
+                       type="button"
+                       className="btn btn-link p-0"
+                       onClick={() =>
+                         window.open('/teams', '_blank', 'noopener,noreferrer')
+                       }
+                     >
+                       {t(
+                         'appointments.detail.manage_teams_page_link',
+                         'ไปหน้า จัดการทีมช่าง',
+                       )}
+                     </button>
+                   </div>
+                   <div className="col-md-7">
+                     <div className="mb-3">
+                       <label className="form-label">
+                         {t('appointments.detail.select_technicians')}
+                       </label>
+                       <Select
                          isMulti
                          options={technicians.map(t => ({
-                             value: t.id,
-                             label: `${t.first_name ? t.first_name + ' ' + t.last_name : t.name}`
+                           value: t.id,
+                           label: `${
+                             t.first_name ? t.first_name + ' ' + t.last_name : t.name
+                           }`,
                          }))}
                          value={selectedTechnicians.map(t => {
-                             const tech = technicians.find(tech => tech.id === t.id);
-                             return {
-                                 value: t.id,
-                                 label: tech ? `${tech.first_name ? tech.first_name + ' ' + tech.last_name : tech.name}` : 'Unknown'
-                             };
+                           const tech = technicians.find(tech => tech.id === t.id);
+                           return {
+                             value: t.id,
+                             label: tech
+                               ? `${
+                                   tech.first_name
+                                     ? tech.first_name + ' ' + tech.last_name
+                                     : tech.name
+                                 }`
+                               : 'Unknown',
+                           };
                          })}
                          onChange={handleTechnicianChange}
                          className="mb-3"
-                         menuPortalTarget={document.body} 
+                         menuPortalTarget={document.body}
                          styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-                     />
+                       />
+                     </div>
+                     {selectedTechnicians.length > 0 && (
+                       <div className="card bg-light border-0">
+                         <div className="card-body p-2">
+                           <small className="d-block mb-2 text-muted">
+                             {t('appointments.detail.select_lead')}:
+                           </small>
+                           <ul className="list-group">
+                             {selectedTechnicians.map(st => {
+                               const tech = technicians.find(t => t.id === st.id);
+                               if (!tech) return null;
+                               return (
+                                 <li
+                                   key={st.id}
+                                   className="list-group-item d-flex justify-content-between align-items-center py-2"
+                                 >
+                                   <span>
+                                     {tech.first_name} {tech.last_name}
+                                   </span>
+                                   <div className="form-check form-switch">
+                                     <input
+                                       className="form-check-input"
+                                       type="checkbox"
+                                       checked={st.is_lead}
+                                       onChange={() => setLeadTechnician(st.id)}
+                                     />
+                                   </div>
+                                 </li>
+                               );
+                             })}
+                           </ul>
+                         </div>
+                       </div>
+                     )}
+                   </div>
                  </div>
-                 
-                 {selectedTechnicians.length > 0 && (
-                    <div className="card bg-light border-0">
-                        <div className="card-body p-2">
-                            <small className="d-block mb-2 text-muted">{t('appointments.detail.select_lead')}:</small>
-                            <ul className="list-group">
-                                {selectedTechnicians.map(st => {
-                                    const tech = technicians.find(t => t.id === st.id);
-                                    if (!tech) return null;
-                                    return (
-                                        <li key={st.id} className="list-group-item d-flex justify-content-between align-items-center py-2">
-                                            <span>{tech.first_name} {tech.last_name}</span>
-                                            <div className="form-check form-switch">
-                                                <input 
-                                                    className="form-check-input" 
-                                                    type="checkbox" 
-                                                    checked={st.is_lead}
-                                                    onChange={() => setLeadTechnician(st.id)}
-                                                />
-                                            </div>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        </div>
-                    </div>
-                 )}
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowTeamModal(false)}>{t('actions.cancel')}</button>

@@ -8,7 +8,7 @@ class AppointmentController extends Controller
 {
     public function index(Request $request)
     {
-        $query = \App\Models\Appointment::with(['customer', 'technicians', 'order'])
+        $query = \App\Models\Appointment::with(['customer', 'technicians', 'order', 'team'])
             ->orderBy('start_time', 'asc');
 
         if ($request->has('status')) {
@@ -64,6 +64,7 @@ class AppointmentController extends Controller
             'contact_name' => 'nullable|string',
             'contact_phone' => 'nullable|string',
             'admin_notes' => 'nullable|string',
+            'team_id' => 'nullable|exists:teams,id',
             // Assignees
             'technicians' => 'nullable|array',
             'technicians.*.id' => 'required_with:technicians|exists:users,id',
@@ -82,7 +83,7 @@ class AppointmentController extends Controller
             }
         }
 
-        return response()->json($appointment->load(['customer', 'technicians']), 201);
+        return response()->json($appointment->load(['customer', 'technicians', 'team']), 201);
     }
 
     public function show($id)
@@ -90,6 +91,7 @@ class AppointmentController extends Controller
         return response()->json(
             \App\Models\Appointment::with([
                 'customer',
+                'team',
                 'technicians',
                 'order',
                 'order.items',
@@ -123,6 +125,8 @@ class AppointmentController extends Controller
             'google_maps_link' => 'nullable|string',
             'contact_name' => 'nullable|string',
             'contact_phone' => 'nullable|string',
+            'team_id' => 'nullable|exists:teams,id',
+            'team_id' => 'nullable|exists:teams,id',
             // Order relink
             'order_id' => [
                 'nullable',
@@ -152,7 +156,7 @@ class AppointmentController extends Controller
             }
         }
 
-        return response()->json($appointment->load(['customer', 'technicians', 'order', 'order.items', 'order.items.product', 'order.items.product.images']));
+        return response()->json($appointment->load(['customer', 'technicians', 'team', 'order', 'order.items', 'order.items.product', 'order.items.product.images']));
     }
 
     public function destroy($id)

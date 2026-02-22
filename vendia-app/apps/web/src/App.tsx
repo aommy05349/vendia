@@ -30,6 +30,7 @@ import { CreateCustomer } from './pages/admin/CreateCustomer';
 import { EditCustomer } from './pages/admin/EditCustomer';
 import { PrintOrder } from './pages/PrintOrder';
 import { TechnicianDashboard } from './pages/technician/TechnicianDashboard';
+import { TeamList } from './pages/admin/TeamList';
 import { AttendanceHistory } from './pages/admin/AttendanceHistory';
 import { AppointmentList } from './pages/admin/AppointmentList';
 import { CreateAppointment } from './pages/admin/CreateAppointment';
@@ -190,6 +191,9 @@ function App() {
           <Route path="customers/:id/edit" element={<EditCustomer />} />
           <Route path="technician" element={
             user.role === 'technician' || user.role === 'admin' ? <TechnicianDashboard /> : <Navigate to="/" />
+          } />
+          <Route path="teams" element={
+            user.role === 'admin' ? <TeamList /> : <Navigate to="/" />
           } />
           <Route path="attendance/history" element={
             user.role === 'admin' ? <AttendanceHistory /> : <Navigate to="/" />

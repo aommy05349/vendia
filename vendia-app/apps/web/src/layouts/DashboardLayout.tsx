@@ -155,6 +155,7 @@ export const DashboardLayout = () => {
                 <Link to="/products" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/products' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📦 {t('common.products')}</Link>
                 <Link to="/brands" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/brands' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏷️ {t('common.brands')}</Link>
                 <Link to="/units" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/units' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚖️ {t('common.units')}</Link>
+                <Link to="/teams" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/teams' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👨‍🔧 {t('common.teams', 'Teams')}</Link>
                 <Link to="/warehouses" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/warehouses' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏭 {t('common.warehouses')}</Link>
                 <Link to="/settings" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/settings' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚙️ {t('common.settings')}</Link>
                 {/* <div className="pb-4"></div> */}

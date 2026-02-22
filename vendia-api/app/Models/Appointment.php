@@ -11,6 +11,7 @@ class Appointment extends Model
 
     protected $fillable = [
         'customer_id',
+        'team_id',
         'order_id',
         'title',
         'description',
@@ -43,6 +44,11 @@ class Appointment extends Model
     public function order()
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function team()
+    {
+        return $this->belongsTo(Team::class);
     }
 
     public function assignees()
