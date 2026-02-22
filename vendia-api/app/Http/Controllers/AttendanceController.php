@@ -62,9 +62,9 @@ class AttendanceController extends Controller
     {
         $user = Auth::user();
         
-        // Check if already checked in (any active session)
         $existing = Attendance::where('user_id', $user->id)
             ->whereNull('check_out')
+            ->whereNotIn('status', ['absent', 'weekly_off'])
             ->first();
 
         if ($existing) {

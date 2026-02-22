@@ -1230,6 +1230,79 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
                 </div>
             )}
 
+            {/* Mark Absent / Weekly Off Modal (Monitor View) */}
+            {showAbsentModal && (
+                <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <div className="modal-dialog">
+                        <div className="modal-content">
+                            <div className="modal-header">
+                                <h5 className="modal-title">
+                                    {t('attendance.dashboard.mark_absent_modal.title', {
+                                        name: absentTech?.user?.name || '',
+                                    })}
+                                </h5>
+                                <button
+                                    type="button"
+                                    className="btn-close"
+                                    onClick={() => setShowAbsentModal(false)}
+                                ></button>
+                            </div>
+                            <form onSubmit={submitAbsent}>
+                                <div className="modal-body">
+                                    <div className="mb-3">
+                                        <label className="form-label">
+                                            {t('attendance.dashboard.mark_absent_modal.type')}
+                                        </label>
+                                        <select
+                                            className="form-select"
+                                            value={absentType}
+                                            onChange={e => setAbsentType(e.target.value)}
+                                        >
+                                            <option value="weekly_off">
+                                                {t('attendance.dashboard.mark_absent_modal.types.weekly_off')}
+                                            </option>
+                                            <option value="absent">
+                                                {t('attendance.dashboard.mark_absent_modal.types.absent')}
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div className="mb-3">
+                                        <label className="form-label">
+                                            {t('attendance.dashboard.mark_absent_modal.reason')}
+                                        </label>
+                                        <textarea
+                                            className="form-control"
+                                            rows={2}
+                                            value={absentReason}
+                                            onChange={e => setAbsentReason(e.target.value)}
+                                            placeholder={t(
+                                                'attendance.dashboard.mark_absent_modal.reason_placeholder'
+                                            )}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="modal-footer">
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        onClick={() => setShowAbsentModal(false)}
+                                    >
+                                        {t('attendance.dashboard.mark_absent_modal.cancel')}
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="btn btn-primary"
+                                        disabled={absentLoading}
+                                    >
+                                        {t('attendance.dashboard.mark_absent_modal.confirm')}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Edit Modal */}
             {showEditModal && (
                 <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>

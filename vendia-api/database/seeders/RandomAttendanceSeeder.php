@@ -42,20 +42,20 @@ class RandomAttendanceSeeder extends Seeder
                         'user_id' => $tech->id,
                         'date' => $currentDate->format('Y-m-d'),
                         'status' => 'weekly_off',
-                        'check_in' => $currentDate->copy()->setTime(0, 0, 0), // DB requires check_in
-                        'check_out' => null,
+                        'check_in' => $currentDate->copy()->setTime(0, 0, 0),
+                        'check_out' => $currentDate->copy()->setTime(23, 59, 59),
                     ]);
                 } else {
                     // Randomize status
                     $rand = rand(1, 100);
                     
-                    if ($rand <= 5) { // 5% Absent
+                    if ($rand <= 5) {
                          Attendance::create([
                             'user_id' => $tech->id,
                             'date' => $currentDate->format('Y-m-d'),
                             'status' => 'absent',
-                            'check_in' => $currentDate->copy()->setTime(0, 0, 0), // DB requires check_in
-                            'check_out' => null,
+                            'check_in' => $currentDate->copy()->setTime(0, 0, 0),
+                            'check_out' => $currentDate->copy()->setTime(23, 59, 59),
                             'reason' => 'Sick leave or personal',
                         ]);
                     } else {
