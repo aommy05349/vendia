@@ -546,13 +546,33 @@ export const AppointmentDetail = () => {
   return (
     <div className="container-fluid p-4">
       {successMessage && (
-        <div className="alert alert-success alert-dismissible fade show mb-3" role="alert">
-          {successMessage}
-          <button
-            type="button"
-            className="btn-close"
-            onClick={() => setSuccessMessage(null)}
-          ></button>
+        <div
+          className="modal fade show d-block"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}
+          role="dialog"
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0">
+              <div className="modal-body text-center p-4">
+                <div className="text-success mb-3" style={{ fontSize: '3rem' }}>
+                  <i className="bi bi-check-circle-fill"></i>
+                </div>
+                <h5 className="mb-2">
+                  {t('common.success_title', 'สำเร็จ')}
+                </h5>
+                <p className="mb-0">{successMessage}</p>
+              </div>
+              <div className="modal-footer border-0 justify-content-center">
+                <button
+                  type="button"
+                  className="btn btn-success"
+                  onClick={() => setSuccessMessage(null)}
+                >
+                  {t('common.ok', 'ตกลง')}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
       {errorMessage && (
