@@ -103,6 +103,10 @@ export const AppointmentDetail = () => {
   const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   const [applyingTeam, setApplyingTeam] = useState(false);
+  const [teamPreview, setTeamPreview] = useState<
+    { id: number; name: string; is_lead: boolean }[]
+  >([]);
+  const [teamPreviewLoading, setTeamPreviewLoading] = useState(false);
 
   const [isEditingJob, setIsEditingJob] = useState(false);
   const [savingJob, setSavingJob] = useState(false);
@@ -245,19 +249,9 @@ export const AppointmentDetail = () => {
   useEffect(() => {
     fetchAppointment();
     if (user?.role === 'admin') {
-        fetchTechnicians();
-        fetchTeams();
+      fetchTeams();
     }
   }, [id]);
-
-  const fetchTechnicians = async () => {
-    try {
-      const response = await api.get('/users?role=technician');
-      setTechnicians(response.data.data || response.data);
-    } catch (error) {
-      console.error('Failed to fetch technicians', error);
-    }
-  };
 
   const fetchTeams = async () => {
     try {
@@ -270,6 +264,35 @@ export const AppointmentDetail = () => {
       );
     } catch (error) {
       console.error('Failed to fetch teams', error);
+    }
+  };
+
+  const loadTeamPreview = async (teamId: number | null) => {
+    if (!teamId) {
+      setTeamPreview([]);
+      return;
+    }
+    setTeamPreviewLoading(true);
+    try {
+      const res = await api.get(`/teams/${teamId}`);
+      const data = res.data;
+      const members = Array.isArray(data.members) ? data.members : [];
+      setTeamPreview(
+        members.map((m: any) => ({
+          id: m.user_id,
+          name: m.user
+            ? m.user.first_name
+              ? `${m.user.first_name} ${m.user.last_name}`
+              : m.user.name
+            : '',
+          is_lead: !!m.is_lead,
+        })),
+      );
+    } catch (error) {
+      console.error('Failed to load team preview', error);
+      setTeamPreview([]);
+    } finally {
+      setTeamPreviewLoading(false);
     }
   };
 
@@ -305,51 +328,10 @@ export const AppointmentDetail = () => {
   };
 
   const openTeamModal = () => {
-    if (appointment) {
-        setSelectedTechnicians(appointment.technicians.map(t => ({
-            id: t.id,
-            is_lead: t.pivot.is_lead
-        })));
-    }
-    setSelectedTeamId(appointment?.team ? appointment.team.id : null);
+    const teamId = appointment?.team ? appointment.team.id : null;
+    setSelectedTeamId(teamId);
     setShowTeamModal(true);
-  };
-
-  const handleTechnicianChange = (selectedOptions: any) => {
-    const newSelected = selectedOptions.map((option: any) => {
-        const existing = selectedTechnicians.find(t => t.id === option.value);
-        return {
-            id: option.value,
-            is_lead: existing ? existing.is_lead : false
-        };
-    });
-    setSelectedTechnicians(newSelected);
-  };
-
-  const setLeadTechnician = (techId: number) => {
-    setSelectedTechnicians(prev => prev.map(t => ({
-      ...t,
-      is_lead: t.id === techId
-    })));
-  };
-
-  const handleSaveTeam = async () => {
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    setSavingTeam(true);
-    try {
-        await api.patch(`/appointments/${id}`, {
-            technicians: selectedTechnicians
-        });
-        await fetchAppointment();
-        setShowTeamModal(false);
-        setSuccessMessage(t('appointments.detail.update_success', 'บันทึกข้อมูลสำเร็จ'));
-    } catch (error) {
-        console.error('Failed to update team', error);
-        setErrorMessage(t('appointments.detail.update_failed'));
-    } finally {
-        setSavingTeam(false);
-    }
+    loadTeamPreview(teamId);
   };
 
   const handleApplyTeam = async () => {
@@ -1383,11 +1365,13 @@ export const AppointmentDetail = () => {
                        <select
                          className="form-select"
                          value={selectedTeamId ?? ''}
-                         onChange={e =>
-                           setSelectedTeamId(
-                             e.target.value ? Number(e.target.value) : null,
-                           )
-                         }
+                         onChange={e => {
+                           const value = e.target.value
+                             ? Number(e.target.value)
+                             : null;
+                           setSelectedTeamId(value);
+                           loadTeamPreview(value);
+                         }}
                        >
                          <option value="">
                            {t('appointments.detail.no_team', 'ยังไม่เลือกทีม')}
@@ -1433,81 +1417,64 @@ export const AppointmentDetail = () => {
                    </div>
                    <div className="col-md-7">
                      <div className="mb-3">
-                       <label className="form-label">
-                         {t('appointments.detail.select_technicians')}
-                       </label>
-                       <Select
-                         isMulti
-                         options={technicians.map(t => ({
-                           value: t.id,
-                           label: `${
-                             t.first_name ? t.first_name + ' ' + t.last_name : t.name
-                           }`,
-                         }))}
-                         value={selectedTechnicians.map(t => {
-                           const tech = technicians.find(tech => tech.id === t.id);
-                           return {
-                             value: t.id,
-                             label: tech
-                               ? `${
-                                   tech.first_name
-                                     ? tech.first_name + ' ' + tech.last_name
-                                     : tech.name
-                                 }`
-                               : 'Unknown',
-                           };
-                         })}
-                         onChange={handleTechnicianChange}
-                         className="mb-3"
-                         menuPortalTarget={document.body}
-                         styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-                       />
-                     </div>
-                     {selectedTechnicians.length > 0 && (
-                       <div className="card bg-light border-0">
-                         <div className="card-body p-2">
-                           <small className="d-block mb-2 text-muted">
-                             {t('appointments.detail.select_lead')}:
-                           </small>
-                           <ul className="list-group">
-                             {selectedTechnicians.map(st => {
-                               const tech = technicians.find(t => t.id === st.id);
-                               if (!tech) return null;
-                               return (
-                                 <li
-                                   key={st.id}
-                                   className="list-group-item d-flex justify-content-between align-items-center py-2"
-                                 >
-                                   <span>
-                                     {tech.first_name} {tech.last_name}
-                                   </span>
-                                   <div className="form-check form-switch">
-                                     <input
-                                       className="form-check-input"
-                                       type="checkbox"
-                                       checked={st.is_lead}
-                                       onChange={() => setLeadTechnician(st.id)}
-                                     />
-                                   </div>
-                                 </li>
-                               );
-                             })}
-                           </ul>
-                         </div>
+                       <div className="alert alert-info mb-2">
+                         {t(
+                           'appointments.detail.team_only_info',
+                           'การมอบหมายช่างในงานนี้จัดการผ่านทีมช่างเท่านั้น หากต้องการเปลี่ยนรายชื่อช่าง โปรดแก้ไขที่หน้าจัดการทีม',
+                         )}
                        </div>
-                     )}
+                     </div>
+                     <div>
+                       <h6 className="mb-2">
+                         {t(
+                           'appointments.detail.team_members_preview',
+                           'รายชื่อช่างในทีมนี้',
+                         )}
+                       </h6>
+                       {teamPreviewLoading && (
+                         <div className="text-muted small">
+                           {t('common.loading', 'กำลังโหลด...')}
+                         </div>
+                       )}
+                       {!teamPreviewLoading && teamPreview.length === 0 && selectedTeamId && (
+                         <div className="text-muted small">
+                           {t(
+                             'appointments.detail.team_members_empty',
+                             'ทีมนี้ยังไม่มีช่างในระบบ',
+                           )}
+                         </div>
+                       )}
+                       {!teamPreviewLoading && teamPreview.length > 0 && (
+                         <ul className="list-group small">
+                           {teamPreview.map(member => (
+                             <li
+                               key={member.id}
+                               className="list-group-item d-flex justify-content-between align-items-center py-2"
+                             >
+                               <span>{member.name}</span>
+                               {member.is_lead && (
+                                 <span className="badge bg-primary">
+                                   {t(
+                                     'appointments.detail.lead_label',
+                                     'หัวหน้าช่าง',
+                                   )}
+                                 </span>
+                               )}
+                             </li>
+                           ))}
+                         </ul>
+                       )}
+                     </div>
                    </div>
                  </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowTeamModal(false)}>{t('actions.cancel')}</button>
-                <button 
-                    type="button" 
-                    className="btn btn-primary" 
-                    onClick={handleSaveTeam}
-                    disabled={savingTeam}
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowTeamModal(false)}
                 >
-                    {savingTeam ? t('appointments.detail.saving') : t('appointments.detail.save_team')}
+                  {t('actions.close', 'ปิด')}
                 </button>
               </div>
             </div>

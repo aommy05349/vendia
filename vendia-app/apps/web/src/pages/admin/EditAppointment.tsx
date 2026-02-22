@@ -18,7 +18,7 @@ export const EditAppointment = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [technicians, setTechnicians] = useState<User[]>([]);
+  const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
@@ -29,19 +29,24 @@ export const EditAppointment = () => {
     admin_notes: '',
   });
 
-  const [selectedTechnicians, setSelectedTechnicians] = useState<{ id: number; is_lead: boolean }[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchTechnicians();
+    fetchTeams();
     fetchAppointment();
   }, [id]);
 
-  const fetchTechnicians = async () => {
+  const fetchTeams = async () => {
     try {
-      const response = await api.get('/users?role=technician');
-      setTechnicians(response.data.data || response.data);
+      const response = await api.get('/teams');
+      const data = response.data || [];
+      setTeams(
+        data
+          .filter((t: any) => t.is_active)
+          .map((t: any) => ({ id: t.id, name: t.name })),
+      );
     } catch (error) {
-      console.error('Failed to fetch technicians', error);
+      console.error('Failed to fetch teams', error);
     }
   };
 
@@ -71,44 +76,13 @@ export const EditAppointment = () => {
         end_time: formatForInput(appt.end_time),
         admin_notes: appt.admin_notes || '',
       });
-
-      setSelectedTechnicians(appt.technicians.map((t: any) => ({
-        id: t.id,
-        is_lead: t.pivot.is_lead
-      })));
+      setSelectedTeamId(appt.team ? appt.team.id : null);
 
       setLoading(false);
     } catch (error) {
       console.error('Failed to fetch appointment', error);
       navigate('/appointments', { state: { appointmentEditLoadError: true } });
     }
-  };
-
-  const toggleTechnician = (techId: number) => {
-    if (selectedTechnicians.some(t => t.id === techId)) {
-      setSelectedTechnicians(prev => prev.filter(t => t.id !== techId));
-    } else {
-      setSelectedTechnicians(prev => [...prev, { id: techId, is_lead: false }]);
-    }
-  };
-
-  const setLeadTechnician = (techId: number) => {
-    setSelectedTechnicians(prev => prev.map(t => ({
-      ...t,
-      is_lead: t.id === techId
-    })));
-  };
-
-  const handleTechnicianChange = (selectedOptions: any) => {
-    // Preserve existing is_lead status if technician is already selected
-    const newSelected = selectedOptions.map((option: any) => {
-        const existing = selectedTechnicians.find(t => t.id === option.value);
-        return {
-            id: option.value,
-            is_lead: existing ? existing.is_lead : false
-        };
-    });
-    setSelectedTechnicians(newSelected);
   };
 
   const handleStartTimeChange = (value: string) => {
@@ -124,9 +98,22 @@ export const EditAppointment = () => {
     setSaving(true);
     setErrorMessage(null);
     try {
+      let techniciansPayload: { id: number; is_lead: boolean }[] = [];
+
+      if (selectedTeamId) {
+        const teamResponse = await api.get(`/teams/${selectedTeamId}`);
+        const teamData = teamResponse.data;
+        const members = Array.isArray(teamData.members) ? teamData.members : [];
+        techniciansPayload = members.map((m: any) => ({
+          id: m.user_id,
+          is_lead: !!m.is_lead,
+        }));
+      }
+
       const payload = {
         ...formData,
-        technicians: selectedTechnicians,
+        team_id: selectedTeamId,
+        technicians: techniciansPayload,
       };
 
       await api.patch(`/appointments/${id}`, payload);
@@ -198,57 +185,45 @@ export const EditAppointment = () => {
 
         <hr />
 
-        {/* Technicians */}
-        <h5 className="mb-3">{t('appointments.create.assign_team')}</h5>
+        <h5 className="mb-3">{t('appointments.detail.assigned_team')}</h5>
         <div className="mb-3">
-            <label className="form-label">{t('appointments.create.select_technicians')}</label>
-            <Select
-                isMulti
-                options={technicians.map(t => ({
-                    value: t.id,
-                    label: `${t.first_name ? t.first_name + ' ' + t.last_name : t.name}`
-                }))}
-                value={selectedTechnicians.map(t => {
-                    const tech = technicians.find(tech => tech.id === t.id);
-                    return {
-                        value: t.id,
-                        label: tech ? `${tech.first_name ? tech.first_name + ' ' + tech.last_name : tech.name}` : 'Unknown'
-                    };
-                })}
-                onChange={handleTechnicianChange}
-                className="mb-3"
-            />
-
-            {selectedTechnicians.length > 0 && (
-                <div className="card">
-                    <div className="card-header bg-light py-2">
-                        <small className="fw-bold">{t('appointments.edit.team_members_lead')}</small>
-                    </div>
-                    <ul className="list-group list-group-flush">
-                        {selectedTechnicians.map(st => {
-                            const tech = technicians.find(t => t.id === st.id);
-                            if (!tech) return null;
-                            return (
-                                <li key={st.id} className="list-group-item d-flex justify-content-between align-items-center py-2">
-                                    <span>{tech.first_name ? `${tech.first_name} ${tech.last_name}` : tech.name}</span>
-                                    <div className="form-check form-switch mb-0">
-                                        <input
-                                            className="form-check-input"
-                                            type="checkbox"
-                                            checked={st.is_lead}
-                                            onChange={() => setLeadTechnician(st.id)}
-                                            id={`lead-${st.id}`}
-                                        />
-                                        <label className="form-check-label small" htmlFor={`lead-${st.id}`}>
-                                            {t('appointments.create.lead_role')}
-                                        </label>
-                                    </div>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                </div>
+          <label className="form-label">
+            {t('appointments.detail.select_team', 'เลือกทีม')}
+          </label>
+          <select
+            className="form-select"
+            value={selectedTeamId ?? ''}
+            onChange={e =>
+              setSelectedTeamId(
+                e.target.value ? Number(e.target.value) : null,
+              )
+            }
+          >
+            <option value="">
+              {t('appointments.detail.no_team', 'ยังไม่เลือกทีม')}
+            </option>
+            {teams.map(team => (
+              <option key={team.id} value={team.id}>
+                {team.name}
+              </option>
+            ))}
+          </select>
+          {selectedTeamId && (
+            <small className="text-muted d-block mt-1">
+              {t(
+                'appointments.detail.apply_team_hint',
+                'การเลือกทีมจะบันทึกชื่อทีมและรายชื่อช่างจากทีมให้กับงานนี้',
+              )}
+            </small>
+          )}
+        </div>
+        <div className="mb-3">
+          <div className="alert alert-info mb-0">
+            {t(
+              'appointments.detail.team_only_info',
+              'การมอบหมายช่างในงานนี้จัดการผ่านทีมช่างเท่านั้น หากต้องการเปลี่ยนรายชื่อช่าง โปรดแก้ไขที่หน้าจัดการทีม',
             )}
+          </div>
         </div>
         
         <div className="mb-3">

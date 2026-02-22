@@ -60,5 +60,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Teams
     Route::get('/teams/technicians', [TeamController::class, 'technicians']);
+    Route::get('/teams/daily-assignments', [TeamController::class, 'dailyAssignments']);
     Route::apiResource('teams', TeamController::class);
 });

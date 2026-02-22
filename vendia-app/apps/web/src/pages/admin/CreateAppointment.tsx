@@ -39,7 +39,7 @@ export const CreateAppointment = () => {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<User[]>([]);
-  const [technicians, setTechnicians] = useState<User[]>([]);
+  const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [customerLocations, setCustomerLocations] = useState<CustomerLocation[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -63,11 +63,11 @@ export const CreateAppointment = () => {
     admin_notes: '',
   });
 
-  const [selectedTechnicians, setSelectedTechnicians] = useState<{ id: number; is_lead: boolean }[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchCustomers();
-    fetchTechnicians();
+    fetchTeams();
     
     // Handle URL params
     const orderId = searchParams.get('order_id');
@@ -121,12 +121,17 @@ export const CreateAppointment = () => {
       []
   );
 
-  const fetchTechnicians = async () => {
+  const fetchTeams = async () => {
     try {
-      const response = await api.get('/users?role=technician'); // Assuming filter exists
-      setTechnicians(response.data.data || response.data);
+      const response = await api.get('/teams');
+      const data = response.data || [];
+      setTeams(
+        data
+          .filter((t: any) => t.is_active)
+          .map((t: any) => ({ id: t.id, name: t.name })),
+      );
     } catch (error) {
-      console.error('Failed to fetch technicians', error);
+      console.error('Failed to fetch teams', error);
     }
   };
 
@@ -183,21 +188,6 @@ export const CreateAppointment = () => {
     }
   };
 
-  const toggleTechnician = (techId: number) => {
-    if (selectedTechnicians.some(t => t.id === techId)) {
-      setSelectedTechnicians(prev => prev.filter(t => t.id !== techId));
-    } else {
-      setSelectedTechnicians(prev => [...prev, { id: techId, is_lead: false }]);
-    }
-  };
-
-  const setLeadTechnician = (techId: number) => {
-    setSelectedTechnicians(prev => prev.map(t => ({
-      ...t,
-      is_lead: t.id === techId // Only one lead? Or multiple? Assuming one for now, or just toggle.
-    })));
-  };
-
   const handleStartTimeChange = (value: string) => {
     setFormData(prev => ({
       ...prev,
@@ -211,9 +201,22 @@ export const CreateAppointment = () => {
     setLoading(true);
     setSubmitError(null);
     try {
+      let techniciansPayload: { id: number; is_lead: boolean }[] = [];
+
+      if (selectedTeamId) {
+        const teamResponse = await api.get(`/teams/${selectedTeamId}`);
+        const teamData = teamResponse.data;
+        const members = Array.isArray(teamData.members) ? teamData.members : [];
+        techniciansPayload = members.map((m: any) => ({
+          id: m.user_id,
+          is_lead: !!m.is_lead,
+        }));
+      }
+
       const payload = {
         ...formData,
-        technicians: selectedTechnicians,
+        team_id: selectedTeamId,
+        technicians: techniciansPayload,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
         longitude: formData.longitude ? parseFloat(formData.longitude) : null,
         order_id: formData.order_id || null,
@@ -491,72 +494,41 @@ export const CreateAppointment = () => {
               <div className="card-body">
                 <div className="mb-3">
                   <label className="form-label">
-                    {t('appointments.create.select_technicians')}
+                    {t('appointments.detail.select_team', 'เลือกทีม')}
                   </label>
-                  <Select
-                    isMulti
-                    options={technicians.map(t => ({
-                      value: t.id,
-                      label: `${t.first_name ? t.first_name + ' ' + t.last_name : t.name}`
-                    }))}
-                    onChange={selectedOptions => {
-                      const newSelected = selectedOptions.map((option: any) => {
-                        const existing = selectedTechnicians.find(
-                          t => t.id === option.value
-                        );
-                        return {
-                          id: option.value,
-                          is_lead: existing ? existing.is_lead : false
-                        };
-                      });
-                      setSelectedTechnicians(newSelected);
-                    }}
-                    className="mb-3"
-                  />
+                  <select
+                    className="form-select"
+                    value={selectedTeamId ?? ''}
+                    onChange={e =>
+                      setSelectedTeamId(
+                        e.target.value ? Number(e.target.value) : null,
+                      )
+                    }
+                  >
+                    <option value="">
+                      {t('appointments.detail.no_team', 'ยังไม่เลือกทีม')}
+                    </option>
+                    {teams.map(team => (
+                      <option key={team.id} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedTeamId && (
+                    <small className="text-muted d-block mt-1">
+                      {t(
+                        'appointments.detail.apply_team_hint',
+                        'การเลือกทีมจะบันทึกชื่อทีมและรายชื่อช่างจากทีมให้กับงานนี้',
+                      )}
+                    </small>
+                  )}
                 </div>
-
-                {selectedTechnicians.length > 0 && (
-                  <div className="card bg-light border-0">
-                    <div className="card-body p-3">
-                      <small className="d-block mb-2 text-muted fw-bold">
-                        {t('appointments.create.select_lead_header')}
-                      </small>
-                      <ul className="list-group">
-                        {selectedTechnicians.map(st => {
-                          const tech = technicians.find(t => t.id === st.id);
-                          if (!tech) return null;
-                          return (
-                            <li
-                              key={st.id}
-                              className="list-group-item d-flex justify-content-between align-items-center py-2"
-                            >
-                              <span>
-                                {tech.first_name
-                                  ? `${tech.first_name} ${tech.last_name}`
-                                  : tech.name}
-                              </span>
-                              <div className="form-check form-switch mb-0">
-                                <input
-                                  className="form-check-input"
-                                  type="checkbox"
-                                  checked={st.is_lead}
-                                  onChange={() => setLeadTechnician(st.id)}
-                                  id={`lead-${st.id}`}
-                                />
-                                <label
-                                  className="form-check-label small"
-                                  htmlFor={`lead-${st.id}`}
-                                >
-                                  {t('appointments.create.lead_role')}
-                                </label>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  </div>
-                )}
+                <div className="alert alert-info mb-0">
+                  {t(
+                    'appointments.detail.team_only_info',
+                    'การมอบหมายช่างในงานนี้จัดการผ่านทีมช่างเท่านั้น หากต้องการเปลี่ยนรายชื่อช่าง โปรดแก้ไขที่หน้าจัดการทีม',
+                  )}
+                </div>
               </div>
             </div>
 

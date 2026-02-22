@@ -5,13 +5,22 @@ namespace App\Http\Controllers;
 use App\Models\Team;
 use App\Models\TeamMember;
 use App\Models\User;
+use App\Models\Appointment;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class TeamController extends Controller
 {
     public function index()
     {
-        $teams = Team::with(['members.user'])->orderBy('name')->get();
+        $teams = Team::with([
+                'members' => function ($q) {
+                    $q->whereNull('active_to');
+                },
+                'members.user',
+            ])
+            ->orderBy('name')
+            ->get();
 
         return response()->json($teams);
     }
@@ -49,7 +58,12 @@ class TeamController extends Controller
 
     public function show($id)
     {
-        $team = Team::with(['members.user'])->findOrFail($id);
+        $team = Team::with([
+                'members' => function ($q) {
+                    $q->whereNull('active_to');
+                },
+                'members.user',
+            ])->findOrFail($id);
 
         return response()->json($team);
     }
@@ -105,12 +119,29 @@ class TeamController extends Controller
             }
         }
 
-        return response()->json($team->fresh(['members.user']));
+        $team->load([
+            'members' => function ($q) {
+                $q->whereNull('active_to');
+            },
+            'members.user',
+        ]);
+
+        return response()->json($team);
     }
 
     public function destroy($id)
     {
         $team = Team::findOrFail($id);
+
+        $hasActiveAppointments = Appointment::where('team_id', $team->id)
+            ->whereIn('status', ['scheduled', 'en_route', 'in_progress'])
+            ->exists();
+
+        if ($hasActiveAppointments) {
+            return response()->json([
+                'message' => 'ทีมนี้ยังถูกใช้งานอยู่ในนัดหมายที่ยังไม่เสร็จสิ้น',
+            ], 422);
+        }
 
         $team->delete();
 
@@ -125,5 +156,58 @@ class TeamController extends Controller
 
         return response()->json($technicians);
     }
-}
 
+    public function dailyAssignments(Request $request)
+    {
+        $start = $request->query('start_date')
+            ? Carbon::parse($request->query('start_date'))->startOfDay()
+            : Carbon::now()->startOfMonth();
+
+        $end = $request->query('end_date')
+            ? Carbon::parse($request->query('end_date'))->endOfDay()
+            : Carbon::now()->endOfMonth();
+
+        $appointments = Appointment::with('team')
+            ->whereNotNull('team_id')
+            ->whereBetween('start_time', [$start, $end])
+            ->get();
+
+        $byDate = [];
+
+        foreach ($appointments as $appointment) {
+            if (!$appointment->team) {
+                continue;
+            }
+
+            $date = $appointment->start_time->toDateString();
+            $teamId = $appointment->team->id;
+
+            if (!isset($byDate[$date])) {
+                $byDate[$date] = [];
+            }
+
+            if (!isset($byDate[$date][$teamId])) {
+                $byDate[$date][$teamId] = [
+                    'id' => $teamId,
+                    'name' => $appointment->team->name,
+                    'jobs_count' => 0,
+                ];
+            }
+
+            $byDate[$date][$teamId]['jobs_count']++;
+        }
+
+        ksort($byDate);
+
+        $result = [];
+
+        foreach ($byDate as $date => $teams) {
+            $result[] = [
+                'date' => $date,
+                'teams' => array_values($teams),
+            ];
+        }
+
+        return response()->json($result);
+    }
+}
