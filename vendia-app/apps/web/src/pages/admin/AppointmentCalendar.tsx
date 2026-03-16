@@ -175,7 +175,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
               )}
             </div>
             
-            <div className="d-flex flex-column gap-1 overflow-auto custom-scrollbar" style={{ maxHeight: '150px' }}>
+            <div className="d-flex flex-column gap-1 overflow-auto custom-scrollbar" style={{ maxHeight: '130px' }}>
               {daysAppointments.slice(0, 3).map((apt) => {
                  const lead = apt.technicians.find(tech => tech.pivot.is_lead);
                  const hasValidLeadFirstName =
@@ -241,6 +241,34 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                 </div>
               )}
             </div>
+            {daysAppointments.length > 0 && (
+              <div className="mt-1 d-flex gap-1">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary flex-grow-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedDate(cloneDay);
+                    setSelectedDayAppointments(daysAppointments);
+                    setModalViewMode('list');
+                  }}
+                >
+                  {t('common.details', 'รายละเอียด')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary flex-grow-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedDate(cloneDay);
+                    setSelectedDayAppointments(daysAppointments);
+                    setModalViewMode('map');
+                  }}
+                >
+                  {t('common.map', 'แผนที่')}
+                </button>
+              </div>
+            )}
           </div>
         );
         day = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1); // safe add day

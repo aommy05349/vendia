@@ -40,7 +40,7 @@ class AppointmentController extends Controller
         $validated = $request->validate([
             'customer_id' => 'required|exists:users,id',
             'order_id' => [
-                'nullable',
+                'required',
                 'exists:orders,id',
                 function ($attribute, $value, $fail) use ($request) {
                     if ($value) {
@@ -126,10 +126,10 @@ class AppointmentController extends Controller
             'contact_name' => 'nullable|string',
             'contact_phone' => 'nullable|string',
             'team_id' => 'nullable|exists:teams,id',
-            'team_id' => 'nullable|exists:teams,id',
             // Order relink
             'order_id' => [
-                'nullable',
+                'sometimes',
+                'required',
                 'exists:orders,id',
                 function ($attribute, $value, $fail) use ($appointment) {
                     if ($value) {

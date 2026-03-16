@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Database\QueryException;
@@ -21,6 +22,20 @@ class UserController extends Controller
 
         if ($request->has('exclude_role')) {
             $query->where('role', '!=', $request->exclude_role);
+        }
+
+        if ($request->boolean('has_available_order_for_appointment')) {
+            $query->whereExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('orders')
+                    ->whereColumn('orders.customer_id', 'users.id')
+                    ->whereIn('orders.status', ['pending', 'completed'])
+                    ->whereNotExists(function ($sub2) {
+                        $sub2->select(DB::raw(1))
+                            ->from('appointments')
+                            ->whereColumn('appointments.order_id', 'orders.id');
+                    });
+            });
         }
 
         if ($request->has('search')) {

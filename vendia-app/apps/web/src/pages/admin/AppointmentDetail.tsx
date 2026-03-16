@@ -353,6 +353,9 @@ export const AppointmentDetail = () => {
         technicians: techniciansPayload,
       });
       await fetchAppointment();
+      setShowTeamModal(false);
+      setSelectedTeamId(null);
+      setTeamPreview([]);
       setSuccessMessage(t('appointments.detail.update_success', 'บันทึกข้อมูลสำเร็จ'));
     } catch (error) {
       console.error('Failed to apply team', error);
@@ -1487,15 +1490,6 @@ export const AppointmentDetail = () => {
                      </div>
                    </div>
                  </div>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowTeamModal(false)}
-                >
-                  {t('actions.close', 'ปิด')}
-                </button>
               </div>
             </div>
           </div>

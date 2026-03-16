@@ -163,6 +163,8 @@
     "confirm_cancel_document": "Are you sure you want to cancel document {{number}}? This action cannot be undone.",
     "document_cancelled": "Cancelled",
     "convert_failed": "Failed to convert quotation",
+    "update_success": "Updated successfully",
+    "update_failed": "Update failed",
     "payment_success": "Payment successful!",
     "payment_failed": "Payment failed. Please try again.",
     "unknown_product": "Unknown Product"
@@ -271,8 +273,9 @@
     "create": {
       "title": "Create Service Appointment",
       "customer": "Customer",
-      "link_order": "Link Order (Optional)",
+      "link_order": "Order",
       "select_order": "Select Order",
+      "order_required": "Please select an order",
       "title_label": "Title",
       "title_placeholder": "e.g. AC Installation, Repair Visit",
       "description": "Description",

@@ -6,6 +6,7 @@ use App\Models\Team;
 use App\Models\TeamMember;
 use App\Models\User;
 use App\Models\Appointment;
+use App\Models\AppointmentAssignee;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -125,6 +126,28 @@ class TeamController extends Controller
             },
             'members.user',
         ]);
+
+        if (array_key_exists('members', $validated)) {
+            $activeTechnicians = $team->members->filter(function ($member) {
+                return $member->user && $member->user->role === 'technician';
+            });
+
+            $appointmentsToSync = Appointment::where('team_id', $team->id)
+                ->whereIn('status', ['scheduled', 'en_route', 'in_progress'])
+                ->get();
+
+            foreach ($appointmentsToSync as $appointment) {
+                $appointment->assignees()->delete();
+
+                foreach ($activeTechnicians as $member) {
+                    AppointmentAssignee::create([
+                        'appointment_id' => $appointment->id,
+                        'user_id' => $member->user_id,
+                        'is_lead' => $member->is_lead ?? false,
+                    ]);
+                }
+            }
+        }
 
         return response()->json($team);
     }

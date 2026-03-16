@@ -100,6 +100,7 @@ export const CreateAppointment = () => {
     try {
       const params = new URLSearchParams();
       params.append('role', 'customer');
+      params.append('has_available_order_for_appointment', 'true');
       params.append('per_page', '100');
       if (search) {
         params.append('search', search);
@@ -198,8 +199,12 @@ export const CreateAppointment = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setSubmitError(null);
+    if (!formData.order_id) {
+      setSubmitError(t('appointments.create.order_required', 'กรุณาเลือกออเดอร์'));
+      return;
+    }
+    setLoading(true);
     try {
       let techniciansPayload: { id: number; is_lead: boolean }[] = [];
 
@@ -219,7 +224,7 @@ export const CreateAppointment = () => {
         technicians: techniciansPayload,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
         longitude: formData.longitude ? parseFloat(formData.longitude) : null,
-        order_id: formData.order_id || null,
+        order_id: Number(formData.order_id),
         end_time: formData.end_time || null,
       };
 
@@ -468,12 +473,15 @@ export const CreateAppointment = () => {
                 </div>
 
                 <div className="mb-3">
-                  <label className="form-label">{t('appointments.create.link_order')}</label>
+                  <label className="form-label">
+                    {t('appointments.create.link_order')} <span className="text-danger">*</span>
+                  </label>
                   <select
                     className="form-select"
                     value={formData.order_id}
                     onChange={e => setFormData({ ...formData, order_id: e.target.value })}
                     disabled={!formData.customer_id}
+                    required
                   >
                     <option value="">{t('appointments.create.select_order')}</option>
                     {orders.map(o => (
