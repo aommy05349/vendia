@@ -65,6 +65,12 @@ export const Pos = () => {
     return `${origin}${normalizedPath}`;
   };
 
+  const openCustomerSelect = () => {
+    setCustomerSearch('');
+    setShowCustomerModal(true);
+    fetchCustomers();
+  };
+
   useEffect(() => {
     fetchProducts({
       page: currentPage,
@@ -277,9 +283,12 @@ export const Pos = () => {
   }, [receivedAmount, paymentMethod, payableAmount]);
 
   return (
-    <div className="d-flex flex-column flex-lg-row h-100">
+    <div className="d-flex flex-column flex-lg-row h-100 overflow-hidden" style={{ minHeight: 0 }}>
       {/* Product Grid */}
-      <div className="flex-grow-1 p-4 overflow-auto border-end-lg border-bottom border-bottom-lg-0" style={{ flex: 4 }}>
+      <div
+        className="flex-grow-1 p-3 p-lg-4 overflow-auto border-end-lg border-bottom border-bottom-lg-0"
+        style={{ flex: 4, minHeight: 0 }}
+      >
         <div className="d-flex justify-content-between align-items-center mb-4">
             <h1 className="h3 m-0">
                 {editingOrderId ? (
@@ -382,7 +391,7 @@ export const Pos = () => {
           <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>
         ) : (
           <>
-            <div className="row g-3">
+            <div className="row g-2 g-lg-3">
               {products.map((product) => {
                 const coverImage = product.images?.find(img => img.is_cover) || product.images?.[0];
                 const isOutOfStock = product.product_type !== 'service' && product.stock === 0;
@@ -400,7 +409,7 @@ export const Pos = () => {
                     onMouseEnter={(e) => { if(!isOutOfStock) { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.classList.add('shadow'); } }}
                     onMouseLeave={(e) => { if(!isOutOfStock) { e.currentTarget.style.transform = 'none'; e.currentTarget.classList.remove('shadow'); } }}
                   >
-                    <div style={{ height: '180px', overflow: 'hidden', position: 'relative' }} className="bg-light rounded-top">
+                    <div style={{ height: '140px', overflow: 'hidden', position: 'relative' }} className="bg-light rounded-top">
                         {coverImage ? (
                             <img 
                                 src={getImageUrl(coverImage.image_path)} 
@@ -428,21 +437,21 @@ export const Pos = () => {
                         </div>
                     </div>
 
-                    <div className="card-body d-flex flex-column p-3">
+                    <div className="card-body d-flex flex-column p-2 p-lg-3">
                       <h6 className="card-title fw-bold mb-1 text-truncate" title={product.name}>{product.name}</h6>
-                      <p className="card-text text-muted small mb-3 flex-grow-1" style={{ 
+                      <p className="card-text text-muted small mb-2 flex-grow-1" style={{ 
                           display: '-webkit-box',
                           WebkitLineClamp: 2,
                           WebkitBoxOrient: 'vertical',
                           overflow: 'hidden',
-                          fontSize: '0.85rem'
+                          fontSize: '0.8rem'
                       }}>
                         {product.description || '-'}
                       </p>
                       
                       <div className="d-flex justify-content-between align-items-end mt-auto">
                         <div>
-                           <span className="text-primary fw-bold fs-5">฿{Number(product.price).toLocaleString()}</span>
+                           <span className="text-primary fw-bold">฿{Number(product.price).toLocaleString()}</span>
                         </div>
                         <button 
                            className={`btn btn-sm rounded-circle d-flex align-items-center justify-content-center shadow-sm ${isOutOfStock ? 'btn-secondary' : 'btn-primary'}`}
@@ -485,17 +494,20 @@ export const Pos = () => {
       </div>
 
       {/* Cart Sidebar */}
-      <div className="d-flex flex-column p-4 bg-light border-top" style={{ flex: 1, minWidth: '260px', maxWidth: '500px' }}>
+      <div
+        className="d-flex flex-column p-3 p-lg-4 bg-light border-top overflow-hidden"
+        style={{ flex: 1, minWidth: '260px', maxWidth: '500px', minHeight: 0 }}
+      >
         
         {/* Customer Section */}
         <div className="mb-4">
              <div className="d-flex justify-content-between align-items-center mb-2">
                  <h6 className="text-muted text-uppercase small fw-bold m-0">{t('pos.select_customer')}</h6>
-                 <button className="btn btn-sm btn-link text-decoration-none" onClick={() => { setShowCustomerModal(true); fetchCustomers(); }}>
+                 <button className="btn btn-sm btn-link text-decoration-none" onClick={openCustomerSelect}>
                      {selectedCustomer ? t('actions.change') : t('actions.select')}
                  </button>
              </div>
-             <div className="card shadow-sm border-0" onClick={() => { setShowCustomerModal(true); fetchCustomers(); }} style={{ cursor: 'pointer' }}>
+             <div className="card shadow-sm border-0" onClick={openCustomerSelect} style={{ cursor: 'pointer' }}>
                  <div className="card-body p-3">
                      {selectedCustomer ? (
                          <div>
@@ -636,7 +648,7 @@ export const Pos = () => {
           </div>
         )}
         
-        <div className="pt-3 border-top mt-auto">
+        <div className="pt-3 border-top mt-auto bg-light">
           <div className="d-flex justify-content-between fs-4 fw-bold mb-3">
             <span>{t('pos.total')}:</span>
             <span>฿{total().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -653,7 +665,7 @@ export const Pos = () => {
 
       {/* Payment Modal */}
       {showPaymentModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
@@ -662,6 +674,28 @@ export const Pos = () => {
               </div>
               <div className="modal-body">
                 <form onSubmit={processPayment}>
+                    <div className="mb-3">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                            <label className="form-label fw-bold m-0">{t('pos.customer', 'ลูกค้า')}</label>
+                            <button type="button" className="btn btn-sm btn-link text-decoration-none p-0" onClick={openCustomerSelect}>
+                                {selectedCustomer ? t('actions.change') : t('actions.select')}
+                            </button>
+                        </div>
+                        <div className="card border-0 shadow-sm" style={{ cursor: 'pointer' }} onClick={openCustomerSelect}>
+                            <div className="card-body py-2 px-3">
+                                {selectedCustomer ? (
+                                    <div>
+                                        <div className="fw-bold">{selectedCustomer.name}</div>
+                                        {selectedCustomer.phone && <div className="small text-muted">{selectedCustomer.phone}</div>}
+                                        {selectedCustomer.company_name && <div className="small text-muted">{selectedCustomer.company_name}</div>}
+                                    </div>
+                                ) : (
+                                    <div className="text-muted">{t('pos.walk_in')}</div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="mb-3">
                         <label className="form-label">{t('pos.payment_method')}</label>
                         <div className="btn-group w-100" role="group">
@@ -785,7 +819,7 @@ export const Pos = () => {
 
       {/* Customer Selection Modal */}
       {showCustomerModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }}>
           <div className="modal-dialog modal-dialog-centered modal-lg">
             <div className="modal-content">
               <div className="modal-header">
@@ -845,7 +879,7 @@ export const Pos = () => {
 
       {/* Create Customer Modal */}
       {showCreateCustomerModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }}>
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1070 }}>
           <div className="modal-dialog modal-dialog-centered modal-lg">
             <div className="modal-content">
               <div className="modal-header">

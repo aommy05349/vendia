@@ -166,7 +166,7 @@ export const DashboardLayout = () => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-grow-1 overflow-auto bg-white w-100">
+        <main className="flex-grow-1 overflow-hidden bg-white w-100 d-flex flex-column">
           <div className="border-bottom bg-white d-none d-lg-flex align-items-center justify-content-between px-4 py-3 position-sticky top-0" style={{ zIndex: 5 }}>
             <div>
               <h1 className="h5 mb-0">{getPageTitle()}</h1>
@@ -220,7 +220,9 @@ export const DashboardLayout = () => {
               </div>
             </div>
           </div>
-          <Outlet />
+          <div className="flex-grow-1 overflow-auto" style={{ minHeight: 0 }}>
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
