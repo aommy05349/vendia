@@ -27,6 +27,16 @@ export const Pos = () => {
   const [newCustomerTaxId, setNewCustomerTaxId] = useState('');
   const [newCustomerAddress, setNewCustomerAddress] = useState('');
   const [newCustomerCompany, setNewCustomerCompany] = useState('');
+  const [applyVat, setApplyVat] = useState(false);
+  const [withholdingRate, setWithholdingRate] = useState<0 | 3 | 7>(0);
+
+  const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+  const subtotalAmount = total();
+  const vatRate = applyVat ? 7 : 0;
+  const vatAmount = round2((subtotalAmount * vatRate) / 100);
+  const withholdingAmount = round2((subtotalAmount * withholdingRate) / 100);
+  const totalWithVat = round2(subtotalAmount + vatAmount);
+  const payableAmount = round2(totalWithVat - withholdingAmount);
   const [createCustomerError, setCreateCustomerError] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -139,6 +149,8 @@ export const Pos = () => {
 
         // Direct update without timeout to test immediate reactivity
         setCart(newCartItems);
+        setApplyVat(Number(res.data?.vat_rate || 0) > 0);
+        setWithholdingRate((Number(res.data?.withholding_rate || 0) as 0 | 3 | 7) || 0);
         
       }).catch(err => {
         console.error("Failed to load order", err);
@@ -194,6 +206,10 @@ export const Pos = () => {
     setReceivedAmount('');
     setChange(null);
     setPaymentMethod('cash');
+    if (!editingOrderId) {
+      setApplyVat(false);
+      setWithholdingRate(0);
+    }
   };
 
   const submitOrder = async (status: 'completed' | 'pending' | 'quotation', method: string) => {
@@ -208,6 +224,8 @@ export const Pos = () => {
         status: status,
         customer_id: selectedCustomer?.id || null,
         parent_id: parentOrderId || null,
+        apply_vat: applyVat,
+        withholding_rate: withholdingRate,
       };
 
       if (editingOrderId) {
@@ -252,12 +270,11 @@ export const Pos = () => {
   useEffect(() => {
     if (paymentMethod === 'cash' && receivedAmount) {
       const received = parseFloat(receivedAmount);
-      const totalAmount = total();
-      setChange(received - totalAmount);
+      setChange(received - payableAmount);
     } else {
       setChange(null);
     }
-  }, [receivedAmount, paymentMethod, total]);
+  }, [receivedAmount, paymentMethod, payableAmount]);
 
   return (
     <div className="d-flex flex-column flex-lg-row h-100">
@@ -688,8 +705,60 @@ export const Pos = () => {
                     )}
 
                     <div className="d-flex justify-content-between align-items-center mb-3">
-                        <span className="fs-5">{t('pos.total')}:</span>
-                        <span className="fs-4 fw-bold">฿{total().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="fs-5">{t('pos.subtotal_before_tax', 'ยอดก่อนภาษี')}:</span>
+                        <span className="fs-4 fw-bold">฿{subtotalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+
+                    <div className="mb-3">
+                        <div className="form-check">
+                            <input
+                                className="form-check-input"
+                                type="checkbox"
+                                id="applyVat"
+                                checked={applyVat}
+                                onChange={(e) => setApplyVat(e.target.checked)}
+                            />
+                            <label className="form-check-label fw-bold" htmlFor="applyVat">
+                                {t('pos.apply_vat_7', 'คิด VAT 7%')}
+                            </label>
+                        </div>
+                        {applyVat && (
+                            <div className="d-flex justify-content-between align-items-center mt-2">
+                                <span className="text-muted">{t('pos.vat', 'VAT')} ({vatRate}%)</span>
+                                <span className="fw-bold">฿{vatAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                        )}
+                        <div className="d-flex justify-content-between align-items-center mt-2">
+                            <span className="fw-bold">{t('pos.total', 'ยอดรวม')}:</span>
+                            <span className="fw-bold">฿{totalWithVat.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                    </div>
+
+                    <div className="mb-3">
+                        <label className="form-label fw-bold">{t('pos.withholding', 'หัก ณ ที่จ่าย')}</label>
+                        <select
+                            className="form-select"
+                            value={withholdingRate}
+                            onChange={(e) => setWithholdingRate(Number(e.target.value) as 0 | 3 | 7)}
+                        >
+                            <option value={0}>{t('pos.withholding_none', 'ไม่หัก')}</option>
+                            <option value={3}>3%</option>
+                            <option value={7}>7%</option>
+                        </select>
+                        {withholdingRate > 0 && (
+                            <div className="d-flex justify-content-between align-items-center mt-2">
+                                <span className="text-muted">
+                                    {t('pos.withholding_amount', 'ยอดหัก ณ ที่จ่าย')} ({withholdingRate}%)
+                                </span>
+                                <span className="fw-bold">-฿{withholdingAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                        )}
+                        <div className="d-flex justify-content-between align-items-center mt-2">
+                            <span className="fw-bold">{t('pos.payable', 'ยอดที่ต้องชำระจริง')}:</span>
+                            <span className="fs-4 fw-bold text-primary">
+                                ฿{payableAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                        </div>
                     </div>
 
                     {change !== null && (

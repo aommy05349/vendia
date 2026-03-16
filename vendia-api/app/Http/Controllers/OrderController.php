@@ -86,10 +86,13 @@ class OrderController extends Controller
             'status' => 'nullable|in:completed,cancelled,pending,quotation',
             'customer_id' => 'nullable|exists:users,id',
             'parent_id' => 'nullable|exists:orders,id',
+            'apply_vat' => 'sometimes|boolean',
+            'vat_rate' => 'sometimes|numeric|min:0|max:100',
+            'withholding_rate' => 'sometimes|numeric|min:0|max:100',
         ]);
 
         return DB::transaction(function () use ($request) {
-            $total = 0;
+            $subtotal = 0;
             $items = [];
             $status = $request->input('status', 'completed');
             $isQuotation = $status === 'quotation';
@@ -145,7 +148,7 @@ class OrderController extends Controller
                     }
                 }
 
-                $total += $price * $item['quantity'];
+                $subtotal += $price * $item['quantity'];
 
                 $sortOrder = 1;
                 if ($product->product_type === 'service') {
@@ -171,12 +174,25 @@ class OrderController extends Controller
                 unset($i['_sort_order']);
             }
 
-            // Create Order first (without document numbers)
+            $vatRate = $request->has('vat_rate')
+                ? (float) $request->input('vat_rate')
+                : ($request->boolean('apply_vat') ? 7.0 : 0.0);
+            $withholdingRate = $request->has('withholding_rate')
+                ? (float) $request->input('withholding_rate')
+                : 0.0;
+
+            $taxTotals = $this->calculateTaxTotals($subtotal, $vatRate, $withholdingRate);
+
             $order = Order::create([
                 'user_id' => $request->user()->id,
                 'customer_id' => $request->customer_id,
                 'parent_id' => $request->parent_id,
-                'total' => $total,
+                'subtotal' => $taxTotals['subtotal'],
+                'vat_rate' => $taxTotals['vat_rate'],
+                'vat_amount' => $taxTotals['vat_amount'],
+                'withholding_rate' => $taxTotals['withholding_rate'],
+                'withholding_amount' => $taxTotals['withholding_amount'],
+                'total' => $taxTotals['total'],
                 'status' => $status,
                 'payment_method' => $request->payment_method,
                 'quotation_number' => null,
@@ -219,6 +235,9 @@ class OrderController extends Controller
             'items.*.product_id' => 'required_with:items|exists:products,id',
             'items.*.quantity' => 'required_with:items|integer|min:1',
             'items.*.price' => 'nullable|numeric',
+            'apply_vat' => 'sometimes|boolean',
+            'vat_rate' => 'sometimes|numeric|min:0|max:100',
+            'withholding_rate' => 'sometimes|numeric|min:0|max:100',
         ]);
 
         return DB::transaction(function () use ($request, $order) {
@@ -253,7 +272,7 @@ class OrderController extends Controller
                 $order->items()->delete();
 
                 // C. Process New Items
-                $total = 0;
+                $subtotal = 0;
                 $items = [];
 
                 foreach ($request->items as $item) {
@@ -302,7 +321,7 @@ class OrderController extends Controller
                         }
                     }
 
-                    $total += $price * $item['quantity'];
+                    $subtotal += $price * $item['quantity'];
 
                     $sortOrder = 1;
                     if ($product->product_type === 'service') {
@@ -328,7 +347,25 @@ class OrderController extends Controller
                     unset($i['_sort_order']);
                 }
 
-                $order->total = $total;
+                $order->subtotal = $subtotal;
+
+                $vatRate = $request->has('vat_rate')
+                    ? (float) $request->input('vat_rate')
+                    : ($request->has('apply_vat')
+                        ? ($request->boolean('apply_vat') ? 7.0 : 0.0)
+                        : (float) ($order->vat_rate ?? 0));
+
+                $withholdingRate = $request->has('withholding_rate')
+                    ? (float) $request->input('withholding_rate')
+                    : (float) ($order->withholding_rate ?? 0);
+
+                $taxTotals = $this->calculateTaxTotals((float) $order->subtotal, $vatRate, $withholdingRate);
+                $order->vat_rate = $taxTotals['vat_rate'];
+                $order->vat_amount = $taxTotals['vat_amount'];
+                $order->withholding_rate = $taxTotals['withholding_rate'];
+                $order->withholding_amount = $taxTotals['withholding_amount'];
+                $order->total = $taxTotals['total'];
+
                 $order->save();
                 $order->items()->createMany($items);
 
@@ -347,12 +384,51 @@ class OrderController extends Controller
                         $this->deductItemStock($item);
                     }
                 }
-                
+
+                $vatRate = $request->has('vat_rate')
+                    ? (float) $request->input('vat_rate')
+                    : ($request->has('apply_vat')
+                        ? ($request->boolean('apply_vat') ? 7.0 : 0.0)
+                        : (float) ($order->vat_rate ?? 0));
+
+                $withholdingRate = $request->has('withholding_rate')
+                    ? (float) $request->input('withholding_rate')
+                    : (float) ($order->withholding_rate ?? 0);
+
+                $baseSubtotal = (float) ($order->subtotal ?? $order->total);
+                $taxTotals = $this->calculateTaxTotals($baseSubtotal, $vatRate, $withholdingRate);
+                $order->subtotal = $taxTotals['subtotal'];
+                $order->vat_rate = $taxTotals['vat_rate'];
+                $order->vat_amount = $taxTotals['vat_amount'];
+                $order->withholding_rate = $taxTotals['withholding_rate'];
+                $order->withholding_amount = $taxTotals['withholding_amount'];
+                $order->total = $taxTotals['total'];
+
                 $order->save();
             }
 
             return $order->load('items.product');
         });
+    }
+
+    private function calculateTaxTotals(float $subtotal, float $vatRate, float $withholdingRate): array
+    {
+        $subtotal = round($subtotal, 2);
+        $vatRate = max(0.0, min(100.0, $vatRate));
+        $withholdingRate = max(0.0, min(100.0, $withholdingRate));
+
+        $vatAmount = round($subtotal * $vatRate / 100, 2);
+        $withholdingAmount = round($subtotal * $withholdingRate / 100, 2);
+        $total = round($subtotal + $vatAmount, 2);
+
+        return [
+            'subtotal' => $subtotal,
+            'vat_rate' => $vatRate,
+            'vat_amount' => $vatAmount,
+            'withholding_rate' => $withholdingRate,
+            'withholding_amount' => $withholdingAmount,
+            'total' => $total,
+        ];
     }
 
     public function cancelDocument(Request $request, $id)
@@ -416,17 +492,41 @@ class OrderController extends Controller
 
         if ($type === 'quotation') {
             $code = 'QT';
-            if ($order->quotation_number) return response()->json(['message' => 'Already issued'], 400);
+            if ($order->quotation_number) {
+                $currentDoc = Document::where('order_id', $order->id)
+                    ->where('type', 'quotation')
+                    ->where('number', $order->quotation_number)
+                    ->first();
+                if ($order->quotation_status !== 'cancelled' && ($currentDoc?->status ?? 'active') !== 'cancelled') {
+                    return response()->json(['message' => 'Already issued'], 400);
+                }
+            }
             $order->quotation_number = $this->generateDocumentNumber('QT', $order->id);
             $order->quotation_status = 'active';
         } elseif ($type === 'billing_note') {
             $code = 'BN';
-            if ($order->billing_note_number) return response()->json(['message' => 'Already issued'], 400);
+            if ($order->billing_note_number) {
+                $currentDoc = Document::where('order_id', $order->id)
+                    ->where('type', 'billing_note')
+                    ->where('number', $order->billing_note_number)
+                    ->first();
+                if ($order->billing_note_status !== 'cancelled' && ($currentDoc?->status ?? 'active') !== 'cancelled') {
+                    return response()->json(['message' => 'Already issued'], 400);
+                }
+            }
             $order->billing_note_number = $this->generateDocumentNumber('BN', $order->id);
             $order->billing_note_status = 'active';
         } elseif ($type === 'receipt') {
             $code = 'RE';
-            if ($order->receipt_number) return response()->json(['message' => 'Already issued'], 400);
+            if ($order->receipt_number) {
+                $currentDoc = Document::where('order_id', $order->id)
+                    ->where('type', 'receipt')
+                    ->where('number', $order->receipt_number)
+                    ->first();
+                if ($order->receipt_status !== 'cancelled' && ($currentDoc?->status ?? 'active') !== 'cancelled') {
+                    return response()->json(['message' => 'Already issued'], 400);
+                }
+            }
             $order->receipt_number = $this->generateDocumentNumber('RE', $order->id);
             $order->receipt_status = 'active';
         }

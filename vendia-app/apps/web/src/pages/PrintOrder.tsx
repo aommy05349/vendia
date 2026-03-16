@@ -30,6 +30,11 @@ interface OrderItem {
 
 interface Order {
     id: number;
+    subtotal?: string;
+    vat_rate?: string;
+    vat_amount?: string;
+    withholding_rate?: string;
+    withholding_amount?: string;
     total: string;
     status: string;
     payment_method: string;
@@ -86,6 +91,24 @@ export const PrintOrder = () => {
     // Calculate valid date (e.g. 7 days from created_at)
     const validDate = new Date(order.created_at);
     validDate.setDate(validDate.getDate() + 7);
+
+    const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+    const subtotal = Number(order.subtotal ?? order.total);
+    const vatRate = Number(order.vat_rate ?? 0);
+    const vatAmount =
+        order.vat_amount !== undefined
+            ? Number(order.vat_amount)
+            : round2((subtotal * vatRate) / 100);
+    const totalWithVat = round2(subtotal + vatAmount);
+    const withholdingRate = Number(order.withholding_rate ?? 0);
+    const withholdingAmount =
+        order.withholding_amount !== undefined
+            ? Number(order.withholding_amount)
+            : round2((subtotal * withholdingRate) / 100);
+    const payable = round2(totalWithVat - withholdingAmount);
+    const showWithholding = withholdingRate > 0 && !isQuotation;
+    const payableForDocument = showWithholding ? payable : totalWithVat;
+    const summaryRowCount = 2 + (vatRate > 0 ? 1 : 0) + (showWithholding ? 2 : 0);
 
     return (
         <div className="container-fluid p-4" style={{ maxWidth: '1000px', background: 'white', minHeight: '100vh', fontSize: '12px' }}>
@@ -213,11 +236,11 @@ export const PrintOrder = () => {
                             {t('print.footer.baht_text')}
                         </td>
                         <td colSpan={3} className="bg-light fw-bold text-center">
-                            ({thaiBahtText(Number(order.total))})
+                            ({thaiBahtText(Number(payableForDocument))})
                         </td>
                     </tr>
                     <tr>
-                        <td colSpan={3} rowSpan={2} className="align-top">
+                        <td colSpan={3} rowSpan={summaryRowCount} className="align-top">
                             {/* Bank Info & Remarks */}
                             <div className="text-danger fw-bold mb-2">{t('print.footer.remarks')}</div>
                             <div style={{ whiteSpace: 'pre-line', fontSize: '12px' }}>
@@ -226,15 +249,39 @@ export const PrintOrder = () => {
                         </td>
                         <td className="text-end fw-bold">{t('print.footer.subtotal')}<small>{t('print.footer.subtotal_en')}</small></td>
                         <td className="text-end fw-bold align-middle">
-                            {Number(order.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            {Number(subtotal).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                         </td>
                     </tr>
+                    {vatRate > 0 && (
+                        <tr>
+                            <td className="text-end fw-bold">{t('print.footer.vat')} ({vatRate}%)</td>
+                            <td className="text-end fw-bold align-middle">
+                                {Number(vatAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </td>
+                        </tr>
+                    )}
                     <tr>
                         <td className="text-end fw-bold">{t('print.footer.net_total')}<small>{t('print.footer.net_total_en')}</small></td>
                         <td className="text-end fw-bold fs-5 align-middle">
-                            {Number(order.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            {Number(totalWithVat).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                         </td>
                     </tr>
+                    {showWithholding && (
+                        <tr>
+                            <td className="text-end fw-bold">{t('print.footer.withholding')} ({withholdingRate}%)</td>
+                            <td className="text-end fw-bold align-middle">
+                                -{Number(withholdingAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </td>
+                        </tr>
+                    )}
+                    {showWithholding && (
+                        <tr>
+                            <td className="text-end fw-bold">{t('print.footer.payable')}</td>
+                            <td className="text-end fw-bold fs-5 align-middle">
+                                {Number(payable).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </td>
+                        </tr>
+                    )}
                 </tfoot>
             </table>
 

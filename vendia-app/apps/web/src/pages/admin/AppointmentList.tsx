@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@vendia/shared';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from 'date-fns';
 import { th, enUS } from 'date-fns/locale';
@@ -38,6 +38,7 @@ export const AppointmentList = () => {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'th' ? th : enUS;
   const location = useLocation() as any;
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'map'>('list');
@@ -158,7 +159,10 @@ export const AppointmentList = () => {
                       type="button"
                       className="btn btn-success"
                       onClick={() => {
-                        window.history.replaceState({}, document.title);
+                        navigate(`${location.pathname}${location.search || ''}`, {
+                          replace: true,
+                          state: {},
+                        });
                       }}
                     >
                       {t('common.ok', 'ตกลง')}

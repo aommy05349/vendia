@@ -119,6 +119,9 @@ export const AppointmentDetail = () => {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
   const [receivedAmount, setReceivedAmount] = useState('');
   const [paymentChange, setPaymentChange] = useState<number | null>(null);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [applyVat, setApplyVat] = useState(false);
+  const [withholdingRate, setWithholdingRate] = useState<0 | 3 | 7>(0);
   const [orderToCancel, setOrderToCancel] = useState<any | null>(null);
   const [jobForm, setJobForm] = useState({
     title: '',
@@ -194,23 +197,33 @@ export const AppointmentDetail = () => {
     [appointment]
   );
 
+  const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+  const payingSubtotal = payingOrder ? parseFloat(payingOrder.subtotal ?? payingOrder.total) : 0;
+  const payingVatAmount = payingOrder && applyVat ? round2(payingSubtotal * 0.07) : 0;
+  const payingTotalWithVat = payingOrder ? round2(payingSubtotal + payingVatAmount) : 0;
+  const payingWithholdingAmount = payingOrder ? round2(payingSubtotal * (withholdingRate / 100)) : 0;
+  const payingPayable = payingOrder ? round2(payingTotalWithVat - payingWithholdingAmount) : 0;
+
   useEffect(() => {
     if (payingOrder && paymentMethod === 'cash' && receivedAmount) {
       const received = parseFloat(receivedAmount);
-      const totalAmount = parseFloat(payingOrder.total);
-      setPaymentChange(received - totalAmount);
+      setPaymentChange(received - payingPayable);
     } else {
       setPaymentChange(null);
     }
-  }, [payingOrder, paymentMethod, receivedAmount]);
+  }, [payingOrder, paymentMethod, receivedAmount, payingPayable]);
 
   const handleProcessPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!payingOrder) return;
     try {
+      setProcessingPayment(true);
+      setErrorMessage(null);
       await api.put(`/orders/${payingOrder.id}`, {
         status: 'completed',
         payment_method: paymentMethod,
+        apply_vat: applyVat,
+        withholding_rate: withholdingRate,
       });
       setPayingOrder(null);
       setReceivedAmount('');
@@ -220,6 +233,8 @@ export const AppointmentDetail = () => {
     } catch (error) {
       console.error(error);
       setErrorMessage(t('orders.payment_failed'));
+    } finally {
+      setProcessingPayment(false);
     }
   };
 
@@ -551,7 +566,7 @@ export const AppointmentDetail = () => {
       {successMessage && (
         <div
           className="modal fade show d-block"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2000 }}
           role="dialog"
         >
           <div className="modal-dialog modal-dialog-centered">
@@ -578,7 +593,7 @@ export const AppointmentDetail = () => {
           </div>
         </div>
       )}
-      {errorMessage && (
+      {errorMessage && !payingOrder && (
         <div className="alert alert-danger alert-dismissible fade show mb-3" role="alert">
           {errorMessage}
           <button
@@ -1074,6 +1089,11 @@ export const AppointmentDetail = () => {
                                   setPaymentMethod('cash');
                                   setReceivedAmount('');
                                   setPaymentChange(null);
+                                  setErrorMessage(null);
+                                  setApplyVat(Number((appointment.order as any)?.vat_rate || 0) > 0);
+                                  setWithholdingRate(
+                                    (Number((appointment.order as any)?.withholding_rate || 0) as 0 | 3 | 7) || 0
+                                  );
                                 }}
                               >
                                 {t('orders.pay_now')}
@@ -1127,6 +1147,9 @@ export const AppointmentDetail = () => {
                                       setPaymentMethod('cash');
                                       setReceivedAmount('');
                                       setPaymentChange(null);
+                                      setErrorMessage(null);
+                                      setApplyVat(Number((child as any)?.vat_rate || 0) > 0);
+                                      setWithholdingRate((Number((child as any)?.withholding_rate || 0) as 0 | 3 | 7) || 0);
                                     }}
                                   >
                                     {t('orders.pay_now')}
@@ -1545,16 +1568,27 @@ export const AppointmentDetail = () => {
                     setPayingOrder(null);
                     setReceivedAmount('');
                     setPaymentChange(null);
+                    setErrorMessage(null);
                   }}
                 ></button>
               </div>
               <div className="modal-body">
+                {errorMessage && (
+                  <div className="alert alert-danger alert-dismissible fade show" role="alert">
+                    {errorMessage}
+                    <button
+                      type="button"
+                      className="btn-close"
+                      onClick={() => setErrorMessage(null)}
+                    ></button>
+                  </div>
+                )}
                 <div className="mb-3">
                   <div className="d-flex justify-content-between align-items-center">
-                    <span className="fw-bold">{t('appointments.detail.orders_summary_total', 'ยอดรวม')}</span>
-                    <span className="fs-5">
+                    <span className="fw-bold">{t('pos.payable', 'ยอดที่ต้องชำระจริง')}</span>
+                    <span className="fs-5 fw-bold text-primary">
                       ฿
-                      {parseFloat(payingOrder.total).toLocaleString('en-US', {
+                      {payingPayable.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
@@ -1593,6 +1627,84 @@ export const AppointmentDetail = () => {
                   </div>
                 </div>
 
+                <div className="mb-3">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span>{t('pos.subtotal_before_tax', 'ยอดก่อนภาษี')}</span>
+                    <span className="fw-bold">
+                      ฿
+                      {payingSubtotal.toLocaleString('en-US', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+
+                  <div className="form-check mt-2">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="applyVatAppointment"
+                      checked={applyVat}
+                      onChange={e => setApplyVat(e.target.checked)}
+                    />
+                    <label className="form-check-label fw-bold" htmlFor="applyVatAppointment">
+                      {t('pos.apply_vat_7', 'คิด VAT 7%')}
+                    </label>
+                  </div>
+
+                  {applyVat && (
+                    <div className="d-flex justify-content-between align-items-center mt-2">
+                      <span className="text-muted">{t('pos.vat', 'VAT')} (7%)</span>
+                      <span className="fw-bold">
+                        ฿
+                        {payingVatAmount.toLocaleString('en-US', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="d-flex justify-content-between align-items-center mt-2">
+                    <span className="fw-bold">{t('pos.total', 'ยอดรวม')}</span>
+                    <span className="fw-bold">
+                      ฿
+                      {payingTotalWithVat.toLocaleString('en-US', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label fw-bold">{t('pos.withholding', 'หัก ณ ที่จ่าย')}</label>
+                  <select
+                    className="form-select"
+                    value={withholdingRate}
+                    onChange={e => setWithholdingRate(Number(e.target.value) as 0 | 3 | 7)}
+                  >
+                    <option value={0}>{t('pos.withholding_none', 'ไม่หัก')}</option>
+                    <option value={3}>3%</option>
+                    <option value={7}>7%</option>
+                  </select>
+
+                  {withholdingRate > 0 && (
+                    <div className="d-flex justify-content-between align-items-center mt-2">
+                      <span className="text-muted">
+                        {t('pos.withholding_amount', 'ยอดหัก ณ ที่จ่าย')} ({withholdingRate}%)
+                      </span>
+                      <span className="fw-bold">
+                        -฿
+                        {payingWithholdingAmount.toLocaleString('en-US', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
                 {paymentMethod === 'cash' && (
                   <div className="mb-3">
                     <label className="form-label fw-bold">{t('pos.received_amount')}</label>
@@ -1602,6 +1714,8 @@ export const AppointmentDetail = () => {
                       className="form-control form-control-lg"
                       value={receivedAmount}
                       onChange={e => setReceivedAmount(e.target.value)}
+                      min={payingPayable}
+                      required
                     />
                     {paymentChange !== null && (
                       <div className={`mt-2 fw-bold ${paymentChange < 0 ? 'text-danger' : 'text-success'}`}>
@@ -1631,6 +1745,7 @@ export const AppointmentDetail = () => {
                     setPayingOrder(null);
                     setReceivedAmount('');
                     setPaymentChange(null);
+                    setErrorMessage(null);
                   }}
                 >
                   {t('common.cancel')}
@@ -1638,7 +1753,11 @@ export const AppointmentDetail = () => {
                 <button
                   type="submit"
                   className="btn btn-success"
-                  disabled={paymentMethod === 'cash' && paymentChange !== null && paymentChange < 0}
+                  disabled={
+                    processingPayment ||
+                    paymentMethod === 'cash' &&
+                    (!receivedAmount || paymentChange === null || paymentChange < 0)
+                  }
                 >
                   {t('orders.pay_now')}
                 </button>

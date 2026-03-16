@@ -43,6 +43,11 @@ interface Order {
     id: number;
     total: string;
   };
+  subtotal?: string;
+  vat_rate?: string;
+  vat_amount?: string;
+  withholding_rate?: string;
+  withholding_amount?: string;
   total: string;
   status: string;
   quotation_number?: string;
@@ -98,6 +103,10 @@ export const OrderList = () => {
   const [receivedAmount, setReceivedAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
   const [change, setChange] = useState<number | null>(null);
+  const [applyVat, setApplyVat] = useState(false);
+  const [withholdingRate, setWithholdingRate] = useState<0 | 3 | 7>(0);
+
+  const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
   useEffect(() => {
     fetchOrders(currentPage);
@@ -145,6 +154,8 @@ export const OrderList = () => {
     setReceivedAmount('');
     setChange(null);
     setPaymentMethod('cash');
+    setApplyVat(Number(order.vat_rate || 0) > 0);
+    setWithholdingRate((Number(order.withholding_rate || 0) as 0 | 3 | 7) || 0);
   };
 
   const handleEditOrder = (e: React.MouseEvent, order: Order) => {
@@ -184,6 +195,35 @@ export const OrderList = () => {
     }
   };
 
+  const getDocumentHistory = (order: Order, type: 'quotation' | 'billing_note' | 'receipt') => {
+    const docs = (order.documents || []).filter(d => d.type === type);
+    const currentNumber =
+      type === 'quotation'
+        ? order.quotation_number
+        : type === 'billing_note'
+          ? order.billing_note_number
+          : order.receipt_number;
+    const currentStatus =
+      type === 'quotation'
+        ? order.quotation_status
+        : type === 'billing_note'
+          ? order.billing_note_status
+          : order.receipt_status;
+
+    if (!currentNumber || docs.some(d => d.number === currentNumber)) return docs;
+
+    return [
+      {
+        id: -order.id * 10 - (type === 'quotation' ? 1 : type === 'billing_note' ? 2 : 3),
+        type,
+        number: currentNumber,
+        status: currentStatus || 'active',
+        created_at: order.created_at,
+      },
+      ...docs,
+    ];
+  };
+
   const handleConvertQuotation = async (e: React.MouseEvent, orderId: number) => {
     e.stopPropagation();
     if (!confirm(t('orders.confirm_convert_quotation'))) return;
@@ -216,6 +256,8 @@ export const OrderList = () => {
       await api.put(`/orders/${selectedOrder.id}`, {
         status: 'completed',
         payment_method: paymentMethod,
+        apply_vat: applyVat,
+        withholding_rate: withholdingRate,
       });
       
       // Update local state
@@ -238,12 +280,21 @@ export const OrderList = () => {
   useEffect(() => {
     if (selectedOrder && paymentMethod === 'cash' && receivedAmount) {
       const received = parseFloat(receivedAmount);
-      const totalAmount = parseFloat(selectedOrder.total);
-      setChange(received - totalAmount);
+      const subtotal = parseFloat(selectedOrder.subtotal ?? selectedOrder.total);
+      const vatAmount = applyVat ? round2(subtotal * 0.07) : 0;
+      const withholdingAmount = round2(subtotal * (withholdingRate / 100));
+      const payable = round2(subtotal + vatAmount - withholdingAmount);
+      setChange(received - payable);
     } else {
       setChange(null);
     }
-  }, [receivedAmount, paymentMethod, selectedOrder]);
+  }, [receivedAmount, paymentMethod, selectedOrder, applyVat, withholdingRate]);
+
+  const selectedSubtotal = selectedOrder ? parseFloat(selectedOrder.subtotal ?? selectedOrder.total) : 0;
+  const selectedVatAmount = selectedOrder && applyVat ? round2(selectedSubtotal * 0.07) : 0;
+  const selectedTotalWithVat = selectedOrder ? round2(selectedSubtotal + selectedVatAmount) : 0;
+  const selectedWithholdingAmount = selectedOrder ? round2(selectedSubtotal * (withholdingRate / 100)) : 0;
+  const selectedPayable = selectedOrder ? round2(selectedTotalWithVat - selectedWithholdingAmount) : 0;
 
   if (loading) return <div className="p-4 text-center">{t('common.loading')}</div>;
 
@@ -522,7 +573,7 @@ export const OrderList = () => {
                                             <li className="list-group-item px-0">
                                                 <div className="d-flex justify-content-between align-items-center mb-1">
                                                     <span className="fw-bold">{t('orders.quotation')}</span>
-                                                    {!order.quotation_number && (
+                                                    {(!order.quotation_number || order.quotation_status === 'cancelled') && (
                                                         <button 
                                                             className="btn btn-sm btn-outline-primary" 
                                                             onClick={() => handleIssueDocument(order.id, 'quotation')}
@@ -534,7 +585,7 @@ export const OrderList = () => {
                                                 </div>
                                                 
                                                 {/* History List */}
-                                                {order.documents?.filter(d => d.type === 'quotation').map(doc => (
+                                                {getDocumentHistory(order, 'quotation').map(doc => (
                                                     <div key={doc.id} className="d-flex justify-content-between align-items-center mb-1 ps-2 border-start border-3">
                                                         <div>
                                                             <span className={`font-monospace d-block small ${doc.status === 'cancelled' ? 'text-decoration-line-through text-danger' : 'text-success'}`}>
@@ -561,7 +612,7 @@ export const OrderList = () => {
                                                         </div>
                                                     </div>
                                                 ))}
-                                                {(!order.documents || !order.documents.some(d => d.type === 'quotation')) && (
+                                                {getDocumentHistory(order, 'quotation').length === 0 && (
                                                     <div className="text-muted small ps-2">{t('orders.not_issued')}</div>
                                                 )}
                                             </li>
@@ -570,7 +621,7 @@ export const OrderList = () => {
                                             <li className="list-group-item px-0">
                                                 <div className="d-flex justify-content-between align-items-center mb-1">
                                                     <span className="fw-bold">{t('orders.billing_note')}</span>
-                                                    {!order.billing_note_number && (
+                                                    {(!order.billing_note_number || order.billing_note_status === 'cancelled') && (
                                                         <button 
                                                             className="btn btn-sm btn-outline-primary" 
                                                             onClick={() => handleIssueDocument(order.id, 'billing_note')}
@@ -581,7 +632,7 @@ export const OrderList = () => {
                                                     )}
                                                 </div>
                                                 
-                                                {order.documents?.filter(d => d.type === 'billing_note').map(doc => (
+                                                {getDocumentHistory(order, 'billing_note').map(doc => (
                                                     <div key={doc.id} className="d-flex justify-content-between align-items-center mb-1 ps-2 border-start border-3">
                                                         <div>
                                                             <span className={`font-monospace d-block small ${doc.status === 'cancelled' ? 'text-decoration-line-through text-danger' : 'text-success'}`}>
@@ -608,7 +659,7 @@ export const OrderList = () => {
                                                         </div>
                                                     </div>
                                                 ))}
-                                                {(!order.documents || !order.documents.some(d => d.type === 'billing_note')) && (
+                                                {getDocumentHistory(order, 'billing_note').length === 0 && (
                                                     <div className="text-muted small ps-2">{t('orders.not_issued')}</div>
                                                 )}
                                             </li>
@@ -617,7 +668,7 @@ export const OrderList = () => {
                                             <li className="list-group-item px-0">
                                                 <div className="d-flex justify-content-between align-items-center mb-1">
                                                     <span className="fw-bold">{t('orders.receipt')}</span>
-                                                    {!order.receipt_number && (
+                                                    {(!order.receipt_number || order.receipt_status === 'cancelled') && (
                                                         <button 
                                                             className="btn btn-sm btn-outline-primary" 
                                                             onClick={() => handleIssueDocument(order.id, 'receipt')}
@@ -628,7 +679,7 @@ export const OrderList = () => {
                                                     )}
                                                 </div>
                                                 
-                                                {order.documents?.filter(d => d.type === 'receipt').map(doc => (
+                                                {getDocumentHistory(order, 'receipt').map(doc => (
                                                     <div key={doc.id} className="d-flex justify-content-between align-items-center mb-1 ps-2 border-start border-3">
                                                         <div>
                                                             <span className={`font-monospace d-block small ${doc.status === 'cancelled' ? 'text-decoration-line-through text-danger' : 'text-success'}`}>
@@ -655,7 +706,7 @@ export const OrderList = () => {
                                                         </div>
                                                     </div>
                                                 ))}
-                                                {(!order.documents || !order.documents.some(d => d.type === 'receipt')) && (
+                                                {getDocumentHistory(order, 'receipt').length === 0 && (
                                                     <div className="text-muted small ps-2">{t('orders.not_issued')}</div>
                                                 )}
                                             </li>
@@ -707,7 +758,7 @@ export const OrderList = () => {
                 <div className="modal-body">
                   <div className="text-center mb-4">
                     <div className="text-muted mb-1">{t('orders.total')}</div>
-                    <div className="display-4 fw-bold text-primary">฿{parseFloat(selectedOrder.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="display-4 fw-bold text-primary">฿{selectedPayable.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                   </div>
 
                   <div className="mb-3">
@@ -737,6 +788,75 @@ export const OrderList = () => {
                     </div>
                   </div>
 
+                  <div className="mb-3">
+                    <div className="d-flex justify-content-between align-items-center">
+                      <span>{t('pos.subtotal_before_tax', 'ยอดก่อนภาษี')}</span>
+                      <span className="fw-bold">
+                        ฿{selectedSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div className="form-check mt-2">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="applyVatOrderList"
+                        checked={applyVat}
+                        onChange={(e) => setApplyVat(e.target.checked)}
+                      />
+                      <label className="form-check-label fw-bold" htmlFor="applyVatOrderList">
+                        {t('pos.apply_vat_7', 'คิด VAT 7%')}
+                      </label>
+                    </div>
+
+                    {applyVat && (
+                      <div className="d-flex justify-content-between align-items-center mt-2">
+                        <span className="text-muted">{t('pos.vat', 'VAT')} (7%)</span>
+                        <span className="fw-bold">
+                          ฿{selectedVatAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="d-flex justify-content-between align-items-center mt-2">
+                      <span className="fw-bold">{t('pos.total', 'ยอดรวม')}</span>
+                      <span className="fw-bold">
+                        ฿{selectedTotalWithVat.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div className="mt-3">
+                      <label className="form-label fw-bold">{t('pos.withholding', 'หัก ณ ที่จ่าย')}</label>
+                      <select
+                        className="form-select"
+                        value={withholdingRate}
+                        onChange={(e) => setWithholdingRate(Number(e.target.value) as 0 | 3 | 7)}
+                      >
+                        <option value={0}>{t('pos.withholding_none', 'ไม่หัก')}</option>
+                        <option value={3}>3%</option>
+                        <option value={7}>7%</option>
+                      </select>
+
+                      {withholdingRate > 0 && (
+                        <div className="d-flex justify-content-between align-items-center mt-2">
+                          <span className="text-muted">
+                            {t('pos.withholding_amount', 'ยอดหัก ณ ที่จ่าย')} ({withholdingRate}%)
+                          </span>
+                          <span className="fw-bold">
+                            -฿{selectedWithholdingAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="d-flex justify-content-between align-items-center mt-2">
+                        <span className="fw-bold">{t('pos.payable', 'ยอดที่ต้องชำระจริง')}</span>
+                        <span className="fw-bold text-primary">
+                          ฿{selectedPayable.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   {paymentMethod === 'cash' && (
                     <div className="mb-3">
                       <label className="form-label fw-bold">{t('pos.received_amount')}</label>
@@ -748,7 +868,7 @@ export const OrderList = () => {
                         onChange={(e) => setReceivedAmount(e.target.value)}
                         autoFocus
                         required
-                        min={parseFloat(selectedOrder.total)}
+                        min={selectedPayable}
                       />
                       {change !== null && (
                         <div className={`mt-3 p-3 rounded text-center ${change >= 0 ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger'}`}>
@@ -764,7 +884,7 @@ export const OrderList = () => {
                   <button 
                     type="submit" 
                     className="btn btn-success btn-lg px-4"
-                    disabled={paymentMethod === 'cash' && (!receivedAmount || parseFloat(receivedAmount) < parseFloat(selectedOrder.total))}
+                    disabled={paymentMethod === 'cash' && (!receivedAmount || parseFloat(receivedAmount) < selectedPayable)}
                   >
                     {t('pos.confirm_payment')}
                   </button>
