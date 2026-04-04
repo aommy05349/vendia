@@ -75,7 +75,6 @@ export default function ShopSettings() {
     e.preventDefault();
     setError('');
     setSuccess('');
-
     const formData = new FormData();
     formData.append('name', name);
     formData.append('company_name', companyName);

@@ -12,6 +12,14 @@ use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
+    private function isExternalUrl(?string $value): bool
+    {
+        if (!is_string($value) || $value === '') {
+            return false;
+        }
+        return str_starts_with($value, 'http://') || str_starts_with($value, 'https://');
+    }
+
     public function index(Request $request)
     {
         $query = User::latest();
@@ -60,7 +68,7 @@ class UserController extends Controller
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'nullable|string|min:8', // Make password nullable for customers
             'role' => ['required', Rule::in(['admin', 'staff', 'customer', 'technician'])],
-            'image' => 'nullable|image|max:2048', // Max 2MB
+            'image' => 'nullable',
             'phone' => 'required|string|max:20|unique:users',
             'address' => 'nullable|string',
             'tax_id' => 'nullable|string|max:50',
@@ -69,8 +77,11 @@ class UserController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
+            $request->validate(['image' => 'image|max:2048']);
             $path = $request->file('image')->store('users', 'public');
             $validated['image'] = $path;
+        } elseif (isset($validated['image']) && is_string($validated['image']) && $validated['image'] !== '') {
+            $validated['image'] = trim($validated['image']);
         }
 
         if (!empty($validated['password'])) {
@@ -114,7 +125,7 @@ class UserController extends Controller
             'email' => ['sometimes', 'required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'password' => 'sometimes|nullable|string|min:8',
             'role' => ['sometimes', 'required', Rule::in(['admin', 'staff', 'customer', 'technician'])],
-            'image' => 'nullable|image|max:2048',
+            'image' => 'nullable',
             'phone' => ['sometimes', 'required', 'string', 'max:20', Rule::unique('users')->ignore($user->id)],
             'address' => 'nullable|string',
             'tax_id' => 'nullable|string|max:50',
@@ -123,8 +134,11 @@ class UserController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
+            $request->validate(['image' => 'image|max:2048']);
             $path = $request->file('image')->store('users', 'public');
             $validated['image'] = $path;
+        } elseif (isset($validated['image']) && is_string($validated['image']) && $validated['image'] !== '') {
+            $validated['image'] = trim($validated['image']);
         }
 
         if (isset($validated['password'])) {

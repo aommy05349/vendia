@@ -261,6 +261,63 @@ export const AppointmentDetail = () => {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   };
 
+  const parseLatLngFromGoogleMapsLink = (value: string): { lat: number; lng: number } | null => {
+    try {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+
+      let url: URL | null = null;
+      if (trimmed.startsWith('http')) {
+        try {
+          url = new URL(trimmed);
+        } catch {
+          url = null;
+        }
+      }
+
+      if (url) {
+        const q = url.searchParams.get('q') || url.searchParams.get('query');
+        if (q) {
+          const match = q.match(/(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)/);
+          if (match) {
+            return {
+              lat: parseFloat(match[1]),
+              lng: parseFloat(match[3]),
+            };
+          }
+        }
+
+        const pathMatch = url.pathname.match(/@(-?\d+(\.\d+)?),(-?\d+(\.\d+)?)/);
+        if (pathMatch) {
+          return {
+            lat: parseFloat(pathMatch[1]),
+            lng: parseFloat(pathMatch[3]),
+          };
+        }
+      }
+
+      const exMatch = trimmed.match(/!3d(-?\d+(\.\d+)?)!4d(-?\d+(\.\d+)?)/);
+      if (exMatch) {
+        return {
+          lat: parseFloat(exMatch[1]),
+          lng: parseFloat(exMatch[3]),
+        };
+      }
+
+      const plainMatch = trimmed.match(/(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)/);
+      if (plainMatch) {
+        return {
+          lat: parseFloat(plainMatch[1]),
+          lng: parseFloat(plainMatch[3]),
+        };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
     fetchAppointment();
     if (user?.role === 'admin') {
@@ -534,8 +591,8 @@ export const AppointmentDetail = () => {
   const getNextActions = (currentStatus: string) => {
     const actions = [];
     
-    // Technician actions
-    if (isTechnician) {
+    // Technician/Admin actions (Admin can update status like technician)
+    if (isTechnician || isAdmin) {
       if (currentStatus === 'scheduled') {
         actions.push({ label: t('appointments.detail.actions.start_travel'), value: 'en_route', btn: 'btn-info' });
       } else if (currentStatus === 'en_route') {
@@ -543,14 +600,6 @@ export const AppointmentDetail = () => {
       } else if (currentStatus === 'in_progress') {
         actions.push({ label: t('appointments.detail.actions.complete'), value: 'completed', btn: 'btn-success' });
       }
-    }
-
-    // Admin actions
-    if (isAdmin) {
-       // Allow Admin to force complete if needed? For now, keep it minimal as requested.
-       if (currentStatus === 'in_progress') {
-         actions.push({ label: t('appointments.detail.actions.force_complete'), value: 'completed', btn: 'btn-outline-success' });
-       }
     }
 
     return actions;
@@ -839,9 +888,20 @@ export const AppointmentDetail = () => {
                         type="text"
                         className="form-control"
                         value={jobForm.google_maps_link}
-                        onChange={e =>
-                          setJobForm(prev => ({ ...prev, google_maps_link: e.target.value }))
-                        }
+                        onChange={e => {
+                          const link = e.target.value;
+                          const coords = parseLatLngFromGoogleMapsLink(link);
+                          setJobForm(prev => ({
+                            ...prev,
+                            google_maps_link: link,
+                            ...(coords
+                              ? {
+                                  latitude: coords.lat.toString(),
+                                  longitude: coords.lng.toString(),
+                                }
+                              : {}),
+                          }));
+                        }}
                       />
                     </div>
                     <div className="col-md-6">
@@ -855,6 +915,30 @@ export const AppointmentDetail = () => {
                         onChange={e =>
                           setJobForm(prev => ({ ...prev, contact_name: e.target.value }))
                         }
+                      />
+                    </div>
+                  </div>
+                  <div className="row mb-3">
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        {t('appointments.create.latitude', 'Latitude')}
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={jobForm.latitude}
+                        onChange={e => setJobForm(prev => ({ ...prev, latitude: e.target.value }))}
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        {t('appointments.create.longitude', 'Longitude')}
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={jobForm.longitude}
+                        onChange={e => setJobForm(prev => ({ ...prev, longitude: e.target.value }))}
                       />
                     </div>
                   </div>

@@ -31,6 +31,29 @@ class CustomerLocationController extends Controller
             'is_default' => 'boolean',
         ]);
 
+        $validated['address'] = preg_replace('/\s+/', ' ', trim($validated['address']));
+        $validated['name'] = isset($validated['name']) && trim($validated['name']) !== ''
+            ? preg_replace('/\s+/', ' ', trim($validated['name']))
+            : null;
+
+        $existing = \App\Models\CustomerLocation::query()
+            ->where('user_id', $validated['user_id'])
+            ->where('address', $validated['address'])
+            ->when($validated['name'] === null, function ($q) {
+                return $q->whereNull('name');
+            }, function ($q) use ($validated) {
+                return $q->where('name', $validated['name']);
+            })
+            ->first();
+
+        if ($existing) {
+            if ($request->boolean('is_default')) {
+                \App\Models\CustomerLocation::where('user_id', $validated['user_id'])->update(['is_default' => false]);
+                $existing->update(['is_default' => true]);
+            }
+            return response()->json($existing, 200);
+        }
+
         if ($request->is_default) {
             \App\Models\CustomerLocation::where('user_id', $request->user_id)->update(['is_default' => false]);
         }

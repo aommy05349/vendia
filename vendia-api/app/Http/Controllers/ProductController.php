@@ -10,6 +10,14 @@ use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
+    private function isExternalUrl(?string $value): bool
+    {
+        if (!is_string($value) || $value === '') {
+            return false;
+        }
+        return str_starts_with($value, 'http://') || str_starts_with($value, 'https://');
+    }
+
     public function index(Request $request)
     {
         $query = Product::with(['category', 'brand', 'unit', 'warehouse', 'images', 'bundleItems']);
@@ -62,6 +70,8 @@ class ProductController extends Controller
             'discount_value' => 'numeric|min:0',
             'quantity_alert' => 'integer|min:0',
             'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            'image_urls' => 'nullable|array',
+            'image_urls.*' => 'required|string|max:2048',
             'bundle_items' => 'required_if:product_type,bundle|array',
             'bundle_items.*.id' => 'required_if:product_type,bundle|exists:products,id',
             'bundle_items.*.quantity' => 'required_if:product_type,bundle|integer|min:1',
@@ -91,6 +101,21 @@ class ProductController extends Controller
                     'is_cover' => $isFirst,
                 ]);
                 $isFirst = false;
+            }
+        }
+
+        if ($request->filled('image_urls') && is_array($request->image_urls)) {
+            $hasImages = $product->images()->exists();
+            foreach ($request->image_urls as $url) {
+                if (!is_string($url) || trim($url) === '') {
+                    continue;
+                }
+                ProductImage::create([
+                    'product_id' => $product->id,
+                    'image_path' => trim($url),
+                    'is_cover' => !$hasImages,
+                ]);
+                $hasImages = true;
             }
         }
 
@@ -124,6 +149,8 @@ class ProductController extends Controller
             'discount_value' => 'numeric|min:0',
             'quantity_alert' => 'integer|min:0',
             'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            'image_urls' => 'nullable|array',
+            'image_urls.*' => 'required|string|max:2048',
             'bundle_items' => 'required_if:product_type,bundle|array',
             'bundle_items.*.id' => 'required_if:product_type,bundle|exists:products,id',
             'bundle_items.*.quantity' => 'required_if:product_type,bundle|integer|min:1',
@@ -160,6 +187,21 @@ class ProductController extends Controller
             }
         }
 
+        if ($request->filled('image_urls') && is_array($request->image_urls)) {
+            $hasImages = $product->images()->exists();
+            foreach ($request->image_urls as $url) {
+                if (!is_string($url) || trim($url) === '') {
+                    continue;
+                }
+                ProductImage::create([
+                    'product_id' => $product->id,
+                    'image_path' => trim($url),
+                    'is_cover' => !$hasImages,
+                ]);
+                $hasImages = true;
+            }
+        }
+
         return response()->json($product->load(['category', 'brand', 'unit', 'warehouse', 'images']));
     }
 
@@ -182,11 +224,16 @@ class ProductController extends Controller
             return response()->json(['message' => 'Image does not belong to this product'], 403);
         }
 
-        // Delete from storage
-        // image_path is like "/storage/products/..."
-        // We need "products/..." for Storage::disk('public')->delete()
-        $path = str_replace('/storage/', '', $image->image_path);
-        Storage::disk('public')->delete($path);
+        if (!$this->isExternalUrl($image->image_path)) {
+            $path = $image->image_path;
+            if (is_string($path) && str_starts_with($path, '/storage/')) {
+                $path = ltrim(str_replace('/storage/', '', $path), '/');
+            }
+            $path = is_string($path) ? ltrim($path, '/') : null;
+            if (is_string($path) && $path !== '' && !str_starts_with($path, 'http')) {
+                Storage::disk('public')->delete($path);
+            }
+        }
 
         $image->delete();
 

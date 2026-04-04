@@ -49,12 +49,12 @@ class DatabaseSeeder extends Seeder
             WarehouseSeeder::class,
             ProductSeeder::class,
             ServiceProductSeeder::class,
-            RandomCustomerSeeder::class,
+            // RandomCustomerSeeder::class,
             RandomTechnicianSeeder::class,
             RandomProductSeeder::class,
-            RandomOrderSeeder::class,
-            RandomAppointmentSeeder::class,
-            RandomAttendanceSeeder::class,
+            // RandomOrderSeeder::class,
+            // RandomAppointmentSeeder::class,
+            // RandomAttendanceSeeder::class,
         ]);
     }
 }

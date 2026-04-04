@@ -33,11 +33,44 @@ function debounce<T extends (...args: any[]) => any>(func: T, wait: number) {
   };
 }
 
+function parseLatLngFromGoogleMapsLink(raw: string): { lat: number; lng: number } | null {
+  const text = (raw || '').trim();
+  if (!text) return null;
+
+  const decoded = (() => {
+    try {
+      return decodeURIComponent(text);
+    } catch {
+      return text;
+    }
+  })();
+
+  const patterns = [
+    /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+    /[?&]q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+    /[?&]ll=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+    /[?&]query=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+  ];
+
+  for (const re of patterns) {
+    const match = decoded.match(re);
+    if (!match) continue;
+    const lat = parseFloat(match[1]);
+    const lng = parseFloat(match[2]);
+    if (Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      return { lat, lng };
+    }
+  }
+
+  return null;
+}
+
 export const CreateAppointment = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
+  const isSubmittingRef = React.useRef(false);
   const [customers, setCustomers] = useState<User[]>([]);
   const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
@@ -200,10 +233,12 @@ export const CreateAppointment = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
+    if (isSubmittingRef.current) return;
     if (!formData.order_id) {
       setSubmitError(t('appointments.create.order_required', 'กรุณาเลือกออเดอร์'));
       return;
     }
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       let techniciansPayload: { id: number; is_lead: boolean }[] = [];
@@ -218,14 +253,49 @@ export const CreateAppointment = () => {
         }));
       }
 
+      if (formData.location_id === 'manual' && formData.customer_id && formData.address.trim()) {
+        const normalize = (v: string) => v.trim().replace(/\s+/g, ' ').toLowerCase();
+        const addressKey = normalize(formData.address);
+        const nameKey = normalize(formData.location_name || '');
+
+        const exists = customerLocations.some(l => {
+          const existingAddress = normalize(l.address || '');
+          const existingName = normalize(l.name || '');
+          return existingAddress === addressKey && existingName === nameKey;
+        });
+
+        if (!exists) {
+          await api.post('/customer-locations', {
+            user_id: Number(formData.customer_id),
+            name: formData.location_name || null,
+            address: formData.address,
+            latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+            longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+            google_maps_link: formData.google_maps_link || null,
+            contact_person: formData.contact_name || null,
+            contact_phone: formData.contact_phone || null,
+            is_default: false,
+          });
+        }
+      }
+
       const payload = {
-        ...formData,
-        team_id: selectedTeamId,
-        technicians: techniciansPayload,
+        customer_id: formData.customer_id,
+        order_id: Number(formData.order_id),
+        title: formData.title,
+        description: formData.description,
+        start_time: formData.start_time,
+        end_time: formData.end_time || null,
+        location_name: formData.location_name || null,
+        address: formData.address,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
         longitude: formData.longitude ? parseFloat(formData.longitude) : null,
-        order_id: Number(formData.order_id),
-        end_time: formData.end_time || null,
+        google_maps_link: formData.google_maps_link || null,
+        contact_name: formData.contact_name || null,
+        contact_phone: formData.contact_phone || null,
+        admin_notes: formData.admin_notes || null,
+        team_id: selectedTeamId,
+        technicians: techniciansPayload,
       };
 
       await api.post('/appointments', payload);
@@ -242,6 +312,7 @@ export const CreateAppointment = () => {
       }
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -376,9 +447,20 @@ export const CreateAppointment = () => {
                       type="text"
                       className="form-control"
                       value={formData.google_maps_link}
-                      onChange={e =>
-                        setFormData({ ...formData, google_maps_link: e.target.value })
-                      }
+                      onChange={e => {
+                        const link = e.target.value;
+                        const coords = parseLatLngFromGoogleMapsLink(link);
+                        setFormData(prev => ({
+                          ...prev,
+                          google_maps_link: link,
+                          ...(coords
+                            ? {
+                                latitude: coords.lat.toString(),
+                                longitude: coords.lng.toString(),
+                              }
+                            : {}),
+                        }));
+                      }}
                       readOnly={formData.location_id !== 'manual'}
                     />
                   </div>
@@ -393,6 +475,33 @@ export const CreateAppointment = () => {
                       onChange={e =>
                         setFormData({ ...formData, location_name: e.target.value })
                       }
+                      readOnly={formData.location_id !== 'manual'}
+                    />
+                  </div>
+                </div>
+
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <label className="form-label">
+                      {t('appointments.create.latitude', 'Latitude')}
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={formData.latitude}
+                      onChange={e => setFormData({ ...formData, latitude: e.target.value })}
+                      readOnly={formData.location_id !== 'manual'}
+                    />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">
+                      {t('appointments.create.longitude', 'Longitude')}
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={formData.longitude}
+                      onChange={e => setFormData({ ...formData, longitude: e.target.value })}
                       readOnly={formData.location_id !== 'manual'}
                     />
                   </div>

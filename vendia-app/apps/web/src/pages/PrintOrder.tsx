@@ -57,6 +57,17 @@ export const PrintOrder = () => {
     const [order, setOrder] = useState<Order | null>(null);
     const [shop, setShop] = useState<Shop | null>(null);
 
+    const getImageUrl = (path: string) => {
+        if (path.startsWith('http')) return path;
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+        const origin = apiUrl.replace(/\/api\/?$/, '');
+        const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+        if (!normalizedPath.startsWith('/storage/')) {
+            return `${origin}/storage${normalizedPath}`;
+        }
+        return `${origin}${normalizedPath}`;
+    };
+
     useEffect(() => {
         // Fetch Shop Settings
         api.get('/shop').then(res => setShop(res.data)).catch(err => console.error(err));
@@ -135,7 +146,7 @@ export const PrintOrder = () => {
                 <div className="col-4 text-end">
                     {shop.logo_path && (
                         <img 
-                            src={`http://localhost:8000/storage/${shop.logo_path}`} 
+                            src={getImageUrl(shop.logo_path)} 
                             alt="Logo" 
                             style={{ maxHeight: '100px', maxWidth: '100%' }} 
                             className="mb-2"
