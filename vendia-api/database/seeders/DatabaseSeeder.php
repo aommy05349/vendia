@@ -15,31 +15,31 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        if (!User::where('email', 'admin@vendia.com')->orWhere('username', 'admin')->exists()) {
-            User::factory()->create([
+        User::updateOrCreate(
+            ['email' => 'admin@vendia.com'],
+            [
                 'name' => 'Admin User',
                 'username' => 'admin',
                 'first_name' => 'Admin',
                 'last_name' => 'User',
-                'email' => 'admin@vendia.com',
                 'password' => 'password',
                 'role' => 'admin',
                 'phone' => '0812345678',
-            ]);
-        }
+            ]
+        );
 
-        if (!User::where('email', 'staff@vendia.com')->orWhere('username', 'staff')->exists()) {
-            User::factory()->create([
+        User::updateOrCreate(
+            ['email' => 'staff@vendia.com'],
+            [
                 'name' => 'Staff User',
                 'username' => 'staff',
                 'first_name' => 'Staff',
                 'last_name' => 'User',
-                'email' => 'staff@vendia.com',
                 'password' => 'password',
                 'role' => 'staff',
                 'phone' => '0812345679',
-            ]);
-        }
+            ]
+        );
 
         $this->call([
             ShopSeeder::class,
