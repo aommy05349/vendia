@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '@vendia/shared';
+import { api, useAuthStore } from '@vendia/shared';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '../../components/ConfirmModal';
@@ -18,10 +18,14 @@ interface User {
 
 export const UserList = () => {
   const { t } = useTranslation();
+  const currentUser = useAuthStore(state => state.user);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'staff' | 'technician'>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
   const [confirmUserId, setConfirmUserId] = useState<number | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
@@ -29,7 +33,6 @@ export const UserList = () => {
   const location = useLocation();
 
   useEffect(() => {
-    fetchUsers(page);
     if (location.state?.success) {
       setAlertMessage({ type: 'success', text: location.state.success });
       // Clear the state to prevent showing the message again on refresh
@@ -37,7 +40,12 @@ export const UserList = () => {
       // Auto dismiss after 3 seconds
       setTimeout(() => setAlertMessage(null), 3000);
     }
-  }, [location, page]);
+  }, [location]);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearchTerm(searchTerm.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [searchTerm]);
 
   const getImageUrl = (path: string) => {
     if (path.startsWith('http')) return path;
@@ -54,8 +62,19 @@ export const UserList = () => {
   };
 
   const fetchUsers = async (pageNo: number) => {
+    setLoading(true);
     try {
-      const response = await api.get(`/users?exclude_role=customer&page=${pageNo}`);
+      const params = new URLSearchParams();
+      params.set('page', String(pageNo));
+      if (roleFilter === 'all') {
+        params.set('exclude_role', 'customer');
+      } else {
+        params.set('role', roleFilter);
+      }
+      if (debouncedSearchTerm) {
+        params.set('search', debouncedSearchTerm);
+      }
+      const response = await api.get(`/users?${params.toString()}`);
       setUsers(response.data.data);
       setTotalPages(response.data.last_page);
     } catch (error) {
@@ -66,7 +85,15 @@ export const UserList = () => {
     }
   };
 
+  useEffect(() => {
+    fetchUsers(page);
+  }, [page, roleFilter, debouncedSearchTerm]);
+
   const handleDelete = (id: number) => {
+    if (currentUser?.id === id) {
+      setAlertMessage({ type: 'danger', text: t('users.alerts.cannot_delete_self', 'ไม่สามารถลบบัญชีที่กำลังใช้งานอยู่ได้') });
+      return;
+    }
     setConfirmUserId(id);
   };
 
@@ -91,7 +118,8 @@ export const UserList = () => {
             fetchUsers(page);
           } catch (error) {
             console.error('Failed to delete user:', error);
-            setAlertMessage({ type: 'danger', text: t('users.alerts.delete_error') });
+            const message = (error as any)?.response?.data?.message || t('users.alerts.delete_error');
+            setAlertMessage({ type: 'danger', text: message });
           } finally {
             setConfirmBusy(false);
             setConfirmUserId(null);
@@ -100,12 +128,95 @@ export const UserList = () => {
       />
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="h3">{t('users.title')}</h1>
-        <button
-          onClick={() => navigate('/users/create')}
-          className="btn btn-success"
-        >
-          {t('users.create')}
-        </button>
+        <div className="d-flex gap-2">
+          <button
+            onClick={() => navigate('/users/create')}
+            className="btn btn-success"
+          >
+            {t('users.create')}
+          </button>
+        </div>
+      </div>
+
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+        <ul className="nav nav-tabs">
+          <li className="nav-item">
+            <button
+              type="button"
+              className={`nav-link ${roleFilter === 'all' ? 'active' : ''}`}
+              onClick={() => {
+                setRoleFilter('all');
+                setPage(1);
+              }}
+            >
+              {t('common.all')}
+            </button>
+          </li>
+          <li className="nav-item">
+            <button
+              type="button"
+              className={`nav-link ${roleFilter === 'admin' ? 'active' : ''}`}
+              onClick={() => {
+                setRoleFilter('admin');
+                setPage(1);
+              }}
+            >
+              {t('users.roles.admin')}
+            </button>
+          </li>
+          <li className="nav-item">
+            <button
+              type="button"
+              className={`nav-link ${roleFilter === 'staff' ? 'active' : ''}`}
+              onClick={() => {
+                setRoleFilter('staff');
+                setPage(1);
+              }}
+            >
+              {t('users.roles.staff')}
+            </button>
+          </li>
+          <li className="nav-item">
+            <button
+              type="button"
+              className={`nav-link ${roleFilter === 'technician' ? 'active' : ''}`}
+              onClick={() => {
+                setRoleFilter('technician');
+                setPage(1);
+              }}
+            >
+              {t('users.roles.technician')}
+            </button>
+          </li>
+        </ul>
+
+        <div className="input-group" style={{ maxWidth: '420px' }}>
+          <span className="input-group-text">
+            <i className="bi bi-search"></i>
+          </span>
+          <input
+            type="text"
+            className="form-control"
+            placeholder={t('common.search')}
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={() => {
+                setSearchTerm('');
+                setPage(1);
+              }}
+            >
+              {t('common.cancel', 'ยกเลิก')}
+            </button>
+          )}
+        </div>
       </div>
 
       {alertMessage && alertMessage.type === 'danger' && (
@@ -224,6 +335,7 @@ export const UserList = () => {
                       <button
                         onClick={() => handleDelete(user.id)}
                         className="btn btn-danger btn-sm"
+                        disabled={currentUser?.id === user.id}
                       >
                         {t('actions.delete')}
                       </button>

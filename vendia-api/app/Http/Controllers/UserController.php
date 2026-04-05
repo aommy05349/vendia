@@ -171,8 +171,23 @@ class UserController extends Controller
         return $user;
     }
 
-    public function destroy(User $user)
+    public function destroy(Request $request, User $user)
     {
+        $actor = $request->user();
+        if (!$actor) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        if ($actor->id === $user->id) {
+            return response()->json([
+                'message' => 'ไม่สามารถลบบัญชีที่กำลังใช้งานอยู่ได้',
+            ], 422);
+        }
+
+        if ($actor->role !== 'admin') {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $user->delete();
         return response()->noContent();
     }
