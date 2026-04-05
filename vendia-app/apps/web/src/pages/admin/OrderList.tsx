@@ -109,6 +109,7 @@ export const OrderList = () => {
   // Payment Modal State
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [editingOrderMode, setEditingOrderMode] = useState<'full' | 'customer-only'>('full');
   const [receivedAmount, setReceivedAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
   const [change, setChange] = useState<number | null>(null);
@@ -169,6 +170,14 @@ export const OrderList = () => {
 
   const handleEditOrder = (e: React.MouseEvent, order: Order) => {
     e.stopPropagation();
+    setEditingOrderMode('full');
+    setEditingOrder(order);
+    setExpandedOrderId(order.id);
+  };
+
+  const handleEditCustomerOnly = (e: React.MouseEvent, order: Order) => {
+    e.stopPropagation();
+    setEditingOrderMode('customer-only');
     setEditingOrder(order);
     setExpandedOrderId(order.id);
   };
@@ -455,6 +464,7 @@ export const OrderList = () => {
       {editingOrder && (
         <EditOrderModal
             orderId={editingOrder.id}
+            mode={editingOrderMode}
             onClose={() => setEditingOrder(null)}
             onSuccess={() => {
                 fetchOrders(currentPage);
@@ -586,6 +596,12 @@ export const OrderList = () => {
                         )}
                         {order.status === 'completed' && (
                             <>
+                            <button 
+                                className="btn btn-warning btn-sm me-2"
+                                onClick={(e) => handleEditCustomerOnly(e, order)}
+                            >
+                                {t('orders.edit_customer', 'แก้ลูกค้า')}
+                            </button>
                             <button 
                                 className="btn btn-primary btn-sm me-2"
                                 onClick={(e) => {

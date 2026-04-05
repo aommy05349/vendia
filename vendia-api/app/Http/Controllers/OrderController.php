@@ -43,7 +43,17 @@ class OrderController extends Controller
             if (str_contains($status, ',')) {
                 $query->whereIn('status', explode(',', $status));
             } else {
-                $query->where('status', $status);
+                if ($status === 'quotation') {
+                    $query->where(function ($q) {
+                        $q->where('status', 'quotation')
+                          ->orWhereNotNull('quotation_number')
+                          ->orWhereHas('documents', function ($dq) {
+                              $dq->where('type', 'quotation');
+                          });
+                    });
+                } else {
+                    $query->where('status', $status);
+                }
             }
         }
 

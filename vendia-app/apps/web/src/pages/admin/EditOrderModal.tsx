@@ -4,12 +4,14 @@ import { useTranslation } from 'react-i18next';
 
 interface EditOrderModalProps {
   orderId: number;
+  mode?: 'full' | 'customer-only';
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, onClose, onSuccess }) => {
+export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 'full', onClose, onSuccess }) => {
   const { t } = useTranslation();
+  const isCustomerOnly = mode === 'customer-only';
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<any[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<User | null>(null);
@@ -17,6 +19,20 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, onClose
   const [customerSearchResults, setCustomerSearchResults] = useState<User[]>([]);
   const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
+  const [showCustomerFormModal, setShowCustomerFormModal] = useState(false);
+  const [customerFormMode, setCustomerFormMode] = useState<'create' | 'edit'>('create');
+  const [customerFormSaving, setCustomerFormSaving] = useState(false);
+  const [customerFormError, setCustomerFormError] = useState<string | null>(null);
+  const [customerForm, setCustomerForm] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    email: '',
+    company_name: '',
+    tax_id: '',
+    address: '',
+    line_id: '',
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -118,14 +134,16 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, onClose
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payload = {
+      const payload: any = {
         customer_id: selectedCustomer?.id || null,
-        items: items.map(item => ({
+      };
+      if (!isCustomerOnly) {
+        payload.items = items.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity,
           price: item.price
-        }))
-      };
+        }));
+      }
       await api.put(`/orders/${orderId}`, payload);
       onSuccess();
       onClose();
@@ -133,6 +151,108 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, onClose
       console.error(err);
       setError(t('orders.update_failed'));
       setSaving(false);
+    }
+  };
+
+  const openCreateCustomer = () => {
+    setCustomerFormMode('create');
+    setCustomerFormError(null);
+    const fullName = customerSearchTerm.trim();
+    const parts = fullName.split(/\s+/).filter(Boolean);
+    const firstName = parts[0] || '';
+    const lastName = parts.slice(1).join(' ') || '';
+    setCustomerForm({
+      first_name: firstName,
+      last_name: lastName,
+      phone: '',
+      email: '',
+      company_name: '',
+      tax_id: '',
+      address: '',
+      line_id: '',
+    });
+    setShowCustomerFormModal(true);
+  };
+
+  const openEditCustomer = async () => {
+    if (!selectedCustomer?.id) return;
+    setCustomerFormMode('edit');
+    setCustomerFormError(null);
+    setCustomerFormSaving(true);
+    setShowCustomerFormModal(true);
+    try {
+      const res = await api.get(`/users/${selectedCustomer.id}`);
+      setCustomerForm({
+        first_name: res.data.first_name || '',
+        last_name: res.data.last_name || '',
+        phone: res.data.phone || '',
+        email: res.data.email || '',
+        company_name: res.data.company_name || '',
+        tax_id: res.data.tax_id || '',
+        address: res.data.address || '',
+        line_id: res.data.line_id || '',
+      });
+    } catch (err) {
+      setCustomerFormError(t('customers.fetch_failed', 'โหลดข้อมูลลูกค้าไม่สำเร็จ'));
+    } finally {
+      setCustomerFormSaving(false);
+    }
+  };
+
+  const saveCustomerForm = async () => {
+    setCustomerFormError(null);
+    setCustomerFormSaving(true);
+    try {
+      if (customerFormMode === 'create') {
+        const email = customerForm.email.trim() || `customer-${Date.now()}@vendia.local`;
+        const firstName = customerForm.first_name.trim();
+        const lastName = customerForm.last_name.trim() || '-';
+        const payload = {
+          username: email,
+          first_name: firstName,
+          last_name: lastName,
+          email,
+          phone: customerForm.phone.trim(),
+          company_name: customerForm.company_name.trim() || null,
+          tax_id: customerForm.tax_id.trim() || null,
+          address: customerForm.address.trim() || null,
+          line_id: customerForm.line_id.trim() || null,
+          role: 'customer',
+          password: 'password',
+        };
+        const created = await api.post('/users', payload);
+        setSelectedCustomer(created.data);
+        await api.put(`/orders/${orderId}`, { customer_id: created.data.id });
+        onSuccess();
+        setShowCustomerFormModal(false);
+      } else {
+        if (!selectedCustomer?.id) return;
+        const payload = {
+          username: customerForm.email.trim(),
+          first_name: customerForm.first_name.trim(),
+          last_name: customerForm.last_name.trim() || '-',
+          email: customerForm.email.trim(),
+          phone: customerForm.phone.trim(),
+          company_name: customerForm.company_name.trim() || null,
+          tax_id: customerForm.tax_id.trim() || null,
+          address: customerForm.address.trim() || null,
+          line_id: customerForm.line_id.trim() || null,
+          role: 'customer',
+        };
+        const updated = await api.put(`/users/${selectedCustomer.id}`, payload);
+        setSelectedCustomer(updated.data);
+        onSuccess();
+        setShowCustomerFormModal(false);
+      }
+    } catch (err: any) {
+      if (err.response?.data?.errors) {
+        const errorMessages = Object.values(err.response.data.errors).flat().join('\n');
+        setCustomerFormError(errorMessages);
+      } else {
+        setCustomerFormError(err.response?.data?.message || t('customers.save_failed', 'บันทึกข้อมูลลูกค้าไม่สำเร็จ'));
+      }
+    } finally {
+      setCustomerFormSaving(false);
     }
   };
 
@@ -158,6 +278,123 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, onClose
           </div>
           <div className="modal-body">
             {error && <div className="alert alert-danger">{error}</div>}
+            {showCustomerFormModal && (
+              <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }} role="dialog">
+                <div className="modal-dialog modal-dialog-centered modal-lg">
+                  <div className="modal-content">
+                    <div className="modal-header">
+                      <h5 className="modal-title">
+                        {customerFormMode === 'create'
+                          ? t('customers.create_title', 'เพิ่มลูกค้า')
+                          : t('customers.edit_title', 'แก้ไขลูกค้า')}
+                      </h5>
+                      <button
+                        type="button"
+                        className="btn-close"
+                        onClick={() => !customerFormSaving && setShowCustomerFormModal(false)}
+                      ></button>
+                    </div>
+                    <div className="modal-body">
+                      {customerFormError && <div className="alert alert-danger" style={{ whiteSpace: 'pre-wrap' }}>{customerFormError}</div>}
+                      <div className="row g-3">
+                        <div className="col-md-6">
+                          <label className="form-label fw-bold">{t('customers.first_name', 'ชื่อ')}</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={customerForm.first_name}
+                            onChange={(e) => setCustomerForm((p) => ({ ...p, first_name: e.target.value }))}
+                            disabled={customerFormSaving}
+                            required
+                          />
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label fw-bold">{t('customers.last_name', 'นามสกุล')}</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={customerForm.last_name}
+                            onChange={(e) => setCustomerForm((p) => ({ ...p, last_name: e.target.value }))}
+                            disabled={customerFormSaving}
+                          />
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label fw-bold">{t('customers.phone', 'เบอร์โทร')} <span className="text-danger">*</span></label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={customerForm.phone}
+                            onChange={(e) => setCustomerForm((p) => ({ ...p, phone: e.target.value }))}
+                            disabled={customerFormSaving}
+                            required
+                          />
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label fw-bold">{t('customers.email', 'อีเมล')}</label>
+                          <input
+                            type="email"
+                            className="form-control"
+                            value={customerForm.email}
+                            onChange={(e) => setCustomerForm((p) => ({ ...p, email: e.target.value }))}
+                            disabled={customerFormSaving}
+                            placeholder={t('customers.email_optional', 'เว้นว่างได้ ระบบจะสร้างให้')}
+                            required={customerFormMode === 'edit'}
+                          />
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label fw-bold">{t('customers.company', 'บริษัท')}</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={customerForm.company_name}
+                            onChange={(e) => setCustomerForm((p) => ({ ...p, company_name: e.target.value }))}
+                            disabled={customerFormSaving}
+                          />
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label fw-bold">{t('customers.tax_id', 'เลขผู้เสียภาษี')}</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={customerForm.tax_id}
+                            onChange={(e) => setCustomerForm((p) => ({ ...p, tax_id: e.target.value }))}
+                            disabled={customerFormSaving}
+                          />
+                        </div>
+                        <div className="col-md-12">
+                          <label className="form-label fw-bold">{t('customers.address', 'ที่อยู่')}</label>
+                          <textarea
+                            className="form-control"
+                            rows={3}
+                            value={customerForm.address}
+                            onChange={(e) => setCustomerForm((p) => ({ ...p, address: e.target.value }))}
+                            disabled={customerFormSaving}
+                          />
+                        </div>
+                        <div className="col-md-12">
+                          <label className="form-label fw-bold">{t('customers.line_id', 'Line ID')}</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={customerForm.line_id}
+                            onChange={(e) => setCustomerForm((p) => ({ ...p, line_id: e.target.value }))}
+                            disabled={customerFormSaving}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="modal-footer">
+                      <button type="button" className="btn btn-secondary" onClick={() => setShowCustomerFormModal(false)} disabled={customerFormSaving}>
+                        {t('common.cancel', 'ยกเลิก')}
+                      </button>
+                      <button type="button" className="btn btn-primary" onClick={saveCustomerForm} disabled={customerFormSaving}>
+                        {customerFormSaving ? t('common.saving', 'กำลังบันทึก...') : t('common.save', 'บันทึก')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Customer Section */}
             <div className="mb-4">
@@ -168,9 +405,20 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, onClose
                             <div className="fw-bold">{selectedCustomer?.name || t('pos.walk_in')}</div>
                             {selectedCustomer && <div className="small text-muted">{selectedCustomer.phone}</div>}
                         </div>
-                        <button className="btn btn-sm btn-outline-primary" onClick={() => setIsEditingCustomer(true)}>
-                            {t('actions.change')}
-                        </button>
+                        <div className="d-flex gap-2">
+                          <button className="btn btn-sm btn-outline-primary" onClick={() => setIsEditingCustomer(true)}>
+                              {t('actions.change')}
+                          </button>
+                          {selectedCustomer ? (
+                            <button className="btn btn-sm btn-outline-secondary" onClick={openEditCustomer}>
+                              {t('actions.edit', 'แก้ไข')}
+                            </button>
+                          ) : (
+                            <button className="btn btn-sm btn-outline-secondary" onClick={openCreateCustomer}>
+                              {t('customers.create_btn', 'เพิ่มลูกค้า')}
+                            </button>
+                          )}
+                        </div>
                     </div>
                 ) : (
                     <div className="position-relative">
@@ -218,98 +466,111 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, onClose
                                         <div className="small text-muted">{customer.phone}</div>
                                     </button>
                                 ))}
+                                <button
+                                  type="button"
+                                  className="list-group-item list-group-item-action"
+                                  onClick={() => {
+                                    setIsEditingCustomer(false);
+                                    setCustomerSearchResults([]);
+                                    openCreateCustomer();
+                                  }}
+                                >
+                                  <div className="fw-bold">{t('customers.create_btn', 'เพิ่มลูกค้า')}</div>
+                                  <div className="small text-muted">{t('customers.create_hint', 'สร้างลูกค้าใหม่แล้วผูกกับออเดอร์นี้')}</div>
+                                </button>
                             </div>
                         )}
                     </div>
                 )}
             </div>
 
-            {/* Add Product Section */}
-            <div className="mb-4">
-              <label className="form-label">{t('pos.search_products')}</label>
-              <input
-                type="text"
-                className="form-control mb-3"
-                placeholder={t('pos.search_products')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                autoFocus
-              />
-              {searchTerm.length > 1 && (
-                <div className="border rounded p-2 bg-light">
-                  {isSearching && (
-                    <div className="text-center my-3">
-                      <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                    </div>
-                  )}
-                  {!isSearching && searchResults.length === 0 && (
-                    <div className="text-center text-muted small py-2">
-                      {t('pos.no_products')}
-                    </div>
-                  )}
-                  <div className="row g-2" style={{ maxHeight: '260px', overflowY: 'auto' }}>
-                    {searchResults.map(product => {
-                      const coverImage = product.images?.find(img => img.is_cover) || product.images?.[0];
-                      const isOutOfStock = product.product_type !== 'service' && product.stock === 0;
-                      return (
-                        <div key={product.id} className="col-12 col-md-6">
-                          <button
-                            type="button"
-                            className={`card h-100 text-start border-0 shadow-sm w-100 ${isOutOfStock ? 'opacity-75' : ''}`}
-                            style={{ cursor: isOutOfStock ? 'not-allowed' : 'pointer' }}
-                            onClick={() => !isOutOfStock && handleAddItem(product)}
-                          >
-                            <div className="row g-0">
-                              <div className="col-4">
-                                <div className="bg-light d-flex align-items-center justify-content-center" style={{ height: '80px', overflow: 'hidden' }}>
-                                  {coverImage ? (
-                                    <img
-                                      src={coverImage.image_path}
-                                      alt={product.name}
-                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                    />
-                                  ) : (
-                                    <i className="bi bi-image text-muted fs-3"></i>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="col-8">
-                                <div className="card-body py-2 px-3">
-                                  <div className="d-flex justify-content-between align-items-start mb-1">
-                                    <h6 className="mb-0 fw-bold text-truncate" title={product.name}>
-                                      {product.name}
-                                    </h6>
-                                    <span className="badge bg-light text-dark border">
-                                      ฿{Number(product.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
-                                  </div>
-                                  <div className="small text-muted mb-1 text-truncate">
-                                    {product.sku}
-                                  </div>
-                                  <div className="d-flex justify-content-between align-items-center">
-                                    <span className="badge bg-secondary bg-opacity-25 text-dark">
-                                      {product.product_type === 'service'
-                                        ? t('pos.services')
-                                        : t('pos.products')}
-                                    </span>
-                                    {product.product_type !== 'service' && (
-                                      <span className="small text-muted">
-                                        <i className="bi bi-box-seam me-1"></i>
-                                        {product.stock}
-                                      </span>
+            {!isCustomerOnly && (
+              <div className="mb-4">
+                <label className="form-label">{t('pos.search_products')}</label>
+                <input
+                  type="text"
+                  className="form-control mb-3"
+                  placeholder={t('pos.search_products')}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  autoFocus
+                />
+                {searchTerm.length > 1 && (
+                  <div className="border rounded p-2 bg-light">
+                    {isSearching && (
+                      <div className="text-center my-3">
+                        <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                      </div>
+                    )}
+                    {!isSearching && searchResults.length === 0 && (
+                      <div className="text-center text-muted small py-2">
+                        {t('pos.no_products')}
+                      </div>
+                    )}
+                    <div className="row g-2" style={{ maxHeight: '260px', overflowY: 'auto' }}>
+                      {searchResults.map(product => {
+                        const coverImage = product.images?.find(img => img.is_cover) || product.images?.[0];
+                        const isOutOfStock = product.product_type !== 'service' && product.stock === 0;
+                        return (
+                          <div key={product.id} className="col-12 col-md-6">
+                            <button
+                              type="button"
+                              className={`card h-100 text-start border-0 shadow-sm w-100 ${isOutOfStock ? 'opacity-75' : ''}`}
+                              style={{ cursor: isOutOfStock ? 'not-allowed' : 'pointer' }}
+                              onClick={() => !isOutOfStock && handleAddItem(product)}
+                            >
+                              <div className="row g-0">
+                                <div className="col-4">
+                                  <div className="bg-light d-flex align-items-center justify-content-center" style={{ height: '80px', overflow: 'hidden' }}>
+                                    {coverImage ? (
+                                      <img
+                                        src={coverImage.image_path}
+                                        alt={product.name}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                      />
+                                    ) : (
+                                      <i className="bi bi-image text-muted fs-3"></i>
                                     )}
                                   </div>
                                 </div>
+                                <div className="col-8">
+                                  <div className="card-body py-2 px-3">
+                                    <div className="d-flex justify-content-between align-items-start mb-1">
+                                      <h6 className="mb-0 fw-bold text-truncate" title={product.name}>
+                                        {product.name}
+                                      </h6>
+                                      <span className="badge bg-light text-dark border">
+                                        ฿{Number(product.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </span>
+                                    </div>
+                                    <div className="small text-muted mb-1 text-truncate">
+                                      {product.sku}
+                                    </div>
+                                    <div className="d-flex justify-content-between align-items-center">
+                                      <span className="badge bg-secondary bg-opacity-25 text-dark">
+                                        {product.product_type === 'service'
+                                          ? t('pos.services')
+                                          : t('pos.products')}
+                                      </span>
+                                      {product.product_type !== 'service' && (
+                                        <span className="small text-muted">
+                                          <i className="bi bi-box-seam me-1"></i>
+                                          {product.stock}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          </button>
-                        </div>
-                      );
-                    })}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Items Table */}
             <div className="table-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>
@@ -336,6 +597,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, onClose
                           className="form-control form-control-sm"
                           value={item.price}
                           onChange={(e) => handleUpdateItem(item.product_id, 'price', parseFloat(e.target.value) || 0)}
+                          disabled={isCustomerOnly}
                         />
                       </td>
                       <td>
@@ -345,18 +607,21 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, onClose
                           value={item.quantity}
                           min="1"
                           onChange={(e) => handleUpdateItem(item.product_id, 'quantity', parseInt(e.target.value) || 1)}
+                          disabled={isCustomerOnly}
                         />
                       </td>
                       <td className="text-end">
                         ฿{(item.price * item.quantity).toLocaleString()}
                       </td>
                       <td>
-                        <button
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={() => handleRemoveItem(item.product_id)}
-                        >
-                          <i className="bi bi-trash"></i>
-                        </button>
+                        {!isCustomerOnly && (
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => handleRemoveItem(item.product_id)}
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -382,7 +647,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, onClose
                 type="button" 
                 className="btn btn-primary" 
                 onClick={handleSave}
-                disabled={saving || items.length === 0}
+                disabled={saving || (!isCustomerOnly && items.length === 0)}
             >
                 {saving ? t('actions.save') : t('actions.save')}
             </button>

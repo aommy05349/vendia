@@ -24,6 +24,28 @@ interface CustomerLocation {
   contact_phone: string | null;
 }
 
+interface OrderItem {
+  id: number;
+  product_id: number;
+  quantity: number;
+  price: number | string;
+  product?: {
+    id: number;
+    name: string;
+    sku?: string;
+  };
+}
+
+interface Order {
+  id: number;
+  code?: string;
+  status: string;
+  created_at: string;
+  total: number | string;
+  items: OrderItem[];
+  customer?: User | null;
+}
+
 // Simple debounce utility
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number) {
   let timeout: any;
@@ -73,9 +95,10 @@ export const CreateAppointment = () => {
   const isSubmittingRef = React.useRef(false);
   const [customers, setCustomers] = useState<User[]>([]);
   const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [customerLocations, setCustomerLocations] = useState<CustomerLocation[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [orderPreviewExpanded, setOrderPreviewExpanded] = useState(false);
 
   const [formData, setFormData] = useState({
     customer_id: '',
@@ -97,6 +120,14 @@ export const CreateAppointment = () => {
   });
 
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+  const selectedOrder = orders.find(o => o.id.toString() === formData.order_id.toString()) || null;
+
+  const formatMoney = (value: number | string) =>
+    Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  
+  useEffect(() => {
+    setOrderPreviewExpanded(false);
+  }, [formData.order_id]);
 
   useEffect(() => {
     fetchCustomers();
@@ -180,7 +211,7 @@ export const CreateAppointment = () => {
         api.get(orderQuery),
         api.get(`/users/${customerId}/locations`),
       ]);
-      setOrders(ordersRes.data.data || []);
+      setOrders((ordersRes.data.data || []) as Order[]);
       setCustomerLocations(locationsRes.data);
     } catch (error) {
       console.error('Failed to fetch customer data', error);
@@ -601,6 +632,84 @@ export const CreateAppointment = () => {
                     ))}
                   </select>
                 </div>
+              </div>
+            </div>
+
+            <div className="card mb-4">
+              <div className="card-header">
+                <h5 className="mb-0">{t('appointments.create.order_preview', 'รายการในออเดอร์')}</h5>
+              </div>
+              <div className="card-body">
+                {!selectedOrder ? (
+                  <div className="text-muted">{t('appointments.create.select_order_to_preview', 'เลือกออเดอร์เพื่อดูรายการ')}</div>
+                ) : (
+                  <>
+                    {selectedOrder.items?.length > 6 && (
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <div className="small text-muted">
+                          {orderPreviewExpanded
+                            ? t('orders.items_count', { defaultValue: `ทั้งหมด ${selectedOrder.items.length} รายการ` })
+                            : t('orders.items_count_short', { defaultValue: `แสดง 6 จาก ${selectedOrder.items.length} รายการ` })}
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => setOrderPreviewExpanded(v => !v)}
+                        >
+                          {orderPreviewExpanded ? t('common.collapse', 'ย่อ') : t('common.view_all', 'ดูทั้งหมด')}
+                        </button>
+                      </div>
+                    )}
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <div className="fw-bold">#{selectedOrder.id}</div>
+                      <span className="badge bg-light text-dark border text-uppercase">{selectedOrder.status}</span>
+                    </div>
+                    <div className="small text-muted mb-3">
+                      {new Date(selectedOrder.created_at).toLocaleString()}
+                    </div>
+                    <div
+                      className="table-responsive"
+                      style={{
+                        maxHeight: orderPreviewExpanded ? 360 : 240,
+                        overflowY: 'auto',
+                      }}
+                    >
+                      <table className="table table-sm table-bordered mb-0">
+                        <thead className="table-light">
+                          <tr>
+                            <th>{t('orders.product')}</th>
+                            <th className="text-center" style={{ width: '90px' }}>{t('orders.qty')}</th>
+                            <th className="text-end" style={{ width: '140px' }}>{t('orders.price')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedOrder.items?.length ? (
+                            (orderPreviewExpanded ? selectedOrder.items : selectedOrder.items.slice(0, 6)).map((item) => (
+                              <tr key={item.id}>
+                                <td>
+                                  <div className="fw-medium">{item.product?.name || '-'}</div>
+                                  {item.product?.sku ? <div className="small text-muted">{item.product.sku}</div> : null}
+                                </td>
+                                <td className="text-center">{item.quantity}</td>
+                                <td className="text-end">฿{formatMoney(item.price)}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={3} className="text-center text-muted py-3">{t('orders.no_items', 'ไม่มีรายการ')}</td>
+                            </tr>
+                          )}
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td colSpan={2} className="text-end fw-bold">{t('orders.total')}</td>
+                            <td className="text-end fw-bold">฿{formatMoney(selectedOrder.total)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
