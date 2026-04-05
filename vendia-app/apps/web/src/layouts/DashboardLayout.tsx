@@ -12,6 +12,26 @@ export const DashboardLayout = () => {
   const location = useLocation();
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const apiUrlRaw = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api';
+  const apiUrl = typeof apiUrlRaw === 'string' ? apiUrlRaw : 'http://localhost:8000/api';
+  const apiUrlNormalized = apiUrl.replace(/^https:\/(?!\/)/, 'https://').replace(/^http:\/(?!\/)/, 'http://');
+  const apiOrigin = apiUrlNormalized.replace(/\/api\/?$/, '');
+
+  const getStorageUrl = (path?: string | null) => {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path.replace('/api/storage/', '/storage/');
+    }
+
+    let normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    if (normalizedPath.startsWith('/api/storage/')) {
+      normalizedPath = normalizedPath.replace(/^\/api\/storage\//, '/storage/');
+    }
+    if (normalizedPath.startsWith('/storage/')) {
+      return `${apiOrigin}${normalizedPath}`;
+    }
+    return `${apiOrigin}/storage${normalizedPath}`;
+  };
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -55,7 +75,7 @@ export const DashboardLayout = () => {
         <div className="d-flex align-items-center gap-2">
           {shop?.logo_path && (
             <img 
-              src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.logo_path}`} 
+              src={getStorageUrl(shop.logo_path)}
               alt="Shop Logo" 
               style={{ height: '30px', marginRight: '10px' }} 
             />
@@ -94,7 +114,7 @@ export const DashboardLayout = () => {
           <div className="mb-4 text-center d-none d-lg-block">
             {shop?.logo_path && (
               <img 
-                src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.logo_path}`} 
+                src={getStorageUrl(shop.logo_path)}
                 alt="Logo" 
                 className="mb-2 img-fluid d-block mx-auto"
                 style={{ maxHeight: '120px', width: 'auto' }} 
