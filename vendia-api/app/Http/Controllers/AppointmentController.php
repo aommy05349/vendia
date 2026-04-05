@@ -8,8 +8,7 @@ class AppointmentController extends Controller
 {
     public function index(Request $request)
     {
-        $query = \App\Models\Appointment::with(['customer', 'technicians', 'order', 'team'])
-            ->orderBy('start_time', 'asc');
+        $query = \App\Models\Appointment::with(['customer', 'technicians', 'order', 'team']);
 
         if ($request->has('status')) {
             $query->where('status', $request->status);
@@ -29,8 +28,16 @@ class AppointmentController extends Controller
         }
 
         if ($request->has('per_page')) {
+            $now = \Carbon\Carbon::now()->toDateTimeString();
+            $query
+                ->orderByRaw("CASE WHEN start_time >= ? THEN 0 ELSE 1 END ASC", [$now])
+                ->orderByRaw("CASE WHEN start_time >= ? THEN start_time END ASC", [$now])
+                ->orderByRaw("CASE WHEN start_time < ? THEN start_time END DESC", [$now])
+                ->orderByDesc('id');
             return response()->json($query->paginate($request->per_page));
         }
+
+        $query->orderBy('start_time', 'asc')->orderBy('id', 'asc');
 
         return response()->json($query->get());
     }
@@ -54,7 +61,7 @@ class AppointmentController extends Controller
             'title' => 'required|string',
             'description' => 'nullable|string',
             'start_time' => 'required|date',
-            'end_time' => 'nullable|date|after:start_time',
+            'end_time' => 'nullable|date|after_or_equal:start_time',
             // Location Snapshot
             'location_name' => 'nullable|string',
             'address' => 'required|string',
@@ -69,6 +76,8 @@ class AppointmentController extends Controller
             'technicians' => 'nullable|array',
             'technicians.*.id' => 'required_with:technicians|exists:users,id',
             'technicians.*.is_lead' => 'boolean',
+        ], [
+            'end_time.after_or_equal' => 'เวลาสิ้นสุดต้องมากกว่าหรือเท่ากับเวลาเริ่มต้น',
         ]);
 
         $appointment = \App\Models\Appointment::create(collect($validated)->except('technicians')->toArray());
@@ -114,7 +123,7 @@ class AppointmentController extends Controller
             'description' => 'nullable|string',
             'status' => 'sometimes|in:scheduled,en_route,in_progress,completed,cancelled',
             'start_time' => 'sometimes|date',
-            'end_time' => 'nullable|date|after:start_time',
+            'end_time' => 'nullable|date|after_or_equal:start_time',
             'admin_notes' => 'nullable|string',
             'technician_notes' => 'nullable|string',
             // Location updates allowed if needed
@@ -140,6 +149,8 @@ class AppointmentController extends Controller
                     }
                 },
             ],
+        ], [
+            'end_time.after_or_equal' => 'เวลาสิ้นสุดต้องมากกว่าหรือเท่ากับเวลาเริ่มต้น',
         ]);
 
         $appointment->update($validated);

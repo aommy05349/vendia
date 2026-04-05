@@ -99,6 +99,7 @@ export const CreateAppointment = () => {
   const [customerLocations, setCustomerLocations] = useState<CustomerLocation[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [orderPreviewExpanded, setOrderPreviewExpanded] = useState(false);
+  const [endTimeError, setEndTimeError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     customer_id: '',
@@ -254,11 +255,22 @@ export const CreateAppointment = () => {
   };
 
   const handleStartTimeChange = (value: string) => {
+    setEndTimeError(null);
     setFormData(prev => ({
       ...prev,
       start_time: value,
       end_time: prev.end_time && prev.end_time < value ? '' : prev.end_time,
     }));
+  };
+
+  const handleEndTimeChange = (value: string) => {
+    const start = formData.start_time;
+    if (value && start && value < start) {
+      setEndTimeError(t('appointments.create.end_time_invalid', 'เวลาสิ้นสุดต้องมากกว่าหรือเท่ากับเวลาเริ่มต้น'));
+    } else {
+      setEndTimeError(null);
+    }
+    setFormData(prev => ({ ...prev, end_time: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -267,6 +279,10 @@ export const CreateAppointment = () => {
     if (isSubmittingRef.current) return;
     if (!formData.order_id) {
       setSubmitError(t('appointments.create.order_required', 'กรุณาเลือกออเดอร์'));
+      return;
+    }
+    if (formData.end_time && formData.start_time && formData.end_time < formData.start_time) {
+      setSubmitError(t('appointments.create.end_time_invalid', 'เวลาสิ้นสุดต้องมากกว่าหรือเท่ากับเวลาเริ่มต้น'));
       return;
     }
     isSubmittingRef.current = true;
@@ -420,11 +436,11 @@ export const CreateAppointment = () => {
                     <label className="form-label">{t('appointments.create.end_time')}</label>
                     <input
                       type="datetime-local"
-                      className="form-control"
+                      className={`form-control ${endTimeError ? 'is-invalid' : ''}`}
                       value={formData.end_time}
-                      min={formData.start_time || undefined}
-                      onChange={e => setFormData({ ...formData, end_time: e.target.value })}
+                      onChange={e => handleEndTimeChange(e.target.value)}
                     />
+                    {endTimeError && <div className="invalid-feedback">{endTimeError}</div>}
                   </div>
                 </div>
               </div>

@@ -43,6 +43,7 @@ interface Order {
     id: number;
     total: string;
   };
+  appointments_count?: number;
   subtotal?: string;
   vat_rate?: string;
   vat_amount?: string;
@@ -574,15 +575,17 @@ export const OrderList = () => {
                             >
                                 {t('actions.edit')}
                             </button>
-                            <button 
-                                className="btn btn-primary btn-sm me-2"
-                                onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/appointments/create?order_id=${order.id}&customer_id=${order.customer?.id}`);
-                                }}
-                            >
-                                {t('orders.create_appt')}
-                            </button>
+                            {(order.appointments_count || 0) === 0 && (
+                              <button 
+                                  className="btn btn-primary btn-sm me-2"
+                                  onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/appointments/create?order_id=${order.id}&customer_id=${order.customer?.id}`);
+                                  }}
+                              >
+                                  {t('orders.create_appt')}
+                              </button>
+                            )}
                             <button 
                                 className="btn btn-danger btn-sm"
                                 onClick={(e) => {
@@ -602,15 +605,17 @@ export const OrderList = () => {
                             >
                                 {t('orders.edit_customer', 'แก้ลูกค้า')}
                             </button>
-                            <button 
-                                className="btn btn-primary btn-sm me-2"
-                                onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/appointments/create?order_id=${order.id}&customer_id=${order.customer?.id}`);
-                                }}
-                            >
-                                {t('orders.create_appt')}
-                            </button>
+                            {(order.appointments_count || 0) === 0 && (
+                              <button 
+                                  className="btn btn-primary btn-sm me-2"
+                                  onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/appointments/create?order_id=${order.id}&customer_id=${order.customer?.id}`);
+                                  }}
+                              >
+                                  {t('orders.create_appt')}
+                              </button>
+                            )}
                             </>
                         )}
                         {order.status === 'cancelled' && user?.role === 'admin' && (

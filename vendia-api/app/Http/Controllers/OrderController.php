@@ -36,7 +36,10 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
-        $query = Order::with('items.product', 'user', 'customer', 'parent', 'documents')->latest();
+        $query = Order::with('items.product', 'user', 'customer', 'parent', 'documents')
+            ->withCount('appointments')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
 
         if ($request->has('status') && $request->input('status') !== 'all') {
             $status = $request->input('status');
