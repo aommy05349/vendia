@@ -11,6 +11,8 @@ export const CreateProduct = () => {
   const { brands, units, warehouses, fetchBrands, fetchUnits, fetchWarehouses } = useAuxStore();
   const showTaxAndDiscountFields = false;
   const disableBarcodeFields = true;
+  const [imageUrlInput, setImageUrlInput] = useState('');
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   
   // Product Information
   const [name, setName] = useState('');
@@ -41,6 +43,20 @@ export const CreateProduct = () => {
   // Bundle Items
   const [bundleItems, setBundleItems] = useState<{id: number, name: string, quantity: number, price: number}[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const normalizeImageUrl = (value: string) => value.trim();
+  const isValidImageUrl = (value: string) => /^https?:\/\/\S+$/i.test(value.trim());
+  const addImageUrl = () => {
+    const normalized = normalizeImageUrl(imageUrlInput);
+    if (!normalized) return;
+    if (!isValidImageUrl(normalized)) {
+      setError(t('products.images.url_invalid', 'กรุณาใส่ลิงก์รูปภาพที่ขึ้นต้นด้วย http:// หรือ https://'));
+      return;
+    }
+    setError('');
+    setImageUrls(prev => (prev.includes(normalized) ? prev : [...prev, normalized]));
+    setImageUrlInput('');
+  };
 
   const [error, setError] = useState('');
 
@@ -143,6 +159,9 @@ export const CreateProduct = () => {
         for (let i = 0; i < images.length; i++) {
           formData.append('images[]', images[i]);
         }
+      }
+      if (imageUrls.length) {
+        imageUrls.forEach((url) => formData.append('image_urls[]', url));
       }
 
       if (productType === 'bundle') {
@@ -461,8 +480,30 @@ export const CreateProduct = () => {
                     />
                   </div>
                 </div>
+
+                <div className="mb-3">
+                  <label className="form-label">{t('products.form.fields.image_url', 'ลิงก์รูปภาพ')}</label>
+                  <div className="input-group">
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={imageUrlInput}
+                      onChange={(e) => setImageUrlInput(e.target.value)}
+                      placeholder="https://..."
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addImageUrl();
+                        }
+                      }}
+                    />
+                    <button type="button" className="btn btn-outline-primary" onClick={addImageUrl}>
+                      {t('common.add', 'เพิ่ม')}
+                    </button>
+                  </div>
+                </div>
                 
-                {images.length > 0 && (
+                {(images.length > 0 || imageUrls.length > 0) && (
                   <div className="row g-2">
                     {images.map((file, index) => (
                       <div key={index} className="col-4 col-md-6 position-relative">
@@ -479,6 +520,26 @@ export const CreateProduct = () => {
                           className="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm"
                           style={{ width: '24px', height: '24px' }}
                           onClick={() => setImages(prev => prev.filter((_, i) => i !== index))}
+                        >
+                          <i className="bi bi-x"></i>
+                        </button>
+                      </div>
+                    ))}
+                    {imageUrls.map((url, index) => (
+                      <div key={`${url}-${index}`} className="col-4 col-md-6 position-relative">
+                        <div className="border rounded overflow-hidden position-relative" style={{ paddingTop: '100%' }}>
+                          <img
+                            src={url}
+                            alt={`URL Preview ${index}`}
+                            className="position-absolute top-0 start-0 w-100 h-100"
+                            style={{ objectFit: 'cover' }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm"
+                          style={{ width: '24px', height: '24px' }}
+                          onClick={() => setImageUrls(prev => prev.filter((u) => u !== url))}
                         >
                           <i className="bi bi-x"></i>
                         </button>
