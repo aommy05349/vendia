@@ -3,6 +3,7 @@ import { api, useAuthStore } from '@vendia/shared';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AttendanceHistory } from '../admin/AttendanceHistory';
+import { MessageModal } from '../../components/MessageModal';
 
 const formatDuration = (startDate: string) => {
   const start = new Date(startDate).getTime();
@@ -64,6 +65,7 @@ export const TechnicianDashboard = () => {
   const [leaveDate, setLeaveDate] = useState<string>('');
   const [leaveReason, setLeaveReason] = useState('');
   const [leaveSubmitting, setLeaveSubmitting] = useState(false);
+  const [uiMessage, setUiMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -99,7 +101,7 @@ export const TechnicianDashboard = () => {
     } catch (error) {
       console.error('Check-in failed', error);
       const message = (error as any)?.response?.data?.message || t('attendance.dashboard.check_in_failed');
-      alert(message);
+      setUiMessage({ type: 'danger', text: message });
     } finally {
       setLoading(false);
     }
@@ -112,7 +114,8 @@ export const TechnicianDashboard = () => {
       await fetchStatus();
     } catch (error) {
       console.error('Check-out failed', error);
-      alert(t('attendance.dashboard.check_out_failed'));
+      const message = (error as any)?.response?.data?.message || t('attendance.dashboard.check_out_failed');
+      setUiMessage({ type: 'danger', text: message });
     } finally {
       setLoading(false);
     }
@@ -164,7 +167,7 @@ export const TechnicianDashboard = () => {
       const finalReason = absentType === 'weekly_off' ? 'วันหยุดประจำสัปดาห์' : absentReason;
 
       if (absentType === 'absent' && !finalReason) {
-          alert('Please provide a reason');
+          setUiMessage({ type: 'danger', text: t('attendance.dashboard.mark_absent_modal.reason_required', 'กรุณากรอกเหตุผล') });
           return;
       }
       
@@ -179,7 +182,8 @@ export const TechnicianDashboard = () => {
           fetchOverview();
       } catch (error) {
           console.error('Failed to mark absent', error);
-          alert('Failed to mark absent');
+          const message = (error as any)?.response?.data?.message || t('attendance.dashboard.mark_absent_failed', 'บันทึกสถานะไม่สำเร็จ');
+          setUiMessage({ type: 'danger', text: message });
       } finally {
           setAbsentLoading(false);
       }
@@ -204,7 +208,7 @@ export const TechnicianDashboard = () => {
   const submitLeaveRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!leaveDate || !leaveReason.trim()) {
-      alert(t('attendance.technician_view.leave_reason_required'));
+      setUiMessage({ type: 'danger', text: t('attendance.technician_view.leave_reason_required') });
       return;
     }
 
@@ -215,10 +219,11 @@ export const TechnicianDashboard = () => {
         reason: leaveReason.trim(),
       });
       setShowLeaveModal(false);
-      alert(t('attendance.technician_view.leave_request_success'));
+      setUiMessage({ type: 'success', text: t('attendance.technician_view.leave_request_success') });
     } catch (error) {
       console.error('Failed to submit leave request', error);
-      alert(t('attendance.technician_view.leave_request_failed'));
+      const message = (error as any)?.response?.data?.message || t('attendance.technician_view.leave_request_failed');
+      setUiMessage({ type: 'danger', text: message });
     } finally {
       setLeaveSubmitting(false);
     }
@@ -244,6 +249,19 @@ export const TechnicianDashboard = () => {
   // Render Technician View (Original)
   return (
     <div className="container mt-4">
+      <MessageModal
+        open={uiMessage !== null}
+        type={uiMessage?.type || 'danger'}
+        title={
+          uiMessage?.type === 'success'
+            ? t('common.success_title', 'สำเร็จ')
+            : t('common.error_title', 'ไม่สำเร็จ')
+        }
+        message={uiMessage?.text || ''}
+        okLabel={t('common.ok', 'ตกลง')}
+        zIndex={2200}
+        onClose={() => setUiMessage(null)}
+      />
       <div className="row justify-content-center">
         <div className="col-md-8 col-lg-6">
           <div className="card shadow-sm border-0">

@@ -6,6 +6,7 @@ import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from 'date-f
 import { th, enUS } from 'date-fns/locale';
 import { AppointmentCalendar } from './AppointmentCalendar';
 import { AppointmentMap } from './AppointmentMap';
+import { MessageModal } from '../../components/MessageModal';
 
 interface Appointment {
   id: number;
@@ -127,67 +128,33 @@ export const AppointmentList = () => {
   const showCreatedAlert = location.state?.appointmentCreated;
   const showDetailErrorAlert = location.state?.appointmentDetailLoadError;
   const showEditErrorAlert = location.state?.appointmentEditLoadError;
+  const messageModal = showCreatedAlert
+    ? { type: 'success' as const, text: t('appointments.create.success') }
+    : showDetailErrorAlert
+      ? { type: 'danger' as const, text: t('appointments.detail.load_failed') }
+      : showEditErrorAlert
+        ? { type: 'danger' as const, text: t('appointments.edit.failed_update') }
+        : null;
 
   return (
     <div className="container-fluid p-4">
-      {(showCreatedAlert || showDetailErrorAlert || showEditErrorAlert) && (
-        <>
-          {showCreatedAlert && (
-            <div
-              className="modal fade show d-block"
-              style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}
-              role="dialog"
-            >
-              <div className="modal-dialog modal-dialog-centered">
-                <div className="modal-content border-0">
-                  <div className="modal-body text-center p-4">
-                    <div
-                      className="text-success mb-3"
-                      style={{ fontSize: '3rem' }}
-                    >
-                      <i className="bi bi-check-circle-fill"></i>
-                    </div>
-                    <h5 className="mb-2">
-                      {t('common.success_title', 'สำเร็จ')}
-                    </h5>
-                    <p className="mb-0">
-                      {t('appointments.create.success')}
-                    </p>
-                  </div>
-                  <div className="modal-footer border-0 justify-content-center">
-                    <button
-                      type="button"
-                      className="btn btn-success"
-                      onClick={() => {
-                        navigate(`${location.pathname}${location.search || ''}`, {
-                          replace: true,
-                          state: {},
-                        });
-                      }}
-                    >
-                      {t('common.ok', 'ตกลง')}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          {(showDetailErrorAlert || showEditErrorAlert) && (
-            <div className="mb-3">
-              {showDetailErrorAlert && (
-                <div className="alert alert-danger" role="alert">
-                  {t('appointments.detail.load_failed')}
-                </div>
-              )}
-              {showEditErrorAlert && (
-                <div className="alert alert-danger" role="alert">
-                  {t('appointments.edit.failed_update')}
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
+      <MessageModal
+        open={messageModal !== null}
+        type={messageModal?.type || 'danger'}
+        title={
+          messageModal?.type === 'success'
+            ? t('common.success_title', 'สำเร็จ')
+            : t('common.error_title', 'ไม่สำเร็จ')
+        }
+        message={messageModal?.text || ''}
+        okLabel={t('common.ok', 'ตกลง')}
+        onClose={() => {
+          navigate(`${location.pathname}${location.search || ''}`, {
+            replace: true,
+            state: {},
+          });
+        }}
+      />
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>{t('appointments.title')}</h2>
         <div className="d-flex gap-2">

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCartStore, useProductStore, useCategoryStore, useCustomerStore, api, Product, User } from '@vendia/shared';
+import { MessageModal } from '../components/MessageModal';
 
 export const Pos = () => {
   const { t } = useTranslation();
@@ -340,52 +341,18 @@ export const Pos = () => {
           ))}
         </div>
 
-        {alertMessage && alertMessage.type === 'danger' && (
-          <div
-            className={`alert alert-${alertMessage.type} alert-dismissible fade show`}
-            role="alert"
-          >
-            {alertMessage.text}
-            <button
-              type="button"
-              className="btn-close"
-              onClick={() => setAlertMessage(null)}
-            ></button>
-          </div>
-        )}
-        {alertMessage && alertMessage.type === 'success' && (
-          <div
-            className="modal fade show d-block"
-            style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}
-            role="dialog"
-          >
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content border-0">
-                <div className="modal-body text-center p-4">
-                  <div
-                    className="text-success mb-3"
-                    style={{ fontSize: '3rem' }}
-                  >
-                    <i className="bi bi-check-circle-fill"></i>
-                  </div>
-                  <h5 className="mb-2">
-                    {t('common.success_title', 'สำเร็จ')}
-                  </h5>
-                  <p className="mb-0">{alertMessage.text}</p>
-                </div>
-                <div className="modal-footer border-0 justify-content-center">
-                  <button
-                    type="button"
-                    className="btn btn-success"
-                    onClick={() => setAlertMessage(null)}
-                  >
-                    {t('common.ok', 'ตกลง')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        <MessageModal
+          open={alertMessage !== null}
+          type={alertMessage?.type || 'danger'}
+          title={
+            alertMessage?.type === 'success'
+              ? t('common.success_title', 'สำเร็จ')
+              : t('common.error_title', 'ไม่สำเร็จ')
+          }
+          message={alertMessage?.text || ''}
+          okLabel={t('common.ok', 'ตกลง')}
+          onClose={() => setAlertMessage(null)}
+        />
         
         {loading ? (
           <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>

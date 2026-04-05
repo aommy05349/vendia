@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api, useAuthStore } from '@vendia/shared';
 import { useTranslation } from 'react-i18next';
+import { MessageModal } from '../components/MessageModal';
 
 export const Profile = () => {
   const { t } = useTranslation();
@@ -141,37 +142,17 @@ export const Profile = () => {
   return (
     <div className="container mt-5" style={{ maxWidth: '800px' }}>
       <h1 className="mb-4">{t('common.profile')}</h1>
-      {error && <div className="alert alert-danger">{error}</div>}
-      {success && (
-        <div
-          className="modal fade show d-block"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}
-          role="dialog"
-        >
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0">
-              <div className="modal-body text-center p-4">
-                <div className="text-success mb-3" style={{ fontSize: '3rem' }}>
-                  <i className="bi bi-check-circle-fill"></i>
-                </div>
-                <h5 className="mb-2">
-                  {t('common.success_title', 'สำเร็จ')}
-                </h5>
-                <p className="mb-0">{success}</p>
-              </div>
-              <div className="modal-footer border-0 justify-content-center">
-                <button
-                  type="button"
-                  className="btn btn-success"
-                  onClick={() => setSuccess('')}
-                >
-                  {t('common.ok', 'ตกลง')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <MessageModal
+        open={Boolean(error || success)}
+        type={error ? 'danger' : 'success'}
+        title={error ? t('common.error_title', 'ไม่สำเร็จ') : t('common.success_title', 'สำเร็จ')}
+        message={error || success || ''}
+        okLabel={t('common.ok', 'ตกลง')}
+        onClose={() => {
+          if (error) setError('');
+          if (success) setSuccess('');
+        }}
+      />
 
       <form onSubmit={handleSubmit} className="card p-4 shadow-sm">
         <div className="mb-4 text-center">

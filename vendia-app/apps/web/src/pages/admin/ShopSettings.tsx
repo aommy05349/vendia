@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useShopStore } from '@vendia/shared';
 import { useTranslation } from 'react-i18next';
+import { MessageModal } from '../../components/MessageModal';
 
 export default function ShopSettings() {
   const { t } = useTranslation();
@@ -20,8 +21,7 @@ export default function ShopSettings() {
   const [preview, setPreview] = useState<string | null>(null);
   const [signature, setSignature] = useState<File | null>(null);
   const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [uiMessage, setUiMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
 
@@ -75,8 +75,7 @@ export default function ShopSettings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    setUiMessage(null);
     const formData = new FormData();
     formData.append('name', name);
     formData.append('company_name', companyName);
@@ -98,7 +97,7 @@ export default function ShopSettings() {
 
     try {
       await updateShop(formData);
-      setSuccess(t('settings.alerts.success'));
+      setUiMessage({ type: 'success', text: t('settings.alerts.success') });
       // Reset file input
       setLogo(null);
       setPreview(null);
@@ -111,7 +110,8 @@ export default function ShopSettings() {
         signatureInputRef.current.value = '';
       }
     } catch (err) {
-      setError(t('settings.alerts.error'));
+      const message = (err as any)?.response?.data?.message || t('settings.alerts.error');
+      setUiMessage({ type: 'danger', text: message });
       console.error(err);
     }
   };
@@ -121,38 +121,19 @@ export default function ShopSettings() {
   return (
     <div className="container mt-5" style={{ maxWidth: '800px' }}>
       <h1 className="mb-4">{t('settings.title')}</h1>
-      
-      {success && (
-        <div
-          className="modal fade show d-block"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}
-          role="dialog"
-        >
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0">
-              <div className="modal-body text-center p-4">
-                <div className="text-success mb-3" style={{ fontSize: '3rem' }}>
-                  <i className="bi bi-check-circle-fill"></i>
-                </div>
-                <h5 className="mb-2">
-                  {t('common.success_title', 'สำเร็จ')}
-                </h5>
-                <p className="mb-0">{success}</p>
-              </div>
-              <div className="modal-footer border-0 justify-content-center">
-                <button
-                  type="button"
-                  className="btn btn-success"
-                  onClick={() => setSuccess('')}
-                >
-                  {t('common.ok', 'ตกลง')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      {error && <div className="alert alert-danger">{error}</div>}
+
+      <MessageModal
+        open={uiMessage !== null}
+        type={uiMessage?.type || 'danger'}
+        title={
+          uiMessage?.type === 'success'
+            ? t('common.success_title', 'สำเร็จ')
+            : t('common.error_title', 'ไม่สำเร็จ')
+        }
+        message={uiMessage?.text || ''}
+        okLabel={t('common.ok', 'ตกลง')}
+        onClose={() => setUiMessage(null)}
+      />
 
       <div className="card shadow-sm">
         <div className="card-body p-4">

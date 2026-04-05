@@ -3,6 +3,7 @@ import { api, useAuthStore } from '@vendia/shared';
 import { useTranslation } from 'react-i18next';
 import { format, differenceInHours, differenceInMinutes, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDate, isWeekend, addMonths, subMonths } from 'date-fns';
 import { th, enUS } from 'date-fns/locale';
+import { MessageModal } from '../../components/MessageModal';
 
 const formatDuration = (startDate: string) => {
   const start = new Date(startDate).getTime();
@@ -61,6 +62,7 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
     const { t, i18n } = useTranslation();
     const locale = i18n.language === 'th' ? th : enUS;
     const { user } = useAuthStore();
+    const [uiMessage, setUiMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
@@ -183,7 +185,7 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
         const finalReason = absentType === 'weekly_off' ? 'วันหยุดประจำสัปดาห์' : absentReason;
 
         if (absentType === 'absent' && !finalReason) {
-            alert('Please provide a reason');
+            setUiMessage({ type: 'danger', text: t('attendance.dashboard.mark_absent_modal.reason_required', 'กรุณากรอกเหตุผล') });
             return;
         }
         
@@ -198,7 +200,8 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
             fetchMonitorData();
         } catch (error) {
             console.error('Failed to mark absent', error);
-            alert('Failed to mark absent');
+            const message = (error as any)?.response?.data?.message || t('attendance.dashboard.mark_absent_failed', 'บันทึกสถานะไม่สำเร็จ');
+            setUiMessage({ type: 'danger', text: message });
         } finally {
             setAbsentLoading(false);
         }
@@ -315,7 +318,8 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
             // Show success message (optional)
         } catch (error) {
             console.error('Failed to update attendance', error);
-            alert(t('attendance.history.update_failed'));
+            const message = (error as any)?.response?.data?.message || t('attendance.history.update_failed');
+            setUiMessage({ type: 'danger', text: message });
         }
     };
 
@@ -854,6 +858,14 @@ export const AttendanceHistory = ({ embedded = false, defaultView = 'list' }: { 
 
     return (
         <div className={embedded ? "mt-4" : "container-fluid p-4"}>
+            <MessageModal
+                open={uiMessage !== null}
+                type={uiMessage?.type || 'danger'}
+                title={uiMessage?.type === 'success' ? t('common.success_title', 'สำเร็จ') : t('common.error_title', 'ไม่สำเร็จ')}
+                message={uiMessage?.text || ''}
+                okLabel={t('common.ok', 'ตกลง')}
+                onClose={() => setUiMessage(null)}
+            />
             {!embedded && (
                 <div className="d-flex justify-content-between align-items-center mb-4">
                     <h1 className="h3">{t('attendance.history.title')}</h1>

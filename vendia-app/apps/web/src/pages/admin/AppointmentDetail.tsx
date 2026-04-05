@@ -5,6 +5,7 @@ import Select from 'react-select';
 import { useTranslation } from 'react-i18next';
 import { EditOrderModal } from './EditOrderModal';
 import { CreateSupplementaryOrderModal } from './CreateSupplementaryOrderModal';
+import { MessageModal } from '../../components/MessageModal';
 
 interface Appointment {
   id: number;
@@ -612,46 +613,22 @@ export const AppointmentDetail = () => {
 
   return (
     <div className="container-fluid p-4">
-      {successMessage && (
-        <div
-          className="modal fade show d-block"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2000 }}
-          role="dialog"
-        >
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0">
-              <div className="modal-body text-center p-4">
-                <div className="text-success mb-3" style={{ fontSize: '3rem' }}>
-                  <i className="bi bi-check-circle-fill"></i>
-                </div>
-                <h5 className="mb-2">
-                  {t('common.success_title', 'สำเร็จ')}
-                </h5>
-                <p className="mb-0">{successMessage}</p>
-              </div>
-              <div className="modal-footer border-0 justify-content-center">
-                <button
-                  type="button"
-                  className="btn btn-success"
-                  onClick={() => setSuccessMessage(null)}
-                >
-                  {t('common.ok', 'ตกลง')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      {errorMessage && !payingOrder && (
-        <div className="alert alert-danger alert-dismissible fade show mb-3" role="alert">
-          {errorMessage}
-          <button
-            type="button"
-            className="btn-close"
-            onClick={() => setErrorMessage(null)}
-          ></button>
-        </div>
-      )}
+      <MessageModal
+        open={successMessage !== null}
+        type="success"
+        title={t('common.success_title', 'สำเร็จ')}
+        message={successMessage || ''}
+        okLabel={t('common.ok', 'ตกลง')}
+        onClose={() => setSuccessMessage(null)}
+      />
+      <MessageModal
+        open={errorMessage !== null && !payingOrder}
+        type="danger"
+        title={t('common.error_title', 'ไม่สำเร็จ')}
+        message={errorMessage || ''}
+        okLabel={t('common.ok', 'ตกลง')}
+        onClose={() => setErrorMessage(null)}
+      />
       <div className="mb-4">
         <button onClick={() => navigate(-1)} className="btn btn-outline-secondary mb-3">
           <i className="bi bi-arrow-left me-2"></i>{t('appointments.detail.back')}

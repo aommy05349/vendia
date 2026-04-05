@@ -3,6 +3,7 @@ import { useProductStore, useCategoryStore, useAuxStore, Product, ProductImage }
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { MessageModal } from '../../components/MessageModal';
 
 export const EditProduct = () => {
   const { t } = useTranslation();
@@ -16,6 +17,7 @@ export const EditProduct = () => {
   const disableBarcodeFields = true;
   const [confirmDeleteImageId, setConfirmDeleteImageId] = useState<number | null>(null);
   const [confirmDeleteImageBusy, setConfirmDeleteImageBusy] = useState(false);
+  const [uiMessage, setUiMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [imageUrls, setImageUrls] = useState<string[]>([]);
 
@@ -264,6 +266,14 @@ export const EditProduct = () => {
 
   return (
     <div className="container-fluid p-4">
+      <MessageModal
+        open={uiMessage !== null}
+        type={uiMessage?.type || 'danger'}
+        title={uiMessage?.type === 'success' ? t('common.success_title', 'สำเร็จ') : t('common.error_title', 'ไม่สำเร็จ')}
+        message={uiMessage?.text || ''}
+        okLabel={t('common.ok', 'ตกลง')}
+        onClose={() => setUiMessage(null)}
+      />
       <ConfirmModal
         open={confirmDeleteImageId !== null}
         title={t('common.confirm_title', 'ยืนยัน')}
@@ -280,7 +290,7 @@ export const EditProduct = () => {
             setExistingImages(prev => prev.filter(img => img.id !== confirmDeleteImageId));
           } catch (err) {
             console.error('Failed to delete image', err);
-            alert('Failed to delete image');
+            setUiMessage({ type: 'danger', text: t('products.images.delete_failed', 'ลบรูปไม่สำเร็จ') });
           } finally {
             setConfirmDeleteImageBusy(false);
             setConfirmDeleteImageId(null);
@@ -690,7 +700,7 @@ export const EditProduct = () => {
                                 })));
                               } catch (err) {
                                 console.error('Failed to set cover image', err);
-                                alert('Failed to set cover image');
+                                setUiMessage({ type: 'danger', text: t('products.images.set_cover_failed', 'ตั้งรูปหน้าปกไม่สำเร็จ') });
                               }
                             }}
                           >

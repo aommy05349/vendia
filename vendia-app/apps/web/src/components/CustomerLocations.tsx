@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '@vendia/shared';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from './ConfirmModal';
+import { MessageModal } from './MessageModal';
 
 interface CustomerLocation {
   id: number;
@@ -28,6 +29,7 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
   const [editingLocation, setEditingLocation] = useState<CustomerLocation | null>(null);
   const [confirmLocationId, setConfirmLocationId] = useState<number | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
+  const [uiMessage, setUiMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -160,7 +162,7 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
       fetchLocations();
     } catch (error) {
       console.error('Failed to save location', error);
-      alert(t('customers.locations.save_failed'));
+      setUiMessage({ type: 'danger', text: t('customers.locations.save_failed') });
     }
   };
 
@@ -188,6 +190,14 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
 
   return (
     <div className="card shadow-sm mt-4">
+      <MessageModal
+        open={uiMessage !== null}
+        type={uiMessage?.type || 'danger'}
+        title={uiMessage?.type === 'success' ? t('common.success_title', 'สำเร็จ') : t('common.error_title', 'ไม่สำเร็จ')}
+        message={uiMessage?.text || ''}
+        okLabel={t('common.ok', 'ตกลง')}
+        onClose={() => setUiMessage(null)}
+      />
       <ConfirmModal
         open={confirmLocationId !== null}
         title={t('common.confirm_title', 'ยืนยัน')}

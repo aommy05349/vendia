@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { EditOrderModal } from './EditOrderModal';
 import { PullToRefresh } from '../../components/PullToRefresh';
+import { MessageModal } from '../../components/MessageModal';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 interface BundleItemSnapshot {
   id: number;
@@ -314,123 +316,70 @@ export const OrderList = () => {
   return (
     <PullToRefresh onRefresh={() => fetchOrders(1, true)}>
       <div className="container-fluid p-4">
-      {confirmAction && (
-        <div
-          className="modal fade show d-block"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}
-          role="dialog"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget && !confirmBusy) setConfirmAction(null);
-          }}
-        >
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0">
-              <div className="modal-header">
-                <h5 className="modal-title">{t('common.confirm_title', 'ยืนยัน')}</h5>
-                <button type="button" className="btn-close" onClick={() => !confirmBusy && setConfirmAction(null)}></button>
-              </div>
-              <div className="modal-body">
-                <p className="mb-0">
-                  {confirmAction.kind === 'cancel-document'
-                    ? t('orders.confirm_cancel_document', { number: confirmAction.number })
-                    : confirmAction.kind === 'convert-quotation'
-                      ? t('orders.confirm_convert_quotation')
-                      : confirmAction.kind === 'delete-order'
-                        ? t('orders.confirm_delete_order', 'ต้องการลบออเดอร์นี้ออกจากระบบถาวรใช่ไหม? (ลบแล้วกู้คืนไม่ได้)')
-                        : t('orders.confirm_cancel_order')}
-                </p>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-outline-secondary" onClick={() => setConfirmAction(null)} disabled={confirmBusy}>
-                  {t('common.cancel', 'ยกเลิก')}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={async () => {
-                    const action = confirmAction;
-                    if (!action) return;
-                    setConfirmBusy(true);
-                    try {
-                      if (action.kind === 'cancel-document') {
-                        await handleCancelDocument(action.orderId, action.docType, action.number);
-                      } else if (action.kind === 'convert-quotation') {
-                        await api.put(`/orders/${action.orderId}`, { status: 'pending' });
-                        fetchOrders(currentPage);
-                      } else if (action.kind === 'delete-order') {
-                        await api.delete(`/orders/${action.orderId}`);
-                        fetchOrders(currentPage);
-                        setAlertMessage({ type: 'success', text: t('orders.update_success') });
-                      } else {
-                        await api.put(`/orders/${action.orderId}`, { status: 'cancelled' });
-                        fetchOrders(currentPage);
-                        setAlertMessage({ type: 'success', text: t('orders.update_success') });
-                      }
-                    } catch (error) {
-                      if (action.kind === 'convert-quotation') {
-                        setAlertMessage({ type: 'danger', text: t('orders.convert_failed') });
-                      } else if (action.kind === 'delete-order') {
-                        setAlertMessage({ type: 'danger', text: t('orders.update_failed') });
-                      } else {
-                        setAlertMessage({ type: 'danger', text: t('orders.update_failed') });
-                      }
-                    } finally {
-                      setConfirmBusy(false);
-                      setConfirmAction(null);
-                    }
-                  }}
-                  disabled={confirmBusy}
-                >
-                  {confirmBusy ? t('common.loading', 'กำลังทำรายการ...') : t('common.confirm', 'ยืนยัน')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      {alertMessage && alertMessage.type === 'danger' && (
-        <div
-          className={`alert alert-${alertMessage.type} alert-dismissible fade show`}
-          role="alert"
-        >
-          {alertMessage.text}
-          <button
-            type="button"
-            className="btn-close"
-            onClick={() => setAlertMessage(null)}
-          ></button>
-        </div>
-      )}
-      {alertMessage && alertMessage.type === 'success' && (
-        <div
-          className="modal fade show d-block"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}
-          role="dialog"
-        >
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0">
-              <div className="modal-body text-center p-4">
-                <div className="text-success mb-3" style={{ fontSize: '3rem' }}>
-                  <i className="bi bi-check-circle-fill"></i>
-                </div>
-                <h5 className="mb-2">
-                  {t('common.success_title', 'สำเร็จ')}
-                </h5>
-                <p className="mb-0">{alertMessage.text}</p>
-              </div>
-              <div className="modal-footer border-0 justify-content-center">
-                <button
-                  type="button"
-                  className="btn btn-success"
-                  onClick={() => setAlertMessage(null)}
-                >
-                  {t('common.ok', 'ตกลง')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={confirmAction !== null}
+        title={t('common.confirm_title', 'ยืนยัน')}
+        message={
+          !confirmAction
+            ? ''
+            : confirmAction.kind === 'cancel-document'
+              ? t('orders.confirm_cancel_document', { number: confirmAction.number })
+              : confirmAction.kind === 'convert-quotation'
+                ? t('orders.confirm_convert_quotation')
+                : confirmAction.kind === 'delete-order'
+                  ? t('orders.confirm_delete_order', 'ต้องการลบออเดอร์นี้ออกจากระบบถาวรใช่ไหม? (ลบแล้วกู้คืนไม่ได้)')
+                  : t('orders.confirm_cancel_order')
+        }
+        confirmLabel={t('common.confirm', 'ยืนยัน')}
+        cancelLabel={t('common.cancel', 'ยกเลิก')}
+        confirmVariant="danger"
+        busy={confirmBusy}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={async () => {
+          const action = confirmAction;
+          if (!action) return;
+          setConfirmBusy(true);
+          try {
+            if (action.kind === 'cancel-document') {
+              await handleCancelDocument(action.orderId, action.docType, action.number);
+            } else if (action.kind === 'convert-quotation') {
+              await api.put(`/orders/${action.orderId}`, { status: 'pending' });
+              fetchOrders(currentPage);
+            } else if (action.kind === 'delete-order') {
+              await api.delete(`/orders/${action.orderId}`);
+              fetchOrders(currentPage);
+              setAlertMessage({ type: 'success', text: t('orders.update_success') });
+            } else {
+              await api.put(`/orders/${action.orderId}`, { status: 'cancelled' });
+              fetchOrders(currentPage);
+              setAlertMessage({ type: 'success', text: t('orders.update_success') });
+            }
+          } catch (error) {
+            if (action.kind === 'convert-quotation') {
+              setAlertMessage({ type: 'danger', text: t('orders.convert_failed') });
+            } else if (action.kind === 'delete-order') {
+              setAlertMessage({ type: 'danger', text: t('orders.update_failed') });
+            } else {
+              setAlertMessage({ type: 'danger', text: t('orders.update_failed') });
+            }
+          } finally {
+            setConfirmBusy(false);
+            setConfirmAction(null);
+          }
+        }}
+      />
+      <MessageModal
+        open={alertMessage !== null}
+        type={alertMessage?.type || 'danger'}
+        title={
+          alertMessage?.type === 'success'
+            ? t('common.success_title', 'สำเร็จ')
+            : t('common.error_title', 'ไม่สำเร็จ')
+        }
+        message={alertMessage?.text || ''}
+        okLabel={t('common.ok', 'ตกลง')}
+        onClose={() => setAlertMessage(null)}
+      />
       {dailySales && (
         <div className="row mb-4">
           <div className="col-md-4">

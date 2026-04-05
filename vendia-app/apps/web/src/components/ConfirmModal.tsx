@@ -7,6 +7,7 @@ type ConfirmModalProps = {
   confirmLabel?: string;
   cancelLabel?: string;
   confirmVariant?: 'danger' | 'primary' | 'success';
+  zIndex?: number;
   busy?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -19,6 +20,7 @@ export const ConfirmModal = ({
   confirmLabel = 'ยืนยัน',
   cancelLabel = 'ยกเลิก',
   confirmVariant = 'danger',
+  zIndex = 2000,
   busy = false,
   onCancel,
   onConfirm,
@@ -28,7 +30,7 @@ export const ConfirmModal = ({
   return (
     <div
       className="modal fade show d-block"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex }}
       role="dialog"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !busy) onCancel();
@@ -56,4 +58,3 @@ export const ConfirmModal = ({
     </div>
   );
 };
-

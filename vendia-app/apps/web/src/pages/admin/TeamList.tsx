@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '@vendia/shared';
 import { useTranslation } from 'react-i18next';
+import { ConfirmModal } from '../../components/ConfirmModal';
+import { MessageModal } from '../../components/MessageModal';
 
 interface Technician {
   id: number;
@@ -359,41 +361,17 @@ export const TeamList: React.FC = () => {
         </button>
       </div>
 
-      {error && (
-        <div className="alert alert-danger" role="alert">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div
-          className="modal fade show d-block"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}
-          role="dialog"
-        >
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0">
-              <div className="modal-body text-center p-4">
-                <div className="text-success mb-3" style={{ fontSize: '3rem' }}>
-                  <i className="bi bi-check-circle-fill"></i>
-                </div>
-                <h5 className="mb-2">
-                  {t('common.success_title', 'สำเร็จ')}
-                </h5>
-                <p className="mb-0">{success}</p>
-              </div>
-              <div className="modal-footer border-0 justify-content-center">
-                <button
-                  type="button"
-                  className="btn btn-success"
-                  onClick={() => setSuccess(null)}
-                >
-                  {t('common.ok', 'ตกลง')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <MessageModal
+        open={Boolean(error || success)}
+        type={error ? 'danger' : 'success'}
+        title={error ? t('common.error_title', 'ไม่สำเร็จ') : t('common.success_title', 'สำเร็จ')}
+        message={error || success || ''}
+        okLabel={t('common.ok', 'ตกลง')}
+        onClose={() => {
+          if (error) setError(null);
+          if (success) setSuccess(null);
+        }}
+      />
 
       {loading ? (
         <div className="text-center p-5">
@@ -789,56 +767,24 @@ export const TeamList: React.FC = () => {
         </div>
       )}
 
-      {showDeleteModal && deletingTeam && (
-        <div
-          className="modal fade show d-block"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-        >
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  {t('teams.delete_title', 'ลบทีมช่าง')}
-                </h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowDeleteModal(false)}
-                ></button>
-              </div>
-              <div className="modal-body">
-                <p className="mb-2">
-                  {t(
-                    'teams.delete_confirm',
-                    'คุณต้องการลบทีมนี้หรือไม่? นัดหมายที่เคยผูกทีมนี้จะไม่แสดงทีมอีกต่อไป แต่ตัวนัดหมายยังอยู่เหมือนเดิม',
-                  )}
-                </p>
-                <p className="fw-bold mb-0">{deletingTeam.name}</p>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowDeleteModal(false)}
-                  disabled={deleting}
-                >
-                  {t('actions.cancel', 'Cancel')}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                >
-                  {deleting
-                    ? t('teams.deleting', 'กำลังลบ...')
-                    : t('teams.delete_confirm_button', 'ยืนยันลบทีม')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={showDeleteModal && deletingTeam !== null}
+        title={t('teams.delete_title', 'ลบทีมช่าง')}
+        message={
+          deletingTeam
+            ? `${t(
+                'teams.delete_confirm',
+                'คุณต้องการลบทีมนี้หรือไม่? นัดหมายที่เคยผูกทีมนี้จะไม่แสดงทีมอีกต่อไป แต่ตัวนัดหมายยังอยู่เหมือนเดิม',
+              )} (${deletingTeam.name})`
+            : ''
+        }
+        confirmLabel={t('teams.delete_confirm_button', 'ยืนยันลบทีม')}
+        cancelLabel={t('actions.cancel', 'Cancel')}
+        confirmVariant="danger"
+        busy={deleting}
+        onCancel={() => setShowDeleteModal(false)}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 };

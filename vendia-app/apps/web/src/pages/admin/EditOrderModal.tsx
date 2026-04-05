@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api, Product, User } from '@vendia/shared';
 import { useTranslation } from 'react-i18next';
+import { MessageModal } from '../../components/MessageModal';
 
 interface EditOrderModalProps {
   orderId: number;
@@ -277,7 +278,14 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
             <button type="button" className="btn-close" onClick={onClose}></button>
           </div>
           <div className="modal-body">
-            {error && <div className="alert alert-danger">{error}</div>}
+            <MessageModal
+              open={error !== null}
+              type="danger"
+              title={t('common.error_title', 'ไม่สำเร็จ')}
+              message={error || ''}
+              okLabel={t('common.ok', 'ตกลง')}
+              onClose={() => setError(null)}
+            />
             {showCustomerFormModal && (
               <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }} role="dialog">
                 <div className="modal-dialog modal-dialog-centered modal-lg">

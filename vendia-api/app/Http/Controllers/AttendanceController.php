@@ -292,14 +292,18 @@ class AttendanceController extends Controller
             ->first();
 
         if ($existing) {
-            if (in_array($existing->status, ['absent', 'weekly_off'])) {
+            if (in_array($existing->status, ['absent', 'weekly_off'], true)) {
                 $existing->update([
+                    'status' => 'absent',
                     'reason' => $request->reason,
                 ]);
                 return response()->json($existing);
             }
 
-            return response()->json(['message' => 'Attendance already recorded for this date'], 400);
+            return response()->json([
+                'message' => 'มีการลงเวลา/บันทึกการทำงานในวันที่เลือกแล้ว ไม่สามารถส่งคำขอลางานได้',
+                'status' => $existing->status,
+            ], 422);
         }
 
         $attendance = Attendance::create([
