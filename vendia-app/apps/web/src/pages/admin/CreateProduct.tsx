@@ -10,11 +10,13 @@ export const CreateProduct = () => {
   const { categories, fetchCategories } = useCategoryStore();
   const { brands, units, warehouses, fetchBrands, fetchUnits, fetchWarehouses } = useAuxStore();
   const showTaxAndDiscountFields = false;
+  const disableBarcodeFields = true;
   
   // Product Information
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [sku, setSku] = useState('');
+  const [skuTouched, setSkuTouched] = useState(false);
   const [barcode, setBarcode] = useState('');
   const [barcodeSymbology, setBarcodeSymbology] = useState('Code128');
   const [categoryId, setCategoryId] = useState('');
@@ -50,6 +52,12 @@ export const CreateProduct = () => {
   }, [fetchCategories, fetchBrands, fetchUnits, fetchWarehouses]);
 
   useEffect(() => {
+    if (!warehouseId && warehouses.length === 1) {
+      setWarehouseId(warehouses[0]!.id.toString());
+    }
+  }, [warehouses, warehouseId]);
+
+  useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       if (searchTerm) {
         searchProducts({ search: searchTerm, per_page: 5 });
@@ -57,6 +65,24 @@ export const CreateProduct = () => {
     }, 500);
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm, searchProducts]);
+
+  const generateSku = (productName: string) => {
+    const base = productName
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 12);
+    const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return `${base || 'SKU'}-${suffix}`;
+  };
+
+  useEffect(() => {
+    if (!skuTouched && name.trim() && !sku.trim()) {
+      setSku(generateSku(name));
+    }
+  }, [name, skuTouched, sku]);
 
   const addBundleItem = (product: Product) => {
     if (bundleItems.find(item => item.id === product.id)) return;
@@ -86,9 +112,12 @@ export const CreateProduct = () => {
       const formData = new FormData();
       formData.append('name', name);
       if (slug) formData.append('slug', slug);
-      formData.append('sku', sku);
-      if (barcode) formData.append('barcode', barcode);
-      formData.append('barcode_symbology', barcodeSymbology);
+      const skuToSubmit = sku.trim() || generateSku(name);
+      formData.append('sku', skuToSubmit);
+      if (barcode.trim()) {
+        formData.append('barcode', barcode.trim());
+        formData.append('barcode_symbology', barcodeSymbology);
+      }
       formData.append('category_id', categoryId);
       if (brandId) formData.append('brand_id', brandId);
       if (unitId) formData.append('unit_id', unitId);
@@ -164,11 +193,25 @@ export const CreateProduct = () => {
                 <div className="row mb-3">
                   <div className="col-md-4">
                     <label className="form-label">{t('products.form.fields.sku')} <span className="text-danger">*</span></label>
-                    <input type="text" className="form-control" value={sku} onChange={e => setSku(e.target.value)} required />
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={sku}
+                      onChange={e => {
+                        setSkuTouched(true);
+                        setSku(e.target.value);
+                      }}
+                      required
+                    />
                   </div>
                   <div className="col-md-4">
                     <label className="form-label">{t('products.form.fields.barcode_symbology')}</label>
-                    <select className="form-select" value={barcodeSymbology} onChange={e => setBarcodeSymbology(e.target.value)}>
+                    <select
+                      className="form-select"
+                      value={barcodeSymbology}
+                      onChange={e => setBarcodeSymbology(e.target.value)}
+                      disabled={disableBarcodeFields}
+                    >
                       <option value="Code128">Code 128</option>
                       <option value="Code39">Code 39</option>
                       <option value="EAN8">EAN-8</option>
@@ -178,7 +221,13 @@ export const CreateProduct = () => {
                   </div>
                   <div className="col-md-4">
                     <label className="form-label">{t('products.form.fields.item_barcode')}</label>
-                    <input type="text" className="form-control" value={barcode} onChange={e => setBarcode(e.target.value)} />
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={barcode}
+                      onChange={e => setBarcode(e.target.value)}
+                      disabled={disableBarcodeFields}
+                    />
                   </div>
                 </div>
 
@@ -209,7 +258,12 @@ export const CreateProduct = () => {
                   </div>
                   <div className="col-md-6">
                     <label className="form-label">{t('products.form.fields.warehouse')}</label>
-                    <select className="form-select" value={warehouseId} onChange={e => setWarehouseId(e.target.value)}>
+                    <select
+                      className="form-select"
+                      value={warehouseId}
+                      onChange={e => setWarehouseId(e.target.value)}
+                      disabled={warehouses.length === 1}
+                    >
                       <option value="">{t('products.form.fields.select_warehouse')}</option>
                       {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                     </select>
