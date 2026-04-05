@@ -15,6 +15,7 @@ export default function ShopSettings() {
   const [website, setWebsite] = useState('');
   const [footerText, setFooterText] = useState('');
   const [remarks, setRemarks] = useState('');
+  const [attendanceOfficeIps, setAttendanceOfficeIps] = useState('');
   const [logo, setLogo] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [signature, setSignature] = useState<File | null>(null);
@@ -52,6 +53,7 @@ export default function ShopSettings() {
       setWebsite(shop.website || '');
       setFooterText(shop.footer_text || '');
       setRemarks(shop.remarks || '');
+      setAttendanceOfficeIps(shop.attendance_office_ips || '');
     }
   }, [shop, fetchShop]);
 
@@ -86,6 +88,7 @@ export default function ShopSettings() {
     formData.append('website', website);
     formData.append('footer_text', footerText);
     formData.append('remarks', remarks);
+    formData.append('attendance_office_ips', attendanceOfficeIps);
     if (logo) {
       formData.append('logo', logo);
     }
@@ -372,6 +375,20 @@ export default function ShopSettings() {
                 placeholder={t('settings.remarks_placeholder')}
               />
               <div className="form-text">{t('settings.remarks_help')}</div>
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label fw-bold">{t('settings.attendance_office_ips', 'IP ที่อนุญาตให้ลงเวลา')}</label>
+              <textarea
+                className="form-control"
+                rows={3}
+                value={attendanceOfficeIps}
+                onChange={(e) => setAttendanceOfficeIps(e.target.value)}
+                placeholder="203.0.113.10&#10;203.0.113.11"
+              />
+              <div className="form-text">
+                {t('settings.attendance_office_ips_help', 'ใส่ IPv4 ที่อนุญาตให้ช่างลงเวลา (คั่นด้วยขึ้นบรรทัดใหม่หรือ comma). ถ้าเว้นว่างจะไม่จำกัด')}
+              </div>
             </div>
 
             <div className="d-flex justify-content-end">

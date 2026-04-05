@@ -53,6 +53,7 @@ class ShopController extends Controller
             'website' => 'nullable|url',
             'footer_text' => 'nullable|string',
             'remarks' => 'nullable|string',
+            'attendance_office_ips' => 'nullable|string|max:10000',
             'bank_details' => 'nullable|string',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'signature' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -71,6 +72,7 @@ class ShopController extends Controller
         $shop->footer_text = $validated['footer_text'] ?? $shop->footer_text;
         $shop->remarks = $validated['remarks'] ?? $shop->remarks;
         $shop->bank_details = $validated['bank_details'] ?? $shop->bank_details;
+        $shop->attendance_office_ips = $validated['attendance_office_ips'] ?? $shop->attendance_office_ips;
 
         if ($request->hasFile('logo')) {
             $this->deletePublicIfLocal($shop->logo_path);

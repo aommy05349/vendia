@@ -13,6 +13,7 @@ export interface Shop {
   website?: string;
   footer_text?: string;
   remarks?: string;
+  attendance_office_ips?: string;
   logo_path?: string;
   signature_path?: string;
 }

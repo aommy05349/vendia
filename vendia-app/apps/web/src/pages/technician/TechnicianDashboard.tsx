@@ -98,7 +98,8 @@ export const TechnicianDashboard = () => {
       await fetchStatus();
     } catch (error) {
       console.error('Check-in failed', error);
-      alert(t('attendance.dashboard.check_in_failed'));
+      const message = (error as any)?.response?.data?.message || t('attendance.dashboard.check_in_failed');
+      alert(message);
     } finally {
       setLoading(false);
     }

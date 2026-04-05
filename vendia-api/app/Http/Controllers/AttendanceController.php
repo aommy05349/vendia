@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attendance;
+use App\Models\Shop;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
@@ -10,6 +11,24 @@ use Illuminate\Support\Facades\Auth;
 
 class AttendanceController extends Controller
 {
+    private function parseOfficeIps(?string $value): array
+    {
+        if (!is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        $parts = preg_split('/[\s,]+/', trim($value)) ?: [];
+        $ips = [];
+        foreach ($parts as $part) {
+            $candidate = trim($part);
+            if ($candidate === '') continue;
+            if (!filter_var($candidate, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) continue;
+            $ips[$candidate] = true;
+        }
+
+        return array_keys($ips);
+    }
+
     public function index(Request $request)
     {
         $query = Attendance::with('user')->latest();
@@ -61,6 +80,20 @@ class AttendanceController extends Controller
     public function checkIn(Request $request)
     {
         $user = Auth::user();
+
+        if ($user && $user->role === 'technician') {
+            $shop = Shop::first();
+            $allowedIps = $this->parseOfficeIps($shop?->attendance_office_ips);
+            if (count($allowedIps) > 0) {
+                $ip = $request->ip();
+                if (!is_string($ip) || $ip === '' || !in_array($ip, $allowedIps, true)) {
+                    return response()->json([
+                        'message' => 'ไม่อนุญาตให้ลงเวลาเข้างานจาก IP นี้',
+                        'ip' => $ip,
+                    ], 403);
+                }
+            }
+        }
         
         $existing = Attendance::where('user_id', $user->id)
             ->whereNull('check_out')
