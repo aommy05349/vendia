@@ -28,8 +28,6 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
   const [editingLocation, setEditingLocation] = useState<CustomerLocation | null>(null);
   const [confirmLocationId, setConfirmLocationId] = useState<number | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
-  const [geocodeLoading, setGeocodeLoading] = useState(false);
-  const [geocodeError, setGeocodeError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -166,45 +164,6 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
     }
   };
 
-  const handleGeocodeFromAddress = async () => {
-    if (!formData.address.trim()) {
-      setGeocodeError(t('customers.locations.geocode_address_required'));
-      return;
-    }
-
-    setGeocodeLoading(true);
-    setGeocodeError('');
-
-    try {
-      const response = await api.get('/customer-locations/geocode', {
-        params: { query: formData.address },
-      });
-
-      const results = response.data as { lat: number; lon: number; display_name: string }[];
-
-      if (!results || results.length === 0) {
-        setGeocodeError(t('customers.locations.geocode_no_results'));
-        return;
-      }
-
-      const best = results[0];
-      const lat = best.lat;
-      const lon = best.lon;
-
-      setFormData(prev => ({
-        ...prev,
-        latitude: lat.toString(),
-        longitude: lon.toString(),
-        google_maps_link: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=18/${lat}/${lon}`,
-      }));
-    } catch (error) {
-      console.error('Failed to geocode address', error);
-      setGeocodeError(t('customers.locations.geocode_failed'));
-    } finally {
-      setGeocodeLoading(false);
-    }
-  };
-
   const handleDelete = (id: number) => {
     setConfirmLocationId(id);
   };
@@ -336,16 +295,8 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
                       />
                     </div>
                     <div className="col-md-12">
-                      <label className="form-label d-flex justify-content-between align-items-center">
-                        <span>{t('customers.locations.address_label')} <span className="text-danger">*</span></span>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-primary py-0"
-                          onClick={handleGeocodeFromAddress}
-                          disabled={geocodeLoading}
-                        >
-                          {geocodeLoading ? t('customers.locations.geocoding') : t('customers.locations.geocode_from_address')}
-                        </button>
+                      <label className="form-label">
+                        {t('customers.locations.address_label')} <span className="text-danger">*</span>
                       </label>
                       <textarea 
                         className="form-control" 
@@ -354,11 +305,6 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
                         onChange={e => setFormData({...formData, address: e.target.value})}
                         required
                       ></textarea>
-                      {geocodeError && (
-                        <div className="alert alert-warning mt-2 py-1 px-2 mb-0" style={{ fontSize: '0.8rem' }}>
-                          {geocodeError}
-                        </div>
-                      )}
                     </div>
                     
                     <div className="col-md-12">
@@ -391,6 +337,9 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
                         }}
                         placeholder="https://maps.google.com/..."
                       />
+                      <div className="form-text">
+                        {t('customers.locations.google_maps_hint', 'วางลิงก์ Google Maps เพื่อให้ระบบดึงพิกัดให้ (หรือกรอก Latitude/Longitude เอง)')}
+                      </div>
                     </div>
                     
                     <div className="col-md-6">
