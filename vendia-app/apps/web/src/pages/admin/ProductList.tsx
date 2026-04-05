@@ -237,8 +237,6 @@ export const ProductList = () => {
                         <td className="p-3">
                             {product.product_type === 'bundle' ? (
                                 <span className="badge bg-info text-dark">{t('products.form.fields.types.bundle')}</span>
-                            ) : product.product_type === 'variable' ? (
-                                <span className="badge bg-warning text-dark">{t('products.form.fields.types.variable')}</span>
                             ) : product.product_type === 'service' ? (
                                 <span className="badge bg-secondary text-white">{t('products.form.fields.types.service')}</span>
                             ) : (

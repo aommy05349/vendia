@@ -98,7 +98,7 @@ export const EditProduct = () => {
         setWarehouseId(product.warehouse_id ? product.warehouse_id.toString() : '');
         setDescription(product.description || '');
         
-        setProductType(product.product_type || 'single');
+        setProductType(product.product_type === 'variable' ? 'single' : (product.product_type || 'single'));
         setPrice(product.price.toString());
         setStock(product.stock.toString());
         setQuantityAlert(product.quantity_alert ? product.quantity_alert.toString() : '0');
@@ -314,7 +314,6 @@ export const EditProduct = () => {
                     <label className="form-label">{t('products.form.fields.product_type')}</label>
                     <select className="form-select" value={productType} onChange={e => setProductType(e.target.value)}>
                       <option value="single">{t('products.form.fields.types.single')}</option>
-                      <option value="variable">{t('products.form.fields.types.variable')}</option>
                       <option value="bundle">{t('products.form.fields.types.bundle')}</option>
                       <option value="service">{t('products.form.fields.types.service')}</option>
                     </select>

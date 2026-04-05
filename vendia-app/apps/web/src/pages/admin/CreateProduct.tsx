@@ -233,7 +233,6 @@ export const CreateProduct = () => {
                     <label className="form-label">{t('products.form.fields.product_type')}</label>
                     <select className="form-select" value={productType} onChange={e => setProductType(e.target.value)}>
                       <option value="single">{t('products.form.fields.types.single')}</option>
-                      <option value="variable">{t('products.form.fields.types.variable')}</option>
                       <option value="bundle">{t('products.form.fields.types.bundle')}</option>
                       <option value="service">{t('products.form.fields.types.service')}</option>
                     </select>
