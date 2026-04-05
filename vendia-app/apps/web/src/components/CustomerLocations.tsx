@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@vendia/shared';
 import { useTranslation } from 'react-i18next';
+import { ConfirmModal } from './ConfirmModal';
 
 interface CustomerLocation {
   id: number;
@@ -25,6 +26,8 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingLocation, setEditingLocation] = useState<CustomerLocation | null>(null);
+  const [confirmLocationId, setConfirmLocationId] = useState<number | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const [geocodeLoading, setGeocodeLoading] = useState(false);
   const [geocodeError, setGeocodeError] = useState('');
   const [formData, setFormData] = useState({
@@ -202,14 +205,8 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm(t('customers.locations.delete_confirm'))) return;
-    try {
-      await api.delete(`/customer-locations/${id}`);
-      fetchLocations();
-    } catch (error) {
-      console.error('Failed to delete location', error);
-    }
+  const handleDelete = (id: number) => {
+    setConfirmLocationId(id);
   };
 
   const handleGetCurrentLocation = () => {
@@ -232,6 +229,28 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
 
   return (
     <div className="card shadow-sm mt-4">
+      <ConfirmModal
+        open={confirmLocationId !== null}
+        title={t('common.confirm_title', 'ยืนยัน')}
+        message={t('customers.locations.delete_confirm')}
+        confirmLabel={t('actions.delete', 'ลบ')}
+        cancelLabel={t('common.cancel', 'ยกเลิก')}
+        busy={confirmBusy}
+        onCancel={() => setConfirmLocationId(null)}
+        onConfirm={async () => {
+          if (confirmLocationId === null) return;
+          setConfirmBusy(true);
+          try {
+            await api.delete(`/customer-locations/${confirmLocationId}`);
+            fetchLocations();
+          } catch (error) {
+            console.error('Failed to delete location', error);
+          } finally {
+            setConfirmBusy(false);
+            setConfirmLocationId(null);
+          }
+        }}
+      />
       <div className="card-header bg-white d-flex justify-content-between align-items-center py-3">
         <h5 className="mb-0">{t('customers.locations.title')}</h5>
         <button className="btn btn-sm btn-primary" onClick={() => handleOpenModal()}>

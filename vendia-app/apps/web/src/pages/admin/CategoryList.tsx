@@ -2,11 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useCategoryStore } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 export const CategoryList = () => {
   const { t } = useTranslation();
   const { categories, fetchCategories, deleteCategory, loading, error } = useCategoryStore();
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
+  const [confirmCategoryId, setConfirmCategoryId] = useState<number | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,21 +22,35 @@ export const CategoryList = () => {
     }
   }, [error]);
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm(t('categories.alerts.delete_confirm'))) return;
-    try {
-      await deleteCategory(id);
-      setAlertMessage({ type: 'success', text: t('categories.alerts.delete_success') });
-      setTimeout(() => setAlertMessage(null), 3000);
-    } catch (err) {
-      // Error is handled by store
-    }
+  const handleDelete = (id: number) => {
+    setConfirmCategoryId(id);
   };
 
   if (loading && categories.length === 0) return <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>;
 
   return (
     <div className="container-fluid p-4">
+      <ConfirmModal
+        open={confirmCategoryId !== null}
+        title={t('common.confirm_title', 'ยืนยัน')}
+        message={t('categories.alerts.delete_confirm')}
+        confirmLabel={t('actions.delete', 'ลบ')}
+        cancelLabel={t('common.cancel', 'ยกเลิก')}
+        busy={confirmBusy}
+        onCancel={() => setConfirmCategoryId(null)}
+        onConfirm={async () => {
+          if (confirmCategoryId === null) return;
+          setConfirmBusy(true);
+          try {
+            await deleteCategory(confirmCategoryId);
+            setAlertMessage({ type: 'success', text: t('categories.alerts.delete_success') });
+            setTimeout(() => setAlertMessage(null), 3000);
+          } finally {
+            setConfirmBusy(false);
+            setConfirmCategoryId(null);
+          }
+        }}
+      />
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="h3">{t('categories.title')}</h1>
         <button

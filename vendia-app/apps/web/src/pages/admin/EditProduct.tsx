@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useProductStore, useCategoryStore, useAuxStore, Product, ProductImage } from '@vendia/shared';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 export const EditProduct = () => {
   const { t } = useTranslation();
@@ -13,6 +14,8 @@ export const EditProduct = () => {
   const { brands, units, warehouses, fetchBrands, fetchUnits, fetchWarehouses } = useAuxStore();
   const showTaxAndDiscountFields = false;
   const disableBarcodeFields = true;
+  const [confirmDeleteImageId, setConfirmDeleteImageId] = useState<number | null>(null);
+  const [confirmDeleteImageBusy, setConfirmDeleteImageBusy] = useState(false);
 
   const getImageUrl = (path: string) => {
     if (path.startsWith('http')) return path;
@@ -242,6 +245,29 @@ export const EditProduct = () => {
 
   return (
     <div className="container-fluid p-4">
+      <ConfirmModal
+        open={confirmDeleteImageId !== null}
+        title={t('common.confirm_title', 'ยืนยัน')}
+        message={t('products.images.delete_confirm', 'ต้องการลบรูปนี้ใช่ไหม?')}
+        confirmLabel={t('actions.delete', 'ลบ')}
+        cancelLabel={t('common.cancel', 'ยกเลิก')}
+        busy={confirmDeleteImageBusy}
+        onCancel={() => setConfirmDeleteImageId(null)}
+        onConfirm={async () => {
+          if (confirmDeleteImageId === null) return;
+          setConfirmDeleteImageBusy(true);
+          try {
+            await deleteProductImage(Number(id), confirmDeleteImageId);
+            setExistingImages(prev => prev.filter(img => img.id !== confirmDeleteImageId));
+          } catch (err) {
+            console.error('Failed to delete image', err);
+            alert('Failed to delete image');
+          } finally {
+            setConfirmDeleteImageBusy(false);
+            setConfirmDeleteImageId(null);
+          }
+        }}
+      />
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>{t('products.edit_title')}</h2>
         <button className="btn btn-secondary" onClick={() => navigate('/products')}>
@@ -613,17 +639,7 @@ export const EditProduct = () => {
                             type="button"
                             className="btn btn-danger btn-sm position-absolute top-0 end-0 m-1 rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm"
                             style={{ width: '24px', height: '24px', zIndex: 10 }}
-                            onClick={async () => {
-                              if (window.confirm('Are you sure you want to delete this image?')) {
-                                try {
-                                  await deleteProductImage(Number(id), image.id);
-                                  setExistingImages(prev => prev.filter(img => img.id !== image.id));
-                                } catch (err) {
-                                  console.error('Failed to delete image', err);
-                                  alert('Failed to delete image');
-                                }
-                              }
-                            }}
+                            onClick={() => setConfirmDeleteImageId(image.id)}
                           >
                             <i className="bi bi-trash" style={{ fontSize: '12px' }}></i>
                           </button>

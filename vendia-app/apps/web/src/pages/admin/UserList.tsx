@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '@vendia/shared';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 interface User {
   id: number;
@@ -22,6 +23,8 @@ export const UserList = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
+  const [confirmUserId, setConfirmUserId] = useState<number | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -63,22 +66,38 @@ export const UserList = () => {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm(t('users.alerts.delete_confirm'))) return;
-    try {
-      await api.delete(`/users/${id}`);
-      setAlertMessage({ type: 'success', text: t('users.alerts.delete_success') });
-      fetchUsers(page);
-    } catch (error) {
-      console.error('Failed to delete user:', error);
-      setAlertMessage({ type: 'danger', text: t('users.alerts.delete_error') });
-    }
+  const handleDelete = (id: number) => {
+    setConfirmUserId(id);
   };
 
   if (loading) return <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>;
 
   return (
     <div className="container-fluid p-4">
+      <ConfirmModal
+        open={confirmUserId !== null}
+        title={t('common.confirm_title', 'ยืนยัน')}
+        message={t('users.alerts.delete_confirm')}
+        confirmLabel={t('actions.delete', 'ลบ')}
+        cancelLabel={t('common.cancel', 'ยกเลิก')}
+        busy={confirmBusy}
+        onCancel={() => setConfirmUserId(null)}
+        onConfirm={async () => {
+          if (confirmUserId === null) return;
+          setConfirmBusy(true);
+          try {
+            await api.delete(`/users/${confirmUserId}`);
+            setAlertMessage({ type: 'success', text: t('users.alerts.delete_success') });
+            fetchUsers(page);
+          } catch (error) {
+            console.error('Failed to delete user:', error);
+            setAlertMessage({ type: 'danger', text: t('users.alerts.delete_error') });
+          } finally {
+            setConfirmBusy(false);
+            setConfirmUserId(null);
+          }
+        }}
+      />
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="h3">{t('users.title')}</h1>
         <button

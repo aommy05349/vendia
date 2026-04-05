@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\Unit;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
 class UnitController extends Controller
@@ -41,7 +43,21 @@ class UnitController extends Controller
 
     public function destroy(Unit $unit)
     {
-        $unit->delete();
+        $isUsed = Product::where('unit_id', $unit->id)->exists();
+        if ($isUsed) {
+            return response()->json([
+                'message' => 'ไม่สามารถลบหน่วยนับนี้ได้ เพราะมีสินค้าใช้งานอยู่',
+            ], 422);
+        }
+
+        try {
+            $unit->delete();
+        } catch (QueryException $e) {
+            return response()->json([
+                'message' => 'ไม่สามารถลบหน่วยนับนี้ได้ เพราะมีข้อมูลที่อ้างอิงอยู่',
+            ], 422);
+        }
+
         return response()->noContent();
     }
 }

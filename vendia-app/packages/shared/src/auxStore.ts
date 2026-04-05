@@ -152,7 +152,7 @@ export const useAuxStore = create<AuxState>((set, get) => ({
       await api.delete(`/units/${id}`);
       set(state => ({ units: state.units.filter(u => u.id !== id), loading: false }));
     } catch (error: any) {
-      set({ loading: false, error: error.message || 'Failed to delete unit' });
+      set({ loading: false, error: error.response?.data?.message || error.message || 'Failed to delete unit' });
       throw error;
     }
   },

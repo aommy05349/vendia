@@ -2,11 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useAuxStore } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 export const BrandList = () => {
   const { t } = useTranslation();
   const { brands, fetchBrands, deleteBrand, loading, error, brandPagination } = useAuxStore();
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
+  const [confirmBrandId, setConfirmBrandId] = useState<number | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,21 +26,35 @@ export const BrandList = () => {
     }
   }, [error]);
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm(t('brands.alerts.delete_confirm'))) return;
-    try {
-      await deleteBrand(id);
-      setAlertMessage({ type: 'success', text: t('brands.alerts.delete_success') });
-      setTimeout(() => setAlertMessage(null), 3000);
-    } catch (err) {
-      // Error is handled by store
-    }
+  const handleDelete = (id: number) => {
+    setConfirmBrandId(id);
   };
 
   if (loading && brands.length === 0) return <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>;
 
   return (
     <div className="container-fluid p-4">
+      <ConfirmModal
+        open={confirmBrandId !== null}
+        title={t('common.confirm_title', 'ยืนยัน')}
+        message={t('brands.alerts.delete_confirm')}
+        confirmLabel={t('actions.delete', 'ลบ')}
+        cancelLabel={t('common.cancel', 'ยกเลิก')}
+        busy={confirmBusy}
+        onCancel={() => setConfirmBrandId(null)}
+        onConfirm={async () => {
+          if (confirmBrandId === null) return;
+          setConfirmBusy(true);
+          try {
+            await deleteBrand(confirmBrandId);
+            setAlertMessage({ type: 'success', text: t('brands.alerts.delete_success') });
+            setTimeout(() => setAlertMessage(null), 3000);
+          } finally {
+            setConfirmBusy(false);
+            setConfirmBrandId(null);
+          }
+        }}
+      />
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="h3">{t('brands.title')}</h1>
         <button

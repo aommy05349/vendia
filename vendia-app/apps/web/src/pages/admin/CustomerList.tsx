@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '@vendia/shared';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 interface User {
   id: number;
@@ -24,6 +25,8 @@ export const CustomerList = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
+  const [confirmCustomerId, setConfirmCustomerId] = useState<number | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -53,22 +56,38 @@ export const CustomerList = () => {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm(t('customers.delete_confirm'))) return;
-    try {
-      await api.delete(`/users/${id}`);
-      setAlertMessage({ type: 'success', text: t('customers.delete_success') });
-      fetchCustomers(page);
-    } catch (error) {
-      console.error('Failed to delete customer:', error);
-      setAlertMessage({ type: 'danger', text: t('customers.delete_failed') });
-    }
+  const handleDelete = (id: number) => {
+    setConfirmCustomerId(id);
   };
 
   if (loading) return <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>;
 
   return (
     <div className="container-fluid p-4">
+      <ConfirmModal
+        open={confirmCustomerId !== null}
+        title={t('common.confirm_title', 'ยืนยัน')}
+        message={t('customers.delete_confirm')}
+        confirmLabel={t('actions.delete', 'ลบ')}
+        cancelLabel={t('common.cancel', 'ยกเลิก')}
+        busy={confirmBusy}
+        onCancel={() => setConfirmCustomerId(null)}
+        onConfirm={async () => {
+          if (confirmCustomerId === null) return;
+          setConfirmBusy(true);
+          try {
+            await api.delete(`/users/${confirmCustomerId}`);
+            setAlertMessage({ type: 'success', text: t('customers.delete_success') });
+            fetchCustomers(page);
+          } catch (error) {
+            console.error('Failed to delete customer:', error);
+            setAlertMessage({ type: 'danger', text: t('customers.delete_failed') });
+          } finally {
+            setConfirmBusy(false);
+            setConfirmCustomerId(null);
+          }
+        }}
+      />
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="h3">{t('customers.management_title')}</h1>
         <button

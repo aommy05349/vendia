@@ -95,7 +95,10 @@ class OrderController extends Controller
             $subtotal = 0;
             $items = [];
             $status = $request->input('status', 'completed');
-            $isQuotation = $status === 'quotation';
+            $isRealOrder = function($s) {
+                return !in_array($s, ['quotation', 'cancelled']);
+            };
+            $willBeReal = $isRealOrder($status);
 
             foreach ($request->items as $item) {
                 $product = Product::with('bundleItems')->find($item['product_id']);
@@ -114,7 +117,7 @@ class OrderController extends Controller
                     foreach ($product->bundleItems as $child) {
                         $requiredQty = $child->pivot->quantity * $item['quantity'];
                         
-                        if (!$isQuotation) {
+                        if ($willBeReal) {
                             if ($child->stock < $requiredQty) {
                                 throw new \Exception("Insufficient stock for bundle component: {$child->name} (Required: {$requiredQty}, Available: {$child->stock})");
                             }
@@ -135,12 +138,12 @@ class OrderController extends Controller
                     }
                     $metadata = ['bundle_items' => $bundleSnapshot];
                     
-                    if (!$isQuotation && $product->stock > 0) {
+                    if ($willBeReal && $product->stock > 0) {
                         $product->decrement('stock', $item['quantity']);
                     }
                 } else {
                     // Handle Single/Variable Product
-                    if (!$isQuotation) {
+                    if ($willBeReal) {
                         if ($product->stock < $item['quantity']) {
                             throw new \Exception("Insufficient stock for product: {$product->name}");
                         }
@@ -408,6 +411,23 @@ class OrderController extends Controller
             }
 
             return $order->load('items.product');
+        });
+    }
+
+    public function destroy(Request $request, Order $order)
+    {
+        $user = $request->user();
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($order->status !== 'cancelled') {
+            return response()->json(['message' => 'Only cancelled orders can be permanently deleted'], 400);
+        }
+
+        return DB::transaction(function () use ($order) {
+            $order->delete();
+            return response()->noContent();
         });
     }
 

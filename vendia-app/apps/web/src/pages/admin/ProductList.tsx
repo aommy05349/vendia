@@ -2,12 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { useProductStore, useCategoryStore } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 export const ProductList = () => {
   const { t } = useTranslation();
   const { products, pagination, fetchProducts, deleteProduct, loading, error } = useProductStore();
   const { categories, fetchCategories } = useCategoryStore();
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
+  const [confirmProductId, setConfirmProductId] = useState<number | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const navigate = useNavigate();
 
   // Filter and Sort State
@@ -32,15 +35,8 @@ export const ProductList = () => {
     }
   }, [error]);
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm(t('products.alerts.delete_confirm'))) return;
-    try {
-      await deleteProduct(id);
-      setAlertMessage({ type: 'success', text: t('products.alerts.delete_success') });
-      setTimeout(() => setAlertMessage(null), 3000);
-    } catch (err) {
-      // Error is handled by store
-    }
+  const handleDelete = (id: number) => {
+    setConfirmProductId(id);
   };
 
   const getCategoryName = (categoryId?: number) => {
@@ -65,6 +61,27 @@ export const ProductList = () => {
 
   return (
     <div className="container-fluid p-4">
+      <ConfirmModal
+        open={confirmProductId !== null}
+        title={t('common.confirm_title', 'ยืนยัน')}
+        message={t('products.alerts.delete_confirm')}
+        confirmLabel={t('actions.delete', 'ลบ')}
+        cancelLabel={t('common.cancel', 'ยกเลิก')}
+        busy={confirmBusy}
+        onCancel={() => setConfirmProductId(null)}
+        onConfirm={async () => {
+          if (confirmProductId === null) return;
+          setConfirmBusy(true);
+          try {
+            await deleteProduct(confirmProductId);
+            setAlertMessage({ type: 'success', text: t('products.alerts.delete_success') });
+            setTimeout(() => setAlertMessage(null), 3000);
+          } finally {
+            setConfirmBusy(false);
+            setConfirmProductId(null);
+          }
+        }}
+      />
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="h3">{t('products.title')}</h1>
         <button

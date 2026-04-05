@@ -2,11 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useAuxStore } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 export const WarehouseList = () => {
   const { t } = useTranslation();
   const { warehouses, fetchWarehouses, deleteWarehouse, loading, error } = useAuxStore();
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
+  const [confirmWarehouseId, setConfirmWarehouseId] = useState<number | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,21 +22,35 @@ export const WarehouseList = () => {
     }
   }, [error]);
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm(t('warehouses.alerts.delete_confirm'))) return;
-    try {
-      await deleteWarehouse(id);
-      setAlertMessage({ type: 'success', text: t('warehouses.alerts.delete_success') });
-      setTimeout(() => setAlertMessage(null), 3000);
-    } catch (err) {
-      // Error is handled by store
-    }
+  const handleDelete = (id: number) => {
+    setConfirmWarehouseId(id);
   };
 
   if (loading && warehouses.length === 0) return <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>;
 
   return (
     <div className="container-fluid p-4">
+      <ConfirmModal
+        open={confirmWarehouseId !== null}
+        title={t('common.confirm_title', 'ยืนยัน')}
+        message={t('warehouses.alerts.delete_confirm')}
+        confirmLabel={t('actions.delete', 'ลบ')}
+        cancelLabel={t('common.cancel', 'ยกเลิก')}
+        busy={confirmBusy}
+        onCancel={() => setConfirmWarehouseId(null)}
+        onConfirm={async () => {
+          if (confirmWarehouseId === null) return;
+          setConfirmBusy(true);
+          try {
+            await deleteWarehouse(confirmWarehouseId);
+            setAlertMessage({ type: 'success', text: t('warehouses.alerts.delete_success') });
+            setTimeout(() => setAlertMessage(null), 3000);
+          } finally {
+            setConfirmBusy(false);
+            setConfirmWarehouseId(null);
+          }
+        }}
+      />
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="h3">{t('warehouses.title')}</h1>
         <button

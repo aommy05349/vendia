@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api, User } from '@vendia/shared';
+import { api, User, useAuthStore } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { EditOrderModal } from './EditOrderModal';
@@ -88,6 +88,7 @@ interface PaginatedResponse<T> {
 export const OrderList = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const user = useAuthStore(state => state.user);
   const [orders, setOrders] = useState<Order[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
@@ -96,6 +97,14 @@ export const OrderList = () => {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [dailySales, setDailySales] = useState<DailySales | null>(null);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    | null
+    | { kind: 'cancel-document'; orderId: number; docType: 'quotation' | 'billing_note' | 'receipt'; number: string }
+    | { kind: 'convert-quotation'; orderId: number }
+    | { kind: 'cancel-order'; orderId: number }
+    | { kind: 'delete-order'; orderId: number }
+  >(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
 
   // Payment Modal State
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -170,10 +179,6 @@ export const OrderList = () => {
   };
 
   const handleCancelDocument = async (orderId: number, type: 'quotation' | 'billing_note' | 'receipt', number: string) => {
-    if (!window.confirm(t('orders.confirm_cancel_document', { number }))) {
-        return;
-    }
-
     try {
         await api.post(`/orders/${orderId}/cancel-document`, { type });
         fetchOrders(currentPage);
@@ -226,7 +231,6 @@ export const OrderList = () => {
 
   const handleConvertQuotation = async (e: React.MouseEvent, orderId: number) => {
     e.stopPropagation();
-    if (!confirm(t('orders.confirm_convert_quotation'))) return;
     try {
       await api.put(`/orders/${orderId}`, { status: 'pending' });
       fetchOrders(currentPage);
@@ -237,7 +241,6 @@ export const OrderList = () => {
 
   const handleCancelOrder = async (e: React.MouseEvent, orderId: number) => {
     e.stopPropagation();
-    if (!confirm(t('orders.confirm_cancel_order'))) return;
     try {
       await api.put(`/orders/${orderId}`, { status: 'cancelled' });
       fetchOrders(currentPage);
@@ -301,6 +304,80 @@ export const OrderList = () => {
   return (
     <PullToRefresh onRefresh={() => fetchOrders(1, true)}>
       <div className="container-fluid p-4">
+      {confirmAction && (
+        <div
+          className="modal fade show d-block"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}
+          role="dialog"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !confirmBusy) setConfirmAction(null);
+          }}
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0">
+              <div className="modal-header">
+                <h5 className="modal-title">{t('common.confirm_title', 'ยืนยัน')}</h5>
+                <button type="button" className="btn-close" onClick={() => !confirmBusy && setConfirmAction(null)}></button>
+              </div>
+              <div className="modal-body">
+                <p className="mb-0">
+                  {confirmAction.kind === 'cancel-document'
+                    ? t('orders.confirm_cancel_document', { number: confirmAction.number })
+                    : confirmAction.kind === 'convert-quotation'
+                      ? t('orders.confirm_convert_quotation')
+                      : confirmAction.kind === 'delete-order'
+                        ? t('orders.confirm_delete_order', 'ต้องการลบออเดอร์นี้ออกจากระบบถาวรใช่ไหม? (ลบแล้วกู้คืนไม่ได้)')
+                        : t('orders.confirm_cancel_order')}
+                </p>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-outline-secondary" onClick={() => setConfirmAction(null)} disabled={confirmBusy}>
+                  {t('common.cancel', 'ยกเลิก')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={async () => {
+                    const action = confirmAction;
+                    if (!action) return;
+                    setConfirmBusy(true);
+                    try {
+                      if (action.kind === 'cancel-document') {
+                        await handleCancelDocument(action.orderId, action.docType, action.number);
+                      } else if (action.kind === 'convert-quotation') {
+                        await api.put(`/orders/${action.orderId}`, { status: 'pending' });
+                        fetchOrders(currentPage);
+                      } else if (action.kind === 'delete-order') {
+                        await api.delete(`/orders/${action.orderId}`);
+                        fetchOrders(currentPage);
+                        setAlertMessage({ type: 'success', text: t('orders.update_success') });
+                      } else {
+                        await api.put(`/orders/${action.orderId}`, { status: 'cancelled' });
+                        fetchOrders(currentPage);
+                        setAlertMessage({ type: 'success', text: t('orders.update_success') });
+                      }
+                    } catch (error) {
+                      if (action.kind === 'convert-quotation') {
+                        setAlertMessage({ type: 'danger', text: t('orders.convert_failed') });
+                      } else if (action.kind === 'delete-order') {
+                        setAlertMessage({ type: 'danger', text: t('orders.update_failed') });
+                      } else {
+                        setAlertMessage({ type: 'danger', text: t('orders.update_failed') });
+                      }
+                    } finally {
+                      setConfirmBusy(false);
+                      setConfirmAction(null);
+                    }
+                  }}
+                  disabled={confirmBusy}
+                >
+                  {confirmBusy ? t('common.loading', 'กำลังทำรายการ...') : t('common.confirm', 'ยืนยัน')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {alertMessage && alertMessage.type === 'danger' && (
         <div
           className={`alert alert-${alertMessage.type} alert-dismissible fade show`}
@@ -449,7 +526,10 @@ export const OrderList = () => {
                             <>
                                 <button 
                                     className="btn btn-success btn-sm me-2"
-                                    onClick={(e) => handleConvertQuotation(e, order.id)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setConfirmAction({ kind: 'convert-quotation', orderId: order.id });
+                                    }}
                                 >
                                     {t('orders.to_order')}
                                 </button>
@@ -461,7 +541,10 @@ export const OrderList = () => {
                                 </button>
                                 <button 
                                     className="btn btn-danger btn-sm"
-                                    onClick={(e) => handleCancelOrder(e, order.id)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setConfirmAction({ kind: 'cancel-order', orderId: order.id });
+                                    }}
                                 >
                                     {t('common.cancel')}
                                 </button>
@@ -492,7 +575,10 @@ export const OrderList = () => {
                             </button>
                             <button 
                                 className="btn btn-danger btn-sm"
-                                onClick={(e) => handleCancelOrder(e, order.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setConfirmAction({ kind: 'cancel-order', orderId: order.id });
+                                }}
                             >
                                 {t('common.cancel')}
                             </button>
@@ -510,6 +596,17 @@ export const OrderList = () => {
                                 {t('orders.create_appt')}
                             </button>
                             </>
+                        )}
+                        {order.status === 'cancelled' && user?.role === 'admin' && (
+                          <button
+                            className="btn btn-danger btn-sm me-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmAction({ kind: 'delete-order', orderId: order.id });
+                            }}
+                          >
+                            {t('actions.delete')}
+                          </button>
                         )}
                         <button className="btn btn-sm btn-link text-decoration-none">
                           {expandedOrderId === order.id ? t('orders.hide') : t('orders.view')}
@@ -601,7 +698,11 @@ export const OrderList = () => {
                                                                     <button className="btn btn-sm btn-outline-secondary py-0" onClick={(e) => handlePrint(e, order.id, 'quotation')} title={t('orders.print')}>
                                                                         <i className="bi bi-printer" style={{ fontSize: '0.8em' }}></i>
                                                                     </button>
-                                                                    <button className="btn btn-sm btn-outline-danger py-0" onClick={() => handleCancelDocument(order.id, 'quotation', doc.number)} title={t('common.cancel')}>
+                                                                    <button
+                                                                      className="btn btn-sm btn-outline-danger py-0"
+                                                                      onClick={() => setConfirmAction({ kind: 'cancel-document', orderId: order.id, docType: 'quotation', number: doc.number })}
+                                                                      title={t('common.cancel')}
+                                                                    >
                                                                         <i className="bi bi-x-lg" style={{ fontSize: '0.8em' }}></i>
                                                                     </button>
                                                                 </>
@@ -648,7 +749,11 @@ export const OrderList = () => {
                                                                     <button className="btn btn-sm btn-outline-secondary py-0" onClick={(e) => handlePrint(e, order.id, 'billing_note')} title={t('orders.print')}>
                                                                         <i className="bi bi-printer" style={{ fontSize: '0.8em' }}></i>
                                                                     </button>
-                                                                    <button className="btn btn-sm btn-outline-danger py-0" onClick={() => handleCancelDocument(order.id, 'billing_note', doc.number)} title={t('common.cancel')}>
+                                                                    <button
+                                                                      className="btn btn-sm btn-outline-danger py-0"
+                                                                      onClick={() => setConfirmAction({ kind: 'cancel-document', orderId: order.id, docType: 'billing_note', number: doc.number })}
+                                                                      title={t('common.cancel')}
+                                                                    >
                                                                         <i className="bi bi-x-lg" style={{ fontSize: '0.8em' }}></i>
                                                                     </button>
                                                                 </>
@@ -695,7 +800,11 @@ export const OrderList = () => {
                                                                     <button className="btn btn-sm btn-outline-secondary py-0" onClick={(e) => handlePrint(e, order.id, 'receipt')} title={t('orders.print')}>
                                                                         <i className="bi bi-printer" style={{ fontSize: '0.8em' }}></i>
                                                                     </button>
-                                                                    <button className="btn btn-sm btn-outline-danger py-0" onClick={() => handleCancelDocument(order.id, 'receipt', doc.number)} title={t('common.cancel')}>
+                                                                    <button
+                                                                      className="btn btn-sm btn-outline-danger py-0"
+                                                                      onClick={() => setConfirmAction({ kind: 'cancel-document', orderId: order.id, docType: 'receipt', number: doc.number })}
+                                                                      title={t('common.cancel')}
+                                                                    >
                                                                         <i className="bi bi-x-lg" style={{ fontSize: '0.8em' }}></i>
                                                                     </button>
                                                                 </>
