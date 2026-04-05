@@ -94,15 +94,32 @@ export const ProductList = () => {
 
       {alertMessage && alertMessage.type === 'danger' && (
         <div
-          className={`alert alert-${alertMessage.type} alert-dismissible fade show`}
-          role="alert"
+          className="modal fade show d-block"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}
+          role="dialog"
         >
-          {alertMessage.text}
-          <button
-            type="button"
-            className="btn-close"
-            onClick={() => setAlertMessage(null)}
-          ></button>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0">
+              <div className="modal-body text-center p-4">
+                <div className="text-danger mb-3" style={{ fontSize: '3rem' }}>
+                  <i className="bi bi-x-circle-fill"></i>
+                </div>
+                <h5 className="mb-2">
+                  {t('common.error_title', 'ไม่สำเร็จ')}
+                </h5>
+                <p className="mb-0">{alertMessage.text}</p>
+              </div>
+              <div className="modal-footer border-0 justify-content-center">
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={() => setAlertMessage(null)}
+                >
+                  {t('common.ok', 'ตกลง')}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
       {alertMessage && alertMessage.type === 'success' && (

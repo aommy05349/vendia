@@ -69,7 +69,7 @@ export const useCategoryStore = create<CategoryState>((set) => ({
         loading: false,
       }));
     } catch (error: any) {
-      set({ loading: false, error: error.message || 'Failed to delete category' });
+      set({ loading: false, error: error.response?.data?.message || error.message || 'Failed to delete category' });
       throw error;
     }
   },

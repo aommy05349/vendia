@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\Product;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
 class CategoryController extends Controller
@@ -67,7 +69,20 @@ class CategoryController extends Controller
     public function destroy(string $id)
     {
         $category = Category::findOrFail($id);
-        $category->delete();
+        $isUsed = Product::where('category_id', $category->id)->exists();
+        if ($isUsed) {
+            return response()->json([
+                'message' => 'ไม่สามารถลบหมวดหมู่นี้ได้ เพราะมีสินค้าใช้งานอยู่',
+            ], 422);
+        }
+
+        try {
+            $category->delete();
+        } catch (QueryException $e) {
+            return response()->json([
+                'message' => 'ไม่สามารถลบหมวดหมู่นี้ได้ เพราะมีข้อมูลที่อ้างอิงอยู่',
+            ], 422);
+        }
 
         return response()->noContent();
     }

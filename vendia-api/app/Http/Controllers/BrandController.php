@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Brand;
+use App\Models\Product;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
 class BrandController extends Controller
@@ -54,7 +56,21 @@ class BrandController extends Controller
 
     public function destroy(Brand $brand)
     {
-        $brand->delete();
+        $isUsed = Product::where('brand_id', $brand->id)->exists();
+        if ($isUsed) {
+            return response()->json([
+                'message' => 'ไม่สามารถลบยี่ห้อนี้ได้ เพราะมีสินค้าใช้งานอยู่',
+            ], 422);
+        }
+
+        try {
+            $brand->delete();
+        } catch (QueryException $e) {
+            return response()->json([
+                'message' => 'ไม่สามารถลบยี่ห้อนี้ได้ เพราะมีข้อมูลที่อ้างอิงอยู่',
+            ], 422);
+        }
+
         return response()->noContent();
     }
 }

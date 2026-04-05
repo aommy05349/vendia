@@ -112,7 +112,7 @@ export const useAuxStore = create<AuxState>((set, get) => ({
       await get().fetchBrands(get().brandPagination?.current_page || 1);
       set({ loading: false });
     } catch (error: any) {
-      set({ loading: false, error: error.message || 'Failed to delete brand' });
+      set({ loading: false, error: error.response?.data?.message || error.message || 'Failed to delete brand' });
       throw error;
     }
   },
@@ -192,7 +192,7 @@ export const useAuxStore = create<AuxState>((set, get) => ({
       await api.delete(`/warehouses/${id}`);
       set(state => ({ warehouses: state.warehouses.filter(w => w.id !== id), loading: false }));
     } catch (error: any) {
-      set({ loading: false, error: error.message || 'Failed to delete warehouse' });
+      set({ loading: false, error: error.response?.data?.message || error.message || 'Failed to delete warehouse' });
       throw error;
     }
   },

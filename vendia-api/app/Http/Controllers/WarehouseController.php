@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\Warehouse;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
 class WarehouseController extends Controller
@@ -45,7 +47,21 @@ class WarehouseController extends Controller
 
     public function destroy(Warehouse $warehouse)
     {
-        $warehouse->delete();
+        $isUsed = Product::where('warehouse_id', $warehouse->id)->exists();
+        if ($isUsed) {
+            return response()->json([
+                'message' => 'ไม่สามารถลบคลังสินค้านี้ได้ เพราะมีสินค้าใช้งานอยู่',
+            ], 422);
+        }
+
+        try {
+            $warehouse->delete();
+        } catch (QueryException $e) {
+            return response()->json([
+                'message' => 'ไม่สามารถลบคลังสินค้านี้ได้ เพราะมีข้อมูลที่อ้างอิงอยู่',
+            ], 422);
+        }
+
         return response()->noContent();
     }
 }
