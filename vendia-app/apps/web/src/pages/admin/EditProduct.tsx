@@ -11,6 +11,7 @@ export const EditProduct = () => {
   const { products: searchResults, fetchProducts: searchProducts } = useProductStore();
   const { categories, fetchCategories } = useCategoryStore();
   const { brands, units, warehouses, fetchBrands, fetchUnits, fetchWarehouses } = useAuxStore();
+  const showTaxAndDiscountFields = false;
 
   const getImageUrl = (path: string) => {
     if (path.startsWith('http')) return path;
@@ -410,33 +411,37 @@ export const EditProduct = () => {
                   )}
                 </div>
 
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <label className="form-label">{t('products.form.fields.tax_type')}</label>
-                    <select className="form-select" value={taxType} onChange={e => setTaxType(e.target.value)}>
-                      <option value="exclusive">{t('products.form.fields.tax_types.exclusive')}</option>
-                      <option value="inclusive">{t('products.form.fields.tax_types.inclusive')}</option>
-                    </select>
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label">{t('products.form.fields.tax_amount')}</label>
-                    <input type="number" step="0.01" className="form-control" value={taxAmount} onChange={e => setTaxAmount(e.target.value)} />
-                  </div>
-                </div>
+                {showTaxAndDiscountFields && (
+                  <>
+                    <div className="row mb-3">
+                      <div className="col-md-6">
+                        <label className="form-label">{t('products.form.fields.tax_type')}</label>
+                        <select className="form-select" value={taxType} onChange={e => setTaxType(e.target.value)}>
+                          <option value="exclusive">{t('products.form.fields.tax_types.exclusive')}</option>
+                          <option value="inclusive">{t('products.form.fields.tax_types.inclusive')}</option>
+                        </select>
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">{t('products.form.fields.tax_amount')}</label>
+                        <input type="number" step="0.01" className="form-control" value={taxAmount} onChange={e => setTaxAmount(e.target.value)} />
+                      </div>
+                    </div>
 
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <label className="form-label">{t('products.form.fields.discount_type')}</label>
-                    <select className="form-select" value={discountType} onChange={e => setDiscountType(e.target.value)}>
-                      <option value="fixed">{t('products.form.fields.discount_types.fixed')}</option>
-                      <option value="percentage">{t('products.form.fields.discount_types.percentage')}</option>
-                    </select>
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label">{t('products.form.fields.discount_value')}</label>
-                    <input type="number" step="0.01" className="form-control" value={discountValue} onChange={e => setDiscountValue(e.target.value)} />
-                  </div>
-                </div>
+                    <div className="row mb-3">
+                      <div className="col-md-6">
+                        <label className="form-label">{t('products.form.fields.discount_type')}</label>
+                        <select className="form-select" value={discountType} onChange={e => setDiscountType(e.target.value)}>
+                          <option value="fixed">{t('products.form.fields.discount_types.fixed')}</option>
+                          <option value="percentage">{t('products.form.fields.discount_types.percentage')}</option>
+                        </select>
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label">{t('products.form.fields.discount_value')}</label>
+                        <input type="number" step="0.01" className="form-control" value={discountValue} onChange={e => setDiscountValue(e.target.value)} />
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
