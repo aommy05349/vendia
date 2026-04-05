@@ -103,11 +103,6 @@ function App() {
                 {t('login.title')}
               </button>
             </form>
-            <div className="mt-4 text-center small text-muted">
-              <div className="mb-2 fw-bold">{t('login.demo_credentials')}:</div>
-              <div>{t('login.admin')}: admin@vendia.com / password</div>
-              <div>{t('login.technician')}: tech@vendia.com / password</div>
-            </div>
           </div>
         </div>
       </div>

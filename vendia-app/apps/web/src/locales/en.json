@@ -45,9 +45,9 @@
   "login": {
     "title": "Login",
     "invalid_credentials": "Invalid credentials",
-    "demo_credentials": "Demo Credentials",
-    "admin": "Admin",
-    "technician": "Technician",
+    "demo_credentials": "Demo Credentials:",
+    "admin": "Admin:",
+    "technician": "Technician:",
     "email": "Email",
     "password": "Password"
   },

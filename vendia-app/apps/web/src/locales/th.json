@@ -45,9 +45,9 @@
   "login": {
     "title": "เข้าสู่ระบบ",
     "invalid_credentials": "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
-    "demo_credentials": "บัญชีทดลอง",
-    "admin": "ผู้ดูแลระบบ",
-    "technician": "ช่างเทคนิค",
+    "demo_credentials": "บัญชีทดลอง:",
+    "admin": "ผู้ดูแลระบบ:",
+    "technician": "ช่างเทคนิค:",
     "email": "อีเมล",
     "password": "รหัสผ่าน"
   },
