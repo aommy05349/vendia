@@ -122,7 +122,74 @@ export const PrintOrder = () => {
     const summaryRowCount = 2 + (vatRate > 0 ? 1 : 0) + (showWithholding ? 2 : 0);
 
     return (
-        <div className="container-fluid p-4" style={{ maxWidth: '1000px', background: 'white', minHeight: '100vh', fontSize: '12px' }}>
+        <div className="container-fluid p-4 print-root" style={{ maxWidth: '1000px', background: 'white', fontSize: '12px' }}>
+            <style>
+                {`
+@page {
+  size: A4 portrait;
+  margin: 15mm 10mm 10mm 10mm;
+}
+
+@media print {
+  html, body {
+    background: #fff !important;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-root {
+    padding: 4mm 0 0 0 !important;
+    margin: 0 auto !important;
+    width: 190mm !important;
+    max-width: 190mm !important;
+    font-size: 12px !important;
+    line-height: 1.15 !important;
+  }
+
+  .print-root .row,
+  .print-root [class^="col-"],
+  .print-root [class*=" col-"] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-root table {
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  .print-root thead {
+    display: table-header-group;
+  }
+
+  .print-root tfoot {
+    display: table-footer-group;
+  }
+
+  .print-root tr,
+  .print-root th,
+  .print-root td {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-root td,
+  .print-root th {
+    padding: 3px 6px !important;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .print-root .border-bottom-0 {
+    border-bottom: 1px solid #212529 !important;
+  }
+}
+                `}
+            </style>
             {/* Header Section */}
             <div className="row mb-1">
                 <div className="col-8">
