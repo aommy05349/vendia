@@ -642,11 +642,12 @@ export const OrderList = () => {
                                                     <span className="fw-bold">{t('orders.quotation')}</span>
                                                     {(!order.quotation_number || order.quotation_status === 'cancelled') && (
                                                         <button 
-                                                            className="btn btn-sm btn-outline-primary" 
+                                                            className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
                                                             onClick={() => handleIssueDocument(order.id, 'quotation')}
                                                             title={t('orders.create')}
+                                                            style={{ width: '40px', height: '40px' }}
                                                         >
-                                                            <i className="bi bi-plus-lg"></i>
+                                                            <i className="bi bi-plus-lg" style={{ fontSize: '1.1rem' }}></i>
                                                         </button>
                                                     )}
                                                 </div>
@@ -665,15 +666,16 @@ export const OrderList = () => {
                                                         <div className="btn-group">
                                                             {doc.status !== 'cancelled' && (
                                                                 <>
-                                                                    <button className="btn btn-sm btn-outline-secondary py-0" onClick={(e) => handlePrint(e, order.id, 'quotation')} title={t('orders.print')}>
-                                                                        <i className="bi bi-printer" style={{ fontSize: '0.8em' }}></i>
+                                                                    <button className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center" onClick={(e) => handlePrint(e, order.id, 'quotation')} title={t('orders.print')} style={{ width: '40px', height: '40px' }}>
+                                                                        <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
                                                                     </button>
                                                                     <button
-                                                                      className="btn btn-sm btn-outline-danger py-0"
+                                                                      className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
                                                                       onClick={() => setConfirmAction({ kind: 'cancel-document', orderId: order.id, docType: 'quotation', number: doc.number })}
                                                                       title={t('common.cancel')}
+                                                                      style={{ width: '40px', height: '40px' }}
                                                                     >
-                                                                        <i className="bi bi-x-lg" style={{ fontSize: '0.8em' }}></i>
+                                                                        <i className="bi bi-x-lg" style={{ fontSize: '1.05rem' }}></i>
                                                                     </button>
                                                                 </>
                                                             )}
@@ -694,11 +696,12 @@ export const OrderList = () => {
                                                     <span className="fw-bold">{t('orders.billing_note')}</span>
                                                     {(!order.billing_note_number || order.billing_note_status === 'cancelled') && (
                                                         <button 
-                                                            className="btn btn-sm btn-outline-primary" 
+                                                            className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
                                                             onClick={() => handleIssueDocument(order.id, 'billing_note')}
                                                             title={t('orders.create')}
+                                                            style={{ width: '40px', height: '40px' }}
                                                         >
-                                                            <i className="bi bi-plus-lg"></i>
+                                                            <i className="bi bi-plus-lg" style={{ fontSize: '1.1rem' }}></i>
                                                         </button>
                                                     )}
                                                 </div>
@@ -716,15 +719,16 @@ export const OrderList = () => {
                                                         <div className="btn-group">
                                                             {doc.status !== 'cancelled' && (
                                                                 <>
-                                                                    <button className="btn btn-sm btn-outline-secondary py-0" onClick={(e) => handlePrint(e, order.id, 'billing_note')} title={t('orders.print')}>
-                                                                        <i className="bi bi-printer" style={{ fontSize: '0.8em' }}></i>
+                                                                    <button className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center" onClick={(e) => handlePrint(e, order.id, 'billing_note')} title={t('orders.print')} style={{ width: '40px', height: '40px' }}>
+                                                                        <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
                                                                     </button>
                                                                     <button
-                                                                      className="btn btn-sm btn-outline-danger py-0"
+                                                                      className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
                                                                       onClick={() => setConfirmAction({ kind: 'cancel-document', orderId: order.id, docType: 'billing_note', number: doc.number })}
                                                                       title={t('common.cancel')}
+                                                                      style={{ width: '40px', height: '40px' }}
                                                                     >
-                                                                        <i className="bi bi-x-lg" style={{ fontSize: '0.8em' }}></i>
+                                                                        <i className="bi bi-x-lg" style={{ fontSize: '1.05rem' }}></i>
                                                                     </button>
                                                                 </>
                                                             )}
@@ -745,11 +749,12 @@ export const OrderList = () => {
                                                     <span className="fw-bold">{t('orders.receipt')}</span>
                                                     {(!order.receipt_number || order.receipt_status === 'cancelled') && (
                                                         <button 
-                                                            className="btn btn-sm btn-outline-primary" 
+                                                            className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
                                                             onClick={() => handleIssueDocument(order.id, 'receipt')}
                                                             title={t('orders.create')}
+                                                            style={{ width: '40px', height: '40px' }}
                                                         >
-                                                            <i className="bi bi-plus-lg"></i>
+                                                            <i className="bi bi-plus-lg" style={{ fontSize: '1.1rem' }}></i>
                                                         </button>
                                                     )}
                                                 </div>
@@ -767,15 +772,16 @@ export const OrderList = () => {
                                                         <div className="btn-group">
                                                             {doc.status !== 'cancelled' && (
                                                                 <>
-                                                                    <button className="btn btn-sm btn-outline-secondary py-0" onClick={(e) => handlePrint(e, order.id, 'receipt')} title={t('orders.print')}>
-                                                                        <i className="bi bi-printer" style={{ fontSize: '0.8em' }}></i>
+                                                                    <button className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center" onClick={(e) => handlePrint(e, order.id, 'receipt')} title={t('orders.print')} style={{ width: '40px', height: '40px' }}>
+                                                                        <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
                                                                     </button>
                                                                     <button
-                                                                      className="btn btn-sm btn-outline-danger py-0"
+                                                                      className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
                                                                       onClick={() => setConfirmAction({ kind: 'cancel-document', orderId: order.id, docType: 'receipt', number: doc.number })}
                                                                       title={t('common.cancel')}
+                                                                      style={{ width: '40px', height: '40px' }}
                                                                     >
-                                                                        <i className="bi bi-x-lg" style={{ fontSize: '0.8em' }}></i>
+                                                                        <i className="bi bi-x-lg" style={{ fontSize: '1.05rem' }}></i>
                                                                     </button>
                                                                 </>
                                                             )}

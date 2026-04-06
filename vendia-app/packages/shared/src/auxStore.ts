@@ -29,7 +29,7 @@ interface AuxState {
   warehouses: Warehouse[];
   loading: boolean;
   error: string | null;
-  fetchBrands: (page?: number) => Promise<void>;
+  fetchBrands: (page?: number, perPage?: number) => Promise<void>;
   fetchUnits: () => Promise<void>;
   fetchWarehouses: () => Promise<void>;
   createBrand: (name: string, image?: File) => Promise<void>;
@@ -50,9 +50,9 @@ export const useAuxStore = create<AuxState>((set, get) => ({
   warehouses: [],
   loading: false,
   error: null,
-  fetchBrands: async (page = 1) => {
+  fetchBrands: async (page = 1, perPage) => {
     try {
-      const response = await api.get('/brands', { params: { page } });
+      const response = await api.get('/brands', { params: { page, per_page: perPage } });
       if (response.data.data && response.data.current_page) {
         set({ 
             brands: response.data.data,

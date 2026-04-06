@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { api, User } from '@vendia/shared';
 import { thaiBahtText } from '../utils/thaiBaht';
@@ -56,12 +56,28 @@ export const PrintOrder = () => {
     const type = searchParams.get('type') || 'receipt';
     const [order, setOrder] = useState<Order | null>(null);
     const [shop, setShop] = useState<Shop | null>(null);
+    const printedRef = useRef(false);
 
     const getImageUrl = (path: string) => {
-        if (path.startsWith('http')) return path;
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
-        const origin = apiUrl.replace(/\/api\/?$/, '');
-        const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+        if (!path) return '';
+
+        const apiUrlRaw = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api';
+        const apiUrl = typeof apiUrlRaw === 'string' ? apiUrlRaw : 'http://localhost:8000/api';
+        const apiUrlNormalized = apiUrl.replace(/^https:\/(?!\/)/, 'https://').replace(/^http:\/(?!\/)/, 'http://');
+        const origin = apiUrlNormalized.replace(/\/api\/?$/, '');
+
+        if (path.startsWith('http://') || path.startsWith('https://')) {
+            return path
+                .replace(/^https:\/(?!\/)/, 'https://')
+                .replace(/^http:\/(?!\/)/, 'http://')
+                .replace('/api/storage/', '/storage/');
+        }
+
+        let normalizedPath = path.startsWith('/') ? path : `/${path}`;
+        if (normalizedPath.startsWith('/api/storage/')) {
+            normalizedPath = normalizedPath.replace(/^\/api\/storage\//, '/storage/');
+        }
+
         if (!normalizedPath.startsWith('/storage/')) {
             return `${origin}/storage${normalizedPath}`;
         }
@@ -75,13 +91,43 @@ export const PrintOrder = () => {
         if (id) {
             api.get(`/orders/${id}`).then(res => {
                 setOrder(res.data);
-                // Wait for render then print
-                setTimeout(() => {
-                    window.print();
-                }, 1000);
             });
         }
     }, [id]);
+
+    useEffect(() => {
+        if (!order || !shop) return;
+        if (printedRef.current) return;
+        printedRef.current = true;
+
+        const waitForImages = async () => {
+            const imgs = Array.from(document.images || []) as HTMLImageElement[];
+            const pending = imgs.map((img) => {
+                if (img.complete) return Promise.resolve();
+                return new Promise<void>((resolve) => {
+                    const cleanup = () => {
+                        img.removeEventListener('load', cleanup);
+                        img.removeEventListener('error', cleanup);
+                        resolve();
+                    };
+                    img.addEventListener('load', cleanup);
+                    img.addEventListener('error', cleanup);
+                });
+            });
+
+            const timeoutMs = 4000;
+            await Promise.race([
+                Promise.all(pending),
+                new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+            ]);
+        };
+
+        setTimeout(() => {
+            waitForImages().finally(() => {
+                window.print();
+            });
+        }, 300);
+    }, [order, shop]);
 
     if (!order || !shop) return <div className="p-5 text-center">{t('common.loading')}</div>;
 
@@ -382,7 +428,7 @@ export const PrintOrder = () => {
                     <div style={{ height: '80px' }}>
                         {isQuotation && shop.signature_path && (
                              <img 
-                                src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.signature_path}`} 
+                                src={getImageUrl(shop.signature_path)} 
                                 alt="Signature" 
                                 style={{ maxHeight: '80px' }} 
                             />
@@ -402,7 +448,7 @@ export const PrintOrder = () => {
                     <div style={{ height: '80px' }}>
                         {!isQuotation && shop.signature_path && (
                              <img 
-                                src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${shop.signature_path}`} 
+                                src={getImageUrl(shop.signature_path)} 
                                 alt="Signature" 
                                 style={{ maxHeight: '80px' }} 
                             />

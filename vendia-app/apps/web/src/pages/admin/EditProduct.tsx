@@ -88,7 +88,7 @@ export const EditProduct = () => {
       await Promise.all([
         products.length === 0 ? fetchProducts() : Promise.resolve(),
         categories.length === 0 ? fetchCategories() : Promise.resolve(),
-        fetchBrands(),
+        fetchBrands(1, 1000),
         fetchUnits(),
         fetchWarehouses()
       ]);

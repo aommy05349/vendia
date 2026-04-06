@@ -463,7 +463,7 @@ export const Pos = () => {
       {/* Cart Sidebar */}
       <div
         className="d-flex flex-column p-3 p-lg-4 bg-light border-top overflow-hidden"
-        style={{ flex: 1, minWidth: '260px', maxWidth: '500px', minHeight: 0 }}
+        style={{ flex: 1, minWidth: '300px', maxWidth: '560px', minHeight: 0 }}
       >
         
         {/* Customer Section */}
@@ -499,32 +499,48 @@ export const Pos = () => {
                 <h6 className="text-muted text-uppercase small fw-bold mb-2">{t('pos.products')}</h6>
                 {items.filter(item => item.product.product_type !== 'service').map((item) => (
                   <div key={item.product.id} className="card mb-2 border-0 shadow-sm">
-                    <div className="card-body p-3 d-flex justify-content-between align-items-center">
-                      <div>
-                        <div className="fw-bold">{item.product.name}</div>
+                    <div className="card-body p-4 d-flex justify-content-between align-items-center">
+                      <div className="flex-grow-1 me-3" style={{ minWidth: 0 }}>
+                        <div
+                          className="fw-bold"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                          title={item.product.name}
+                        >
+                          {item.product.name}
+                        </div>
                         <div className="small text-muted">
                           ฿{Number(item.price).toLocaleString()} x {item.quantity}
                         </div>
                       </div>
-                      <div className="d-flex align-items-center">
+                      <div className="d-flex align-items-center gap-2 flex-shrink-0">
                         <button 
-                          className="btn btn-light btn-sm border"
+                          className="btn btn-light border"
                           onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
                         >
                           -
                         </button>
-                        <span className="mx-2 fw-bold">{item.quantity}</span>
+                        <span className="fw-bold fs-5" style={{ minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
                         <button 
-                          className="btn btn-light btn-sm border"
+                          className="btn btn-light border"
                           onClick={() => addToCart(item.product, 1)}
+                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
                         >
                           +
                         </button>
                         <button
                           onClick={() => removeFromCart(item.product.id)}
-                          className="btn btn-danger btn-sm ms-2"
+                          className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
+                          style={{ width: '40px', height: '40px' }}
+                          aria-label={t('actions.delete')}
+                          title={t('actions.delete')}
                         >
-                          {t('actions.delete')}
+                          <i className="bi bi-trash3" style={{ fontSize: '1.05rem' }}></i>
                         </button>
                       </div>
                     </div>
@@ -539,32 +555,48 @@ export const Pos = () => {
                 <h6 className="text-muted text-uppercase small fw-bold mb-2">{t('pos.services_fees')}</h6>
                 {items.filter(item => item.product.product_type === 'service' && item.price >= 0).map((item) => (
                   <div key={item.product.id} className="card mb-2 border-0 shadow-sm border-start border-4 border-info">
-                    <div className="card-body p-3 d-flex justify-content-between align-items-center">
-                      <div>
-                        <div className="fw-bold">{item.product.name}</div>
+                    <div className="card-body p-4 d-flex justify-content-between align-items-center">
+                      <div className="flex-grow-1 me-3" style={{ minWidth: 0 }}>
+                        <div
+                          className="fw-bold"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                          title={item.product.name}
+                        >
+                          {item.product.name}
+                        </div>
                         <div className="small text-muted">
                           ฿{Number(item.price).toLocaleString()} {item.quantity > 1 && `x ${item.quantity}`}
                         </div>
                       </div>
-                      <div className="d-flex align-items-center">
+                      <div className="d-flex align-items-center gap-2 flex-shrink-0">
                         <button 
-                          className="btn btn-light btn-sm border"
+                          className="btn btn-light border"
                           onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
                         >
                           -
                         </button>
-                        <span className="mx-2 fw-bold">{item.quantity}</span>
+                        <span className="fw-bold fs-5" style={{ minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
                         <button 
-                          className="btn btn-light btn-sm border"
+                          className="btn btn-light border"
                           onClick={() => addToCart(item.product, 1)}
+                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
                         >
                           +
                         </button>
                         <button
                           onClick={() => removeFromCart(item.product.id)}
-                          className="btn btn-danger btn-sm ms-2"
+                          className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
+                          style={{ width: '40px', height: '40px' }}
+                          aria-label={t('actions.delete')}
+                          title={t('actions.delete')}
                         >
-                          {t('actions.delete')}
+                          <i className="bi bi-trash3" style={{ fontSize: '1.05rem' }}></i>
                         </button>
                       </div>
                     </div>
@@ -579,32 +611,48 @@ export const Pos = () => {
                 <h6 className="text-danger text-uppercase small fw-bold mb-2">{t('pos.discount')}</h6>
                 {items.filter(item => item.product.product_type === 'service' && item.price < 0).map((item) => (
                   <div key={item.product.id} className="card mb-2 border-0 shadow-sm border-start border-4 border-danger bg-danger bg-opacity-10">
-                    <div className="card-body p-3 d-flex justify-content-between align-items-center">
-                      <div>
-                        <div className="fw-bold text-danger">{item.product.name}</div>
+                    <div className="card-body p-4 d-flex justify-content-between align-items-center">
+                      <div className="flex-grow-1 me-3" style={{ minWidth: 0 }}>
+                        <div
+                          className="fw-bold text-danger"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                          title={item.product.name}
+                        >
+                          {item.product.name}
+                        </div>
                         <div className="small text-danger fw-bold">
                           ฿{Number(item.price).toLocaleString()} {item.quantity > 1 && `x ${item.quantity}`}
                         </div>
                       </div>
-                      <div className="d-flex align-items-center">
+                      <div className="d-flex align-items-center gap-2 flex-shrink-0">
                         <button 
-                          className="btn btn-light btn-sm border"
+                          className="btn btn-light border"
                           onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
                         >
                           -
                         </button>
-                        <span className="mx-2 fw-bold">{item.quantity}</span>
+                        <span className="fw-bold fs-5" style={{ minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
                         <button 
-                          className="btn btn-light btn-sm border"
+                          className="btn btn-light border"
                           onClick={() => addToCart(item.product, 1)}
+                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
                         >
                           +
                         </button>
                         <button
                           onClick={() => removeFromCart(item.product.id)}
-                          className="btn btn-danger btn-sm ms-2"
+                          className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
+                          style={{ width: '40px', height: '40px' }}
+                          aria-label={t('actions.delete')}
+                          title={t('actions.delete')}
                         >
-                          {t('actions.delete')}
+                          <i className="bi bi-trash3" style={{ fontSize: '1.05rem' }}></i>
                         </button>
                       </div>
                     </div>

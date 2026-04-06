@@ -62,7 +62,7 @@ export const CreateProduct = () => {
 
   useEffect(() => {
     fetchCategories();
-    fetchBrands();
+    fetchBrands(1, 1000);
     fetchUnits();
     fetchWarehouses();
   }, [fetchCategories, fetchBrands, fetchUnits, fetchWarehouses]);
