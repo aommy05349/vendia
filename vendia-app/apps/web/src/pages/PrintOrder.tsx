@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { api, User } from '@vendia/shared';
+import { api, Customer } from '@vendia/shared';
 import { thaiBahtText } from '../utils/thaiBaht';
 import { useTranslation } from 'react-i18next';
 
@@ -45,7 +45,7 @@ interface Order {
     user?: {
         name: string;
     };
-    customer?: User;
+    customer?: Customer;
     items: OrderItem[];
 }
 
@@ -166,6 +166,10 @@ export const PrintOrder = () => {
     const showWithholding = withholdingRate > 0 && !isQuotation;
     const payableForDocument = showWithholding ? payable : totalWithVat;
     const summaryRowCount = 2 + (vatRate > 0 ? 1 : 0) + (showWithholding ? 2 : 0);
+    const attention =
+        order.customer?.is_company
+            ? (typeof order.customer?.contact_name === 'string' ? order.customer.contact_name.trim() : '')
+            : (typeof order.customer?.name === 'string' ? order.customer.name.trim() : '');
 
     return (
         <div className="container-fluid p-4 print-root" style={{ maxWidth: '1000px', background: 'white', fontSize: '12px' }}>
@@ -292,7 +296,7 @@ export const PrintOrder = () => {
                     </div>
                     <div className="row mb-1">
                         <div className="col-4 fw-bold">{t('print.customer.attention')}</div>
-                        <div className="col-8">{order.customer?.name || '-'}</div>
+                        <div className="col-8">{order.customer?.is_company ? attention : (attention || '-')}</div>
                     </div>
                 </div>
                 <div className="col-5">
@@ -319,7 +323,7 @@ export const PrintOrder = () => {
                     )}
                     <div className="row mb-1">
                         <div className="col-4 fw-bold text-end">{t('print.document.email')}</div>
-                        <div className="col-8" style={{ wordBreak: 'break-all' }}>{order.customer?.email && !order.customer.email.startsWith('cust_') ? order.customer.email : '-'}</div>
+                        <div className="col-8" style={{ wordBreak: 'break-all' }}>{order.customer?.email && !order.customer.email.startsWith('cust_') && !order.customer.email.endsWith('@vendia.local') && !order.customer.email.endsWith('@example.com') ? order.customer.email : '-'}</div>
                     </div>
                     <div className="row mb-1">
                         <div className="col-4 fw-bold text-end">{t('print.document.phone')}</div>

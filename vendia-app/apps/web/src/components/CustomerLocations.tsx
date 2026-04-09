@@ -6,7 +6,7 @@ import { MessageModal } from './MessageModal';
 
 interface CustomerLocation {
   id: number;
-  user_id: number;
+  customer_id: number;
   name: string | null;
   address: string;
   latitude: string | number | null;
@@ -104,7 +104,7 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
   const fetchLocations = async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/users/${customerId}/locations`);
+      const response = await api.get(`/customers/${customerId}/locations`);
       setLocations(response.data);
     } catch (error) {
       console.error('Failed to fetch locations', error);
@@ -146,7 +146,7 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
     e.preventDefault();
     try {
       const payload = {
-        user_id: customerId,
+        customer_id: customerId,
         ...formData,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
         longitude: formData.longitude ? parseFloat(formData.longitude) : null,

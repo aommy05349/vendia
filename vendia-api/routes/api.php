@@ -11,6 +11,7 @@ use App\Http\Controllers\UnitController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\CustomerLocationController;
+use App\Http\Controllers\CustomerController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\TeamController;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/shop', [ShopController::class, 'update']);
 
     Route::apiResource('users', UserController::class);
+    Route::apiResource('customers', CustomerController::class);
     Route::delete('/products/{product}/images/{image}', [ProductController::class, 'destroyImage']);
     Route::post('/products/{product}/images/{image}/set-cover', [ProductController::class, 'setCoverImage']);
     Route::apiResource('products', ProductController::class);
@@ -49,7 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendance', [AttendanceController::class, 'index']);
 
     // Customer Locations
-    Route::get('/users/{user}/locations', [CustomerLocationController::class, 'index']);
+    Route::get('/customers/{customer}/locations', [CustomerLocationController::class, 'index']);
     Route::post('/customer-locations', [CustomerLocationController::class, 'store']);
     Route::put('/customer-locations/{id}', [CustomerLocationController::class, 'update']);
     Route::delete('/customer-locations/{id}', [CustomerLocationController::class, 'destroy']);

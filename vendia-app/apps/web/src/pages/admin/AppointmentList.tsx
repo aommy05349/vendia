@@ -288,7 +288,7 @@ export const AppointmentList = () => {
                     </td>
                     <td>{apt.title}</td>
                     <td>
-                      {apt.customer.first_name ? `${apt.customer.first_name} ${apt.customer.last_name || ''}` : apt.customer.name}
+                      {apt.customer.company_name || (apt.customer.first_name ? `${apt.customer.first_name} ${apt.customer.last_name || ''}` : apt.customer.name)}
                       {apt.customer.company_name && <div className="text-muted small">{apt.customer.company_name}</div>}
                     </td>
                     <td className="text-truncate" style={{ maxWidth: '200px' }} title={apt.address}>

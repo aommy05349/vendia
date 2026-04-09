@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\User;
@@ -17,9 +18,9 @@ class RandomOrderSeeder extends Seeder
     public function run(): void
     {
         // Ensure we have customers and staff
-        $customers = User::where('role', 'customer')->get();
+        $customers = Customer::query()->get();
         if ($customers->isEmpty()) {
-            $customers = User::factory()->count(10)->create(['role' => 'customer']);
+            $customers = Customer::factory()->count(10)->create();
         }
 
         $staff = User::whereIn('role', ['staff', 'admin'])->get();

@@ -10,7 +10,7 @@ class CustomerLocation extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
+        'customer_id',
         'name',
         'address',
         'latitude',
@@ -27,8 +27,13 @@ class CustomerLocation extends Model
         'longitude' => 'decimal:8',
     ];
 
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, 'customer_id');
+    }
+
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->customer();
     }
 }

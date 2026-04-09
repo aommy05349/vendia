@@ -22,11 +22,13 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
   const [showCustomerFormModal, setShowCustomerFormModal] = useState(false);
   const [customerFormMode, setCustomerFormMode] = useState<'create' | 'edit'>('create');
+  const [customerFormIsCompany, setCustomerFormIsCompany] = useState(false);
   const [customerFormSaving, setCustomerFormSaving] = useState(false);
   const [customerFormError, setCustomerFormError] = useState<string | null>(null);
   const [customerForm, setCustomerForm] = useState({
     first_name: '',
     last_name: '',
+    contact_name: '',
     phone: '',
     email: '',
     company_name: '',
@@ -88,7 +90,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
       if (customerSearchTerm.length > 1) {
         setIsSearchingCustomer(true);
         try {
-          const res = await api.get('/users', { params: { role: 'customer', search: customerSearchTerm, per_page: 5 } });
+          const res = await api.get('/customers', { params: { search: customerSearchTerm, per_page: 5 } });
           setCustomerSearchResults(res.data.data);
         } catch (err) {
           console.error(err);
@@ -158,6 +160,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
   const openCreateCustomer = () => {
     setCustomerFormMode('create');
     setCustomerFormError(null);
+    setCustomerFormIsCompany(false);
     const fullName = customerSearchTerm.trim();
     const parts = fullName.split(/\s+/).filter(Boolean);
     const firstName = parts[0] || '';
@@ -165,6 +168,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
     setCustomerForm({
       first_name: firstName,
       last_name: lastName,
+      contact_name: '',
       phone: '',
       email: '',
       company_name: '',
@@ -182,17 +186,21 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
     setCustomerFormSaving(true);
     setShowCustomerFormModal(true);
     try {
-      const res = await api.get(`/users/${selectedCustomer.id}`);
+      const res = await api.get(`/customers/${selectedCustomer.id}`);
+      const email = typeof res.data.email === 'string' ? res.data.email.trim() : '';
+      const emailForForm = email && (email.startsWith('cust_') || email.endsWith('@vendia.local') || email.endsWith('@example.com')) ? '' : email;
       setCustomerForm({
         first_name: res.data.first_name || '',
         last_name: res.data.last_name || '',
+        contact_name: res.data.contact_name || '',
         phone: res.data.phone || '',
-        email: res.data.email || '',
+        email: emailForForm,
         company_name: res.data.company_name || '',
         tax_id: res.data.tax_id || '',
         address: res.data.address || '',
         line_id: res.data.line_id || '',
       });
+      setCustomerFormIsCompany(Boolean(res.data.is_company) || (Boolean(res.data.company_name) && (!res.data.first_name && !res.data.last_name)));
     } catch (err) {
       setCustomerFormError(t('customers.fetch_failed', 'โหลดข้อมูลลูกค้าไม่สำเร็จ'));
     } finally {
@@ -205,42 +213,58 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
     setCustomerFormSaving(true);
     try {
       if (customerFormMode === 'create') {
-        const email = customerForm.email.trim() || `customer-${Date.now()}@vendia.local`;
+        const companyName = customerForm.company_name.trim();
         const firstName = customerForm.first_name.trim();
-        const lastName = customerForm.last_name.trim() || '-';
+        const lastName = customerForm.last_name.trim();
+        const contactName = customerForm.contact_name.trim();
+        const email = customerForm.email.trim();
+        const phone = customerForm.phone.trim();
+        const taxId = customerForm.tax_id.trim();
+        const address = customerForm.address.trim();
+        const lineId = customerForm.line_id.trim();
         const payload = {
-          username: email,
-          first_name: firstName,
-          last_name: lastName,
-          email,
-          phone: customerForm.phone.trim(),
-          company_name: customerForm.company_name.trim() || null,
-          tax_id: customerForm.tax_id.trim() || null,
-          address: customerForm.address.trim() || null,
-          line_id: customerForm.line_id.trim() || null,
-          role: 'customer',
-          password: 'password',
+          is_company: customerFormIsCompany,
+          company_name: companyName === '' ? null : companyName,
+          contact_name: contactName === '' ? null : contactName,
+          first_name: customerFormIsCompany ? '' : firstName,
+          last_name: customerFormIsCompany ? '' : lastName,
+          name: (customerFormIsCompany ? companyName : `${firstName} ${lastName}`).trim(),
+          email: email === '' ? null : email,
+          phone: phone === '' ? null : phone,
+          tax_id: taxId === '' ? null : taxId,
+          address: address === '' ? null : address,
+          line_id: lineId === '' ? null : lineId,
         };
-        const created = await api.post('/users', payload);
+        const created = await api.post('/customers', payload);
         setSelectedCustomer(created.data);
         await api.put(`/orders/${orderId}`, { customer_id: created.data.id });
         onSuccess();
         setShowCustomerFormModal(false);
       } else {
         if (!selectedCustomer?.id) return;
+        const companyName = customerForm.company_name.trim();
+        const firstName = customerForm.first_name.trim();
+        const lastName = customerForm.last_name.trim();
+        const contactName = customerForm.contact_name.trim();
+        const email = customerForm.email.trim();
+        const phone = customerForm.phone.trim();
+        const taxId = customerForm.tax_id.trim();
+        const address = customerForm.address.trim();
+        const lineId = customerForm.line_id.trim();
         const payload = {
-          username: customerForm.email.trim(),
-          first_name: customerForm.first_name.trim(),
-          last_name: customerForm.last_name.trim() || '-',
-          email: customerForm.email.trim(),
-          phone: customerForm.phone.trim(),
-          company_name: customerForm.company_name.trim() || null,
-          tax_id: customerForm.tax_id.trim() || null,
-          address: customerForm.address.trim() || null,
-          line_id: customerForm.line_id.trim() || null,
-          role: 'customer',
+          is_company: customerFormIsCompany,
+          company_name: companyName === '' ? null : companyName,
+          contact_name: contactName === '' ? null : contactName,
+          first_name: customerFormIsCompany ? '' : firstName,
+          last_name: customerFormIsCompany ? '' : lastName,
+          name: (customerFormIsCompany ? companyName : `${firstName} ${lastName}`).trim(),
+          email: email === '' ? null : email,
+          phone: phone === '' ? null : phone,
+          tax_id: taxId === '' ? null : taxId,
+          address: address === '' ? null : address,
+          line_id: lineId === '' ? null : lineId,
         };
-        const updated = await api.put(`/users/${selectedCustomer.id}`, payload);
+        const updated = await api.put(`/customers/${selectedCustomer.id}`, payload);
         setSelectedCustomer(updated.data);
         onSuccess();
         setShowCustomerFormModal(false);
@@ -303,8 +327,58 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
                       ></button>
                     </div>
                     <div className="modal-body">
-                      {customerFormError && <div className="alert alert-danger" style={{ whiteSpace: 'pre-wrap' }}>{customerFormError}</div>}
+                      <MessageModal
+                        open={customerFormError !== null}
+                        type="danger"
+                        title={t('common.error_title', 'ไม่สำเร็จ')}
+                        message={customerFormError || ''}
+                        okLabel={t('common.ok', 'ตกลง')}
+                        onClose={() => setCustomerFormError(null)}
+                        zIndex={2100}
+                      />
                       <div className="row g-3">
+                        <div className="col-12">
+                          <div className="form-check form-switch d-flex align-items-center gap-2">
+                            <input
+                              className="form-check-input"
+                              type="checkbox"
+                              checked={customerFormIsCompany}
+                              onChange={(e) => setCustomerFormIsCompany(e.target.checked)}
+                              id="editOrderCustomerIsCompany"
+                              disabled={customerFormSaving}
+                              style={{ width: '3.25rem', height: '1.75rem' }}
+                            />
+                            <label className="form-check-label fw-bold fs-5" htmlFor="editOrderCustomerIsCompany">
+                              {t('customers.is_company', 'เป็นบริษัท')}
+                            </label>
+                          </div>
+                        </div>
+                        {customerFormIsCompany && (
+                          <div className="col-12">
+                            <label className="form-label fw-bold">{t('customers.company', 'บริษัท')} <span className="text-danger">*</span></label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              value={customerForm.company_name}
+                              onChange={(e) => setCustomerForm((p) => ({ ...p, company_name: e.target.value }))}
+                              disabled={customerFormSaving}
+                              required
+                            />
+                          </div>
+                        )}
+                        {customerFormIsCompany && (
+                          <div className="col-12">
+                            <label className="form-label fw-bold">{t('customers.locations.contact_person', 'ผู้ติดต่อ (ถ้ามี)')}</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              value={customerForm.contact_name}
+                              onChange={(e) => setCustomerForm((p) => ({ ...p, contact_name: e.target.value }))}
+                              disabled={customerFormSaving}
+                              placeholder={t('print.customer.attention', 'ผู้ติดต่อ / Attention')}
+                            />
+                          </div>
+                        )}
                         <div className="col-md-6">
                           <label className="form-label fw-bold">{t('customers.first_name', 'ชื่อ')}</label>
                           <input
@@ -312,8 +386,8 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
                             className="form-control"
                             value={customerForm.first_name}
                             onChange={(e) => setCustomerForm((p) => ({ ...p, first_name: e.target.value }))}
-                            disabled={customerFormSaving}
-                            required
+                            disabled={customerFormSaving || customerFormIsCompany}
+                            required={!customerFormIsCompany}
                           />
                         </div>
                         <div className="col-md-6">
@@ -323,18 +397,17 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
                             className="form-control"
                             value={customerForm.last_name}
                             onChange={(e) => setCustomerForm((p) => ({ ...p, last_name: e.target.value }))}
-                            disabled={customerFormSaving}
+                            disabled={customerFormSaving || customerFormIsCompany}
                           />
                         </div>
                         <div className="col-md-6">
-                          <label className="form-label fw-bold">{t('customers.phone', 'เบอร์โทร')} <span className="text-danger">*</span></label>
+                          <label className="form-label fw-bold">{t('customers.phone', 'เบอร์โทร')}</label>
                           <input
                             type="text"
                             className="form-control"
                             value={customerForm.phone}
                             onChange={(e) => setCustomerForm((p) => ({ ...p, phone: e.target.value }))}
                             disabled={customerFormSaving}
-                            required
                           />
                         </div>
                         <div className="col-md-6">
@@ -346,19 +419,20 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
                             onChange={(e) => setCustomerForm((p) => ({ ...p, email: e.target.value }))}
                             disabled={customerFormSaving}
                             placeholder={t('customers.email_optional', 'เว้นว่างได้ ระบบจะสร้างให้')}
-                            required={customerFormMode === 'edit'}
                           />
                         </div>
-                        <div className="col-md-6">
-                          <label className="form-label fw-bold">{t('customers.company', 'บริษัท')}</label>
-                          <input
-                            type="text"
-                            className="form-control"
-                            value={customerForm.company_name}
-                            onChange={(e) => setCustomerForm((p) => ({ ...p, company_name: e.target.value }))}
-                            disabled={customerFormSaving}
-                          />
-                        </div>
+                        {!customerFormIsCompany && (
+                          <div className="col-md-6">
+                            <label className="form-label fw-bold">{t('customers.company', 'บริษัท')}</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              value={customerForm.company_name}
+                              onChange={(e) => setCustomerForm((p) => ({ ...p, company_name: e.target.value }))}
+                              disabled={customerFormSaving}
+                            />
+                          </div>
+                        )}
                         <div className="col-md-6">
                           <label className="form-label fw-bold">{t('customers.tax_id', 'เลขผู้เสียภาษี')}</label>
                           <input
@@ -410,7 +484,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
                 {!isEditingCustomer ? (
                     <div className="d-flex justify-content-between align-items-center p-2 border rounded">
                         <div>
-                            <div className="fw-bold">{selectedCustomer?.name || t('pos.walk_in')}</div>
+                            <div className="fw-bold">{selectedCustomer?.company_name || selectedCustomer?.name || t('pos.walk_in')}</div>
                             {selectedCustomer && <div className="small text-muted">{selectedCustomer.phone}</div>}
                         </div>
                         <div className="d-flex gap-2">
@@ -444,7 +518,19 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
                             </button>
                         </div>
                         {customerSearchResults.length > 0 && (
-                            <div className="list-group position-absolute w-100 shadow" style={{ zIndex: 1000, maxHeight: '200px', overflowY: 'auto' }}>
+                            <div
+                              className="list-group position-absolute shadow"
+                              style={{
+                                zIndex: 2000,
+                                top: '100%',
+                                left: 0,
+                                right: 0,
+                                marginTop: '0.25rem',
+                                maxHeight: '240px',
+                                overflowY: 'auto',
+                                backgroundColor: 'white',
+                              }}
+                            >
                                 <button
                                     type="button"
                                     className="list-group-item list-group-item-action"
@@ -470,7 +556,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
                                             setCustomerSearchResults([]);
                                         }}
                                     >
-                                        <div className="fw-bold">{customer.name}</div>
+                                        <div className="fw-bold">{customer.company_name || customer.name}</div>
                                         <div className="small text-muted">{customer.phone}</div>
                                     </button>
                                 ))}

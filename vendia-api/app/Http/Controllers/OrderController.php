@@ -97,7 +97,7 @@ class OrderController extends Controller
             'items.*.price' => 'nullable|numeric',
             'payment_method' => 'required|string',
             'status' => 'nullable|in:completed,cancelled,pending,quotation',
-            'customer_id' => 'nullable|exists:users,id',
+            'customer_id' => 'nullable|exists:customers,id',
             'parent_id' => 'nullable|exists:orders,id',
             'apply_vat' => 'sometimes|boolean',
             'vat_rate' => 'sometimes|numeric|min:0|max:100',
@@ -246,7 +246,7 @@ class OrderController extends Controller
         $request->validate([
             'status' => 'nullable|in:completed,cancelled,pending,quotation',
             'payment_method' => 'nullable|string',
-            'customer_id' => 'nullable|exists:users,id',
+            'customer_id' => 'nullable|exists:customers,id',
             'items' => 'nullable|array',
             'items.*.product_id' => 'required_with:items|exists:products,id',
             'items.*.quantity' => 'required_with:items|integer|min:1',

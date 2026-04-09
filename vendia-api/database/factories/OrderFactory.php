@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Customer;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -19,7 +20,7 @@ class OrderFactory extends Factory
     {
         return [
             'user_id' => User::factory(), // Staff who processed
-            'customer_id' => User::factory(),
+            'customer_id' => Customer::factory(),
             'total' => $this->faker->randomFloat(2, 100, 10000),
             'status' => $this->faker->randomElement(['pending', 'completed', 'cancelled']),
             'payment_method' => $this->faker->randomElement(['cash', 'transfer', 'credit_card']),

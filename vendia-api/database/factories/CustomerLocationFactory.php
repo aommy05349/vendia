@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Models\User;
+use App\Models\Customer;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,7 +18,7 @@ class CustomerLocationFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => User::factory(),
+            'customer_id' => Customer::factory(),
             'name' => $this->faker->randomElement(['Home', 'Office', 'Branch 1', 'Warehouse']),
             'address' => $this->faker->address,
             'latitude' => $this->faker->latitude(5.6, 20.5), // Thailand Lat

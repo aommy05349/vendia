@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Models\Customer;
 use App\Models\Order;
-use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -22,7 +22,7 @@ class AppointmentFactory extends Factory
         $endTime = (clone $startTime)->modify('+2 hours');
 
         return [
-            'customer_id' => User::factory(),
+            'customer_id' => Customer::factory(),
             'order_id' => Order::factory(),
             'title' => $this->faker->sentence(3),
             'description' => $this->faker->paragraph,

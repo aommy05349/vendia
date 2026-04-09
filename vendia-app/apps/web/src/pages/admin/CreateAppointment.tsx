@@ -164,13 +164,12 @@ export const CreateAppointment = () => {
   const fetchCustomers = async (search = '') => {
     try {
       const params = new URLSearchParams();
-      params.append('role', 'customer');
       params.append('has_available_order_for_appointment', 'true');
       params.append('per_page', '100');
       if (search) {
         params.append('search', search);
       }
-      const response = await api.get(`/users?${params.toString()}`);
+      const response = await api.get(`/customers?${params.toString()}`);
       setCustomers(response.data.data || response.data);
     } catch (error) {
       console.error('Failed to fetch customers', error);
@@ -210,7 +209,7 @@ export const CreateAppointment = () => {
 
       const [ordersRes, locationsRes] = await Promise.all([
         api.get(orderQuery),
-        api.get(`/users/${customerId}/locations`),
+        api.get(`/customers/${customerId}/locations`),
       ]);
       setOrders((ordersRes.data.data || []) as Order[]);
       setCustomerLocations(locationsRes.data);
@@ -313,7 +312,7 @@ export const CreateAppointment = () => {
 
         if (!exists) {
           await api.post('/customer-locations', {
-            user_id: Number(formData.customer_id),
+            customer_id: Number(formData.customer_id),
             name: formData.location_name || null,
             address: formData.address,
             latitude: formData.latitude ? parseFloat(formData.latitude) : null,

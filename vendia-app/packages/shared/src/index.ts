@@ -6,3 +6,4 @@ export * from './categoryStore';
 export * from './productStore';
 export * from './auxStore';
 export * from './customerStore';
+export * from './types';

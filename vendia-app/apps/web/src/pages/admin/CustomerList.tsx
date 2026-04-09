@@ -1,28 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '@vendia/shared';
+import { api, Customer } from '@vendia/shared';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { MessageModal } from '../../components/MessageModal';
 
-interface User {
-  id: number;
-  name: string;
-  username: string;
-  email: string;
-  role: string;
-  first_name: string;
-  last_name: string;
-  phone?: string;
-  company_name?: string;
-  tax_id?: string;
-}
-
 export const CustomerList = () => {
   const { t } = useTranslation();
-  const [customers, setCustomers] = useState<User[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [customerType, setCustomerType] = useState<'all' | 'personal' | 'company'>('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
@@ -38,15 +26,20 @@ export const CustomerList = () => {
       window.history.replaceState({}, document.title);
       setTimeout(() => setAlertMessage(null), 3000);
     }
-  }, [location, search, page]);
+  }, [location, search, page, customerType]);
 
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [search, customerType]);
 
   const fetchCustomers = async (pageNo: number) => {
     try {
-      const response = await api.get(`/users?role=customer&search=${search}&page=${pageNo}`);
+      const params = new URLSearchParams();
+      params.set('search', search);
+      params.set('page', String(pageNo));
+      if (customerType !== 'all') params.set('type', customerType);
+
+      const response = await api.get(`/customers?${params.toString()}`);
       setCustomers(response.data.data);
       setTotalPages(response.data.last_page);
     } catch (error) {
@@ -59,6 +52,37 @@ export const CustomerList = () => {
 
   const handleDelete = (id: number) => {
     setConfirmCustomerId(id);
+  };
+
+  const isGeneratedEmail = (email?: string) => {
+    if (!email) return true;
+    const trimmed = email.trim();
+    if (trimmed === '') return true;
+    return trimmed.startsWith('cust_') || trimmed.endsWith('@vendia.local') || trimmed.endsWith('@example.com');
+  };
+
+  const getDisplayName = (customer: Customer) => {
+    const isCompany = customer.is_company === true;
+    const company = typeof customer.company_name === 'string' ? customer.company_name.trim() : '';
+    if (isCompany && company) return company;
+
+    const name = typeof customer.name === 'string' ? customer.name.trim() : '';
+    if (name) return name;
+
+    const first = typeof customer.first_name === 'string' ? customer.first_name.trim() : '';
+    const last = typeof customer.last_name === 'string' ? customer.last_name.trim() : '';
+    const combined = `${first} ${last}`.trim();
+    return combined || '-';
+  };
+
+  const getDisplayEmail = (customer: Customer) => {
+    const email = typeof customer.email === 'string' ? customer.email.trim() : '';
+    if (isGeneratedEmail(email || undefined)) return '-';
+    return email || '-';
+  };
+
+  const getTypeLabel = (customer: Customer) => {
+    return customer.is_company ? t('customers.filters.company', 'บริษัท') : t('customers.filters.personal', 'ลูกค้าทั่วไป');
   };
 
   if (loading) return <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>;
@@ -89,7 +113,7 @@ export const CustomerList = () => {
           if (confirmCustomerId === null) return;
           setConfirmBusy(true);
           try {
-            await api.delete(`/users/${confirmCustomerId}`);
+            await api.delete(`/customers/${confirmCustomerId}`);
             setAlertMessage({ type: 'success', text: t('customers.delete_success') });
             fetchCustomers(page);
           } catch (error) {
@@ -112,13 +136,28 @@ export const CustomerList = () => {
       </div>
 
       <div className="mb-4">
-        <input
-          type="text"
-          className="form-control"
-          placeholder={t('customers.search_placeholder')}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="row g-2">
+          <div className="col-12 col-md-3">
+            <select
+              className="form-select"
+              value={customerType}
+              onChange={(e) => setCustomerType(e.target.value as 'all' | 'personal' | 'company')}
+            >
+              <option value="all">{t('customers.filters.all', 'ทั้งหมด')}</option>
+              <option value="personal">{t('customers.filters.personal', 'ลูกค้าทั่วไป')}</option>
+              <option value="company">{t('customers.filters.company', 'บริษัท')}</option>
+            </select>
+          </div>
+          <div className="col-12 col-md-9">
+            <input
+              type="text"
+              className="form-control"
+              placeholder={t('customers.search_placeholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="card shadow-sm border-0">
@@ -128,6 +167,7 @@ export const CustomerList = () => {
               <tr>
                 <th className="p-3 border-bottom-2">{t('customers.fields.id')}</th>
                 <th className="p-3 border-bottom-2">{t('customers.fields.name')}</th>
+                <th className="p-3 border-bottom-2">{t('customers.fields.type', 'ประเภท')}</th>
                 <th className="p-3 border-bottom-2">{t('customers.company')}</th>
                 <th className="p-3 border-bottom-2">{t('customers.phone')}</th>
                 <th className="p-3 border-bottom-2">{t('customers.email')}</th>
@@ -145,12 +185,16 @@ export const CustomerList = () => {
                   >
                     <td className="p-3">{customer.id}</td>
                     <td className="p-3">
-                      <div className="fw-bold">{customer.first_name} {customer.last_name}</div>
-                      <div className="text-muted small">@{customer.username}</div>
+                      <div className="fw-bold">{getDisplayName(customer)}</div>
+                    </td>
+                    <td className="p-3">
+                      <span className={`badge ${customer.is_company ? 'bg-info' : 'bg-secondary'}`}>
+                        {getTypeLabel(customer)}
+                      </span>
                     </td>
                     <td className="p-3">{customer.company_name || '-'}</td>
                     <td className="p-3">{customer.phone || '-'}</td>
-                    <td className="p-3">{customer.email}</td>
+                    <td className="p-3">{getDisplayEmail(customer)}</td>
                     <td className="p-3">{customer.tax_id || '-'}</td>
                     <td className="p-3 text-end">
                       <button
@@ -176,7 +220,7 @@ export const CustomerList = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="text-center p-4 text-muted">
+                  <td colSpan={8} className="text-center p-4 text-muted">
                     {t('customers.no_customers')}
                   </td>
                 </tr>

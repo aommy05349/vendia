@@ -467,7 +467,7 @@ export const OrderList = () => {
                       </td>
                       <td className="p-3">{new Date(order.created_at).toLocaleString()}</td>
                       <td className="p-3">
-                        <div className="fw-bold">{order.customer?.name || t('pos.walk_in')}</div>
+                        <div className="fw-bold">{order.customer?.company_name || order.customer?.name || t('pos.walk_in')}</div>
                         <div className="small text-muted">{t('orders.staff')}: {order.user?.name || t('orders.unknown')}</div>
                       </td>
                       <td className="p-3">

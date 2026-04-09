@@ -11,7 +11,7 @@ class CustomerLocationController extends Controller
     public function index($userId)
     {
         return response()->json(
-            \App\Models\CustomerLocation::where('user_id', $userId)
+            \App\Models\CustomerLocation::where('customer_id', $userId)
                 ->orderBy('is_default', 'desc')
                 ->get()
         );
@@ -20,7 +20,7 @@ class CustomerLocationController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
+            'customer_id' => 'required|exists:customers,id',
             'name' => 'nullable|string',
             'address' => 'required|string',
             'latitude' => 'nullable|numeric',
@@ -37,7 +37,7 @@ class CustomerLocationController extends Controller
             : null;
 
         $existing = \App\Models\CustomerLocation::query()
-            ->where('user_id', $validated['user_id'])
+            ->where('customer_id', $validated['customer_id'])
             ->where('address', $validated['address'])
             ->when($validated['name'] === null, function ($q) {
                 return $q->whereNull('name');
@@ -48,14 +48,14 @@ class CustomerLocationController extends Controller
 
         if ($existing) {
             if ($request->boolean('is_default')) {
-                \App\Models\CustomerLocation::where('user_id', $validated['user_id'])->update(['is_default' => false]);
+                \App\Models\CustomerLocation::where('customer_id', $validated['customer_id'])->update(['is_default' => false]);
                 $existing->update(['is_default' => true]);
             }
             return response()->json($existing, 200);
         }
 
         if ($request->is_default) {
-            \App\Models\CustomerLocation::where('user_id', $request->user_id)->update(['is_default' => false]);
+            \App\Models\CustomerLocation::where('customer_id', $request->customer_id)->update(['is_default' => false]);
         }
 
         $location = \App\Models\CustomerLocation::create($validated);
@@ -79,7 +79,7 @@ class CustomerLocationController extends Controller
         ]);
 
         if ($request->is_default) {
-            \App\Models\CustomerLocation::where('user_id', $location->user_id)->update(['is_default' => false]);
+            \App\Models\CustomerLocation::where('customer_id', $location->customer_id)->update(['is_default' => false]);
         }
 
         $location->update($validated);

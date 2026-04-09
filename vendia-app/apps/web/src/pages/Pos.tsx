@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useCartStore, useProductStore, useCategoryStore, useCustomerStore, api, Product, User } from '@vendia/shared';
+import { useCartStore, useProductStore, useCategoryStore, useCustomerStore, api, Product, Customer } from '@vendia/shared';
 import { MessageModal } from '../components/MessageModal';
 
 export const Pos = () => {
@@ -16,13 +16,15 @@ export const Pos = () => {
   const { customers, fetchCustomers, createCustomer } = useCustomerStore();
   
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [selectedCustomer, setSelectedCustomer] = useState<User | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [parentOrder, setParentOrder] = useState<any | null>(null);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCreateCustomerModal, setShowCreateCustomerModal] = useState(false);
+  const [newCustomerIsCompany, setNewCustomerIsCompany] = useState(false);
   const [newCustomerFirstName, setNewCustomerFirstName] = useState('');
   const [newCustomerLastName, setNewCustomerLastName] = useState('');
+  const [newCustomerContactName, setNewCustomerContactName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [newCustomerEmail, setNewCustomerEmail] = useState('');
   const [newCustomerTaxId, setNewCustomerTaxId] = useState('');
@@ -170,7 +172,7 @@ export const Pos = () => {
         // Check for customer_id param to pre-fill customer
         const customerIdParam = searchParams.get('customer_id');
         if (customerIdParam) {
-            api.get(`/users/${customerIdParam}`).then(res => {
+            api.get(`/customers/${customerIdParam}`).then(res => {
                 setSelectedCustomer(res.data);
             }).catch(err => console.error('Failed to load customer', err));
         }
@@ -874,7 +876,7 @@ export const Pos = () => {
                         >
                             <div className="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <div className="fw-bold">{customer.name}</div>
+                                    <div className="fw-bold">{customer.company_name || customer.name}</div>
                                     <div className="small opacity-75">{customer.phone} {customer.email && `• ${customer.email}`}</div>
                                     {customer.company_name && <div className="small opacity-75">{customer.company_name}</div>}
                                 </div>
@@ -902,32 +904,40 @@ export const Pos = () => {
                 <button type="button" className="btn-close" onClick={() => setShowCreateCustomerModal(false)}></button>
               </div>
               <div className="modal-body">
-                {createCustomerError && (
-                    <div className="alert alert-danger" role="alert">
-                        {createCustomerError}
-                    </div>
-                )}
+                <MessageModal
+                  open={createCustomerError !== null}
+                  type="danger"
+                  title={t('common.error_title', 'ไม่สำเร็จ')}
+                  message={createCustomerError || ''}
+                  okLabel={t('common.ok', 'ตกลง')}
+                  onClose={() => setCreateCustomerError(null)}
+                  zIndex={2100}
+                />
                 <form onSubmit={async (e) => {
                     e.preventDefault();
                     setCreateCustomerError(null);
                     try {
                         const newCustomer = await createCustomer({
-                            first_name: newCustomerFirstName,
-                            last_name: newCustomerLastName,
-                            name: `${newCustomerFirstName} ${newCustomerLastName}`, // Fallback for display
-                            phone: newCustomerPhone,
-                            email: newCustomerEmail,
+                            is_company: newCustomerIsCompany,
+                            first_name: newCustomerIsCompany ? '' : newCustomerFirstName,
+                            last_name: newCustomerIsCompany ? '' : newCustomerLastName,
+                            name: (newCustomerIsCompany ? newCustomerCompany : `${newCustomerFirstName} ${newCustomerLastName}`).trim(),
+                            contact_name: newCustomerIsCompany ? newCustomerContactName.trim() || undefined : undefined,
+                            phone: newCustomerPhone.trim() || undefined,
+                            email: newCustomerEmail.trim() || undefined,
                             tax_id: newCustomerTaxId,
                             address: newCustomerAddress,
-                            company_name: newCustomerCompany,
+                            company_name: newCustomerCompany.trim() || undefined,
                         });
                         setSelectedCustomer(newCustomer);
                         setShowCreateCustomerModal(false);
                         setShowCustomerModal(false);
                         
                         // Reset form
+                        setNewCustomerIsCompany(false);
                         setNewCustomerFirstName('');
                         setNewCustomerLastName('');
+                        setNewCustomerContactName('');
                         setNewCustomerPhone('');
                         setNewCustomerEmail('');
                         setNewCustomerTaxId('');
@@ -942,55 +952,95 @@ export const Pos = () => {
                     }
                 }}>
                     <div className="row">
+                        <div className="col-12 mb-3">
+                            <div className="form-check form-switch d-flex align-items-center gap-2">
+                                <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    checked={newCustomerIsCompany}
+                                    onChange={(e) => setNewCustomerIsCompany(e.target.checked)}
+                                    id="newCustomerIsCompany"
+                                    style={{ width: '3.25rem', height: '1.75rem' }}
+                                />
+                                <label className="form-check-label fw-bold fs-5" htmlFor="newCustomerIsCompany">
+                                    {t('customers.is_company', 'เป็นบริษัท')}
+                                </label>
+                            </div>
+                        </div>
+                        {newCustomerIsCompany && (
+                            <div className="col-12 mb-3">
+                                <label className="form-label">{t('customers.company')} *</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    value={newCustomerCompany}
+                                    onChange={(e) => setNewCustomerCompany(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        )}
+                        {newCustomerIsCompany && (
+                            <div className="col-12 mb-3">
+                                <label className="form-label">{t('customers.locations.contact_person', 'ผู้ติดต่อ (ถ้ามี)')}</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    value={newCustomerContactName}
+                                    onChange={(e) => setNewCustomerContactName(e.target.value)}
+                                    placeholder={t('print.customer.attention', 'ผู้ติดต่อ / Attention')}
+                                />
+                            </div>
+                        )}
                         <div className="col-md-6 mb-3">
-                            <label className="form-label">{t('customers.first_name')} *</label>
+                            <label className="form-label">{t('customers.first_name')} {!newCustomerIsCompany && <span className="text-danger">*</span>}</label>
                             <input 
                                 type="text" 
                                 className="form-control" 
                                 value={newCustomerFirstName}
                                 onChange={(e) => setNewCustomerFirstName(e.target.value)}
-                                required
+                                disabled={newCustomerIsCompany}
+                                required={!newCustomerIsCompany}
                             />
                         </div>
                         <div className="col-md-6 mb-3">
-                            <label className="form-label">{t('customers.last_name')} *</label>
+                            <label className="form-label">{t('customers.last_name')}</label>
                             <input 
                                 type="text" 
                                 className="form-control" 
                                 value={newCustomerLastName}
                                 onChange={(e) => setNewCustomerLastName(e.target.value)}
-                                required
+                                disabled={newCustomerIsCompany}
                             />
                         </div>
                         <div className="col-md-6 mb-3">
-                            <label className="form-label">{t('customers.email')} *</label>
+                            <label className="form-label">{t('customers.email')}</label>
                             <input 
                                 type="email" 
                                 className="form-control" 
                                 value={newCustomerEmail}
                                 onChange={(e) => setNewCustomerEmail(e.target.value)}
-                                required
                             />
                         </div>
                         <div className="col-md-6 mb-3">
-                            <label className="form-label">{t('customers.phone')} *</label>
+                            <label className="form-label">{t('customers.phone')}</label>
                             <input 
                                 type="text" 
                                 className="form-control" 
                                 value={newCustomerPhone}
                                 onChange={(e) => setNewCustomerPhone(e.target.value)}
-                                required
                             />
                         </div>
-                        <div className="col-md-6 mb-3">
-                            <label className="form-label">{t('customers.company')}</label>
-                            <input 
-                                type="text" 
-                                className="form-control" 
-                                value={newCustomerCompany}
-                                onChange={(e) => setNewCustomerCompany(e.target.value)}
-                            />
-                        </div>
+                        {!newCustomerIsCompany && (
+                            <div className="col-md-6 mb-3">
+                                <label className="form-label">{t('customers.company')}</label>
+                                <input 
+                                    type="text" 
+                                    className="form-control" 
+                                    value={newCustomerCompany}
+                                    onChange={(e) => setNewCustomerCompany(e.target.value)}
+                                />
+                            </div>
+                        )}
                         <div className="col-md-6 mb-3">
                             <label className="form-label">{t('customers.tax_id')}</label>
                             <input 

@@ -35,12 +35,19 @@ class ShopController extends Controller
 
     public function index()
     {
-        return response()->json(Shop::firstOrFail());
+        $shop = Shop::first();
+        if (! $shop) {
+            $shop = Shop::create([
+                'name' => 'Vendia',
+            ]);
+        }
+
+        return response()->json($shop);
     }
 
     public function update(Request $request)
     {
-        $shop = Shop::firstOrFail();
+        $shop = Shop::first() ?? new Shop();
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',

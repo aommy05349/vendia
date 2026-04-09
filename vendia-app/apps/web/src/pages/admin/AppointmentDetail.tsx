@@ -495,7 +495,7 @@ export const AppointmentDetail = () => {
       }
       const [ordersRes, locationsRes] = await Promise.all([
         api.get(orderQuery),
-        api.get(`/users/${customerId}/locations`),
+        api.get(`/customers/${customerId}/locations`),
       ]);
       setOrders(ordersRes.data.data || ordersRes.data);
       setCustomerLocations(locationsRes.data || []);
@@ -1271,7 +1271,7 @@ export const AppointmentDetail = () => {
               <h5 className="mb-0">{t('appointments.detail.customer_info')}</h5>
             </div>
             <div className="card-body">
-              <h5>{appointment.customer.name}</h5>
+              <h5>{appointment.customer.company_name || appointment.customer.name}</h5>
               {appointment.customer.company_name && (
                 <p className="text-muted mb-2">
                   <i className="bi bi-building me-2"></i>{appointment.customer.company_name}
@@ -1289,7 +1289,7 @@ export const AppointmentDetail = () => {
                 </p>
               )}
 
-              {appointment.customer.email && (
+              {appointment.customer.email && !appointment.customer.email.startsWith('cust_') && !appointment.customer.email.endsWith('@vendia.local') && !appointment.customer.email.endsWith('@example.com') && (
                 <p className="mb-1">
                   <i className="bi bi-envelope me-2"></i>
                   <a href={`mailto:${appointment.customer.email}`}>{appointment.customer.email}</a>
@@ -1600,7 +1600,7 @@ export const AppointmentDetail = () => {
             appointment.customer
               ? {
                   id: appointment.customer.id,
-                  name: appointment.customer.name,
+                  name: appointment.customer.company_name || appointment.customer.name,
                   phone: appointment.customer.phone || appointment.customer.phone_number,
                 }
               : null

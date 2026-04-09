@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
+use App\Models\Customer;
 use App\Models\CustomerLocation;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class RandomCustomerSeeder extends Seeder
 {
@@ -226,25 +225,22 @@ class RandomCustomerSeeder extends Seeder
         ];
 
         foreach ($customers as $index => $data) {
-            $user = User::updateOrCreate(
+            $customer = Customer::updateOrCreate(
                 ['email' => $data['email']],
                 [
                     'name' => $data['name'],
                     'first_name' => $data['first_name'],
                     'last_name' => $data['last_name'],
-                    'username' => $data['email'] ?? 'customer' . Str::padLeft((string) ($index + 1), 3, '0'),
                     'phone' => $data['phone'],
                     'address' => $data['address'],
                     'company_name' => $data['company_name'] ?? null,
                     'tax_id' => $data['tax_id'] ?? null,
-                    'role' => 'customer',
-                    'password' => 'password',
                 ]
             );
 
             CustomerLocation::updateOrCreate(
                 [
-                    'user_id' => $user->id,
+                    'customer_id' => $customer->id,
                     'address' => $data['address'],
                 ],
                 [

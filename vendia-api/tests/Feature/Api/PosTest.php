@@ -41,7 +41,7 @@ class PosTest extends TestCase
         $response = $this->actingAs($user)->getJson('/api/products');
 
         $response->assertStatus(200)
-            ->assertJsonCount(3);
+            ->assertJsonCount(3, 'data');
     }
 
     public function test_can_create_order()

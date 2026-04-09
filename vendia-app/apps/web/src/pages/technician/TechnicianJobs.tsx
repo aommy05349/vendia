@@ -14,6 +14,7 @@ interface Job {
   status: string;
   customer: {
     name: string;
+    company_name?: string | null;
   };
   address: string;
   location_name: string | null;
@@ -276,7 +277,7 @@ export const TechnicianJobs = () => {
 
                       <p className="card-text mb-1">
                         <i className="bi bi-person me-2"></i>
-                        {job.customer.name}
+                        {job.customer.company_name || job.customer.name}
                       </p>
 
                       <p className="card-text text-truncate">

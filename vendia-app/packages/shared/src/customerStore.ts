@@ -1,14 +1,13 @@
 import { create } from 'zustand';
 import { api } from './api';
-import { User } from './store';
-import { PaginationMeta } from './types';
+import { Customer, PaginationMeta } from './types';
 
 interface CustomerState {
-  customers: User[];
+  customers: Customer[];
   loading: boolean;
   pagination: PaginationMeta | null;
-  fetchCustomers: (params?: { page?: number; search?: string; per_page?: number }) => Promise<void>;
-  createCustomer: (data: Partial<User>) => Promise<User>;
+  fetchCustomers: (params?: { page?: number; search?: string; per_page?: number; has_available_order_for_appointment?: boolean }) => Promise<void>;
+  createCustomer: (data: Partial<Customer>) => Promise<Customer>;
 }
 
 export const useCustomerStore = create<CustomerState>((set) => ({
@@ -18,12 +17,7 @@ export const useCustomerStore = create<CustomerState>((set) => ({
   fetchCustomers: async (params = {}) => {
     set({ loading: true });
     try {
-      const response = await api.get('/users', { 
-        params: { 
-          role: 'customer', 
-          ...params 
-        } 
-      });
+      const response = await api.get('/customers', { params });
       set({ 
         customers: response.data.data,
         pagination: {
@@ -44,21 +38,7 @@ export const useCustomerStore = create<CustomerState>((set) => ({
   createCustomer: async (data) => {
     set({ loading: true });
     try {
-      // Ensure role is customer
-      const payload = { ...data, role: 'customer' };
-
-      // Use email as username if available and username is missing
-      if (!payload.username && payload.email) {
-        payload.username = payload.email;
-      }
-
-      // Generate dummy username/email if not provided for quick customer creation
-      if (!payload.username) payload.username = `cust_${Date.now()}`;
-      if (!payload.email) payload.email = `cust_${Date.now()}@example.com`;
-      if (!payload.first_name) payload.first_name = data.name?.split(' ')[0] || 'Unknown';
-      if (!payload.last_name) payload.last_name = data.name?.split(' ').slice(1).join(' ') || 'Customer';
-
-      const response = await api.post('/users', payload);
+      const response = await api.post('/customers', data);
       set((state) => ({ 
         customers: [response.data, ...state.customers],
         loading: false 

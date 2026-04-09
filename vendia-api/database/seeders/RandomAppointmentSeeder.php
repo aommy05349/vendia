@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Appointment;
-use App\Models\User;
+use App\Models\Customer;
 use App\Models\Order;
 use App\Models\CustomerLocation;
 use Illuminate\Database\Seeder;
@@ -16,17 +16,17 @@ class RandomAppointmentSeeder extends Seeder
      */
     public function run(): void
     {
-        $customers = User::where('role', 'customer')->get();
+        $customers = Customer::query()->get();
         if ($customers->isEmpty()) {
             return;
         }
 
         $customerIds = $customers->pluck('id');
 
-        $locations = CustomerLocation::whereIn('user_id', $customerIds)
+        $locations = CustomerLocation::whereIn('customer_id', $customerIds)
             ->where('is_default', true)
             ->get()
-            ->keyBy('user_id');
+            ->keyBy('customer_id');
 
         if ($locations->isEmpty()) {
             return;

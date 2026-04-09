@@ -45,7 +45,7 @@ class AppointmentController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'customer_id' => 'required|exists:users,id',
+            'customer_id' => 'required|exists:customers,id',
             'order_id' => [
                 'required',
                 'exists:orders,id',

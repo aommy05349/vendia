@@ -78,7 +78,18 @@ function App() {
       login(response.data.user, response.data.access_token);
     } catch (err: any) {
       console.error(err);
-      setError('Invalid credentials');
+      const messageFromApi = err?.response?.data?.message;
+      const errorsFromApi = err?.response?.data?.errors;
+      const firstError =
+        errorsFromApi && typeof errorsFromApi === 'object'
+          ? Object.values(errorsFromApi).flat()?.[0]
+          : undefined;
+
+      setError(
+        (typeof firstError === 'string' && firstError) ||
+          (typeof messageFromApi === 'string' && messageFromApi) ||
+          t('login.invalid_credentials')
+      );
     }
   };
 
@@ -101,7 +112,7 @@ function App() {
               )}
               <h1 className="h3">{shop?.name || t('login.title')}</h1>
             </div>
-            {error && <div className="alert alert-danger text-center py-2">{t('login.invalid_credentials')}</div>}
+            {error && <div className="alert alert-danger text-center py-2">{error}</div>}
             <form onSubmit={handleLogin} className="d-flex flex-column gap-3">
               <input
                 type="email"
