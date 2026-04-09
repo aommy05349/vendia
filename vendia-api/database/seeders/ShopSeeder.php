@@ -26,8 +26,8 @@ class ShopSeeder extends Seeder
                 'website' => null,
                 'footer_text' => 'พีทีแอร์....ดูแลแอร์....ดูแลคุณ...และคนที่คุณรัก ขอบคุณลูกค้าที่ไว้วางใจเรียกใช้บริการครับ/ค่ะ',
                 'remarks' => "ซ่อม รับประกัน 3 เดือน\nล้างรับประกันน้ำหยดหลังล้าง 30 วัน\nติดตั้งระบบ รับประกัน 1 ปี",
-                'logo_path' => null,
-                'signature_path' => null,
+                'logo_path' => 'shops/logo.png',
+                'signature_path' => 'shops/sign.png',
             ]
         );
     }

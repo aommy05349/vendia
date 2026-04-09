@@ -118,32 +118,32 @@ export const CreateCustomer = () => {
           </div>
         )}
 
-        <div className="row g-3 mb-3">
-          <div className="col-md-6">
-            <label className="form-label fw-bold">{t('customers.first_name')}</label>
-            <input 
-              type="text" 
-              name="first_name" 
-              className="form-control"
-              value={formData.first_name} 
-              onChange={handleChange} 
-              disabled={isCompany}
-              required={!isCompany}
-            />
+        {!isCompany && (
+          <div className="row g-3 mb-3">
+            <div className="col-md-6">
+              <label className="form-label fw-bold">{t('customers.first_name')}</label>
+              <input
+                type="text"
+                name="first_name"
+                className="form-control"
+                value={formData.first_name}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label fw-bold">{t('customers.last_name')}</label>
+              <input
+                type="text"
+                name="last_name"
+                className="form-control"
+                value={formData.last_name}
+                onChange={handleChange}
+                required
+              />
+            </div>
           </div>
-          <div className="col-md-6">
-            <label className="form-label fw-bold">{t('customers.last_name')}</label>
-            <input 
-              type="text" 
-              name="last_name" 
-              className="form-control"
-              value={formData.last_name} 
-              onChange={handleChange} 
-              disabled={isCompany}
-              required={!isCompany}
-            />
-          </div>
-        </div>
+        )}
 
         <div className="row g-3 mb-3">
           <div className="col-md-6">

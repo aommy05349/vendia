@@ -35,11 +35,31 @@ class ShopController extends Controller
 
     public function index()
     {
+        $defaultLogoPath = file_exists(public_path('storage/shops/logo.png')) ? 'shops/logo.png' : null;
+        $defaultSignaturePath = file_exists(public_path('storage/shops/sign.png')) ? 'shops/sign.png' : null;
+
         $shop = Shop::first();
         if (! $shop) {
             $shop = Shop::create([
                 'name' => 'Vendia',
+                'logo_path' => $defaultLogoPath,
+                'signature_path' => $defaultSignaturePath,
             ]);
+
+            return response()->json($shop);
+        }
+
+        $changed = false;
+        if ((!is_string($shop->logo_path) || trim($shop->logo_path) === '') && $defaultLogoPath) {
+            $shop->logo_path = $defaultLogoPath;
+            $changed = true;
+        }
+        if ((!is_string($shop->signature_path) || trim($shop->signature_path) === '') && $defaultSignaturePath) {
+            $shop->signature_path = $defaultSignaturePath;
+            $changed = true;
+        }
+        if ($changed) {
+            $shop->save();
         }
 
         return response()->json($shop);
