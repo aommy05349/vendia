@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -13,9 +14,9 @@ return new class extends Migration
     {
         Schema::table('products', function (Blueprint $table) {
             $table->string('slug')->nullable()->unique()->after('name');
-            $table->foreignId('warehouse_id')->nullable()->constrained()->after('category_id');
-            $table->foreignId('brand_id')->nullable()->constrained()->after('warehouse_id');
-            $table->foreignId('unit_id')->nullable()->constrained()->after('brand_id');
+            $table->foreignId('warehouse_id')->nullable()->after('category_id');
+            $table->foreignId('brand_id')->nullable()->after('warehouse_id');
+            $table->foreignId('unit_id')->nullable()->after('brand_id');
             $table->string('barcode_symbology')->default('Code128')->after('sku');
             $table->string('barcode')->nullable()->unique()->after('barcode_symbology');
             $table->enum('product_type', ['single', 'variable'])->default('single')->after('barcode');
@@ -25,6 +26,12 @@ return new class extends Migration
             $table->decimal('discount_value', 8, 2)->default(0)->after('discount_type');
             $table->integer('quantity_alert')->default(0)->after('stock');
         });
+
+        if (DB::getDriverName() !== 'sqlite' && Schema::hasTable('brands')) {
+            Schema::table('products', function (Blueprint $table) {
+                $table->foreign('brand_id')->references('id')->on('brands');
+            });
+        }
     }
 
     /**
