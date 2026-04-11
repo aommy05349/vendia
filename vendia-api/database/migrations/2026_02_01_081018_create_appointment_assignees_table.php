@@ -13,10 +13,13 @@ return new class extends Migration
     {
         Schema::create('appointment_assignees', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('appointment_id')->constrained()->onDelete('cascade');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade'); // Technician
+            $table->unsignedBigInteger('appointment_id');
+            $table->unsignedBigInteger('user_id'); // Technician
             $table->boolean('is_lead')->default(false);
             $table->timestamps();
+
+            $table->index('appointment_id');
+            $table->index('user_id');
         });
     }
 
