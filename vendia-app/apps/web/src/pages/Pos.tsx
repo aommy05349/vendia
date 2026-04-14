@@ -16,6 +16,8 @@ export const Pos = () => {
   const { customers, fetchCustomers, createCustomer } = useCustomerStore();
   
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [productSearch, setProductSearch] = useState('');
+  const [debouncedProductSearch, setDebouncedProductSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [parentOrder, setParentOrder] = useState<any | null>(null);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -75,12 +77,20 @@ export const Pos = () => {
   };
 
   useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedProductSearch(productSearch.trim());
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [productSearch]);
+
+  useEffect(() => {
     fetchProducts({
       page: currentPage,
       category_id: selectedCategory || undefined,
+      search: debouncedProductSearch || undefined,
       per_page: 12
     });
-  }, [fetchProducts, currentPage, selectedCategory]);
+  }, [fetchProducts, currentPage, selectedCategory, debouncedProductSearch]);
 
   useEffect(() => {
     fetchCategories({ has_products: true });
@@ -181,6 +191,11 @@ export const Pos = () => {
 
   const handleCategorySelect = (id: number | null) => {
     setSelectedCategory(id);
+    setCurrentPage(1);
+  };
+
+  const handleProductSearchChange = (value: string) => {
+    setProductSearch(value);
     setCurrentPage(1);
   };
 
@@ -292,8 +307,8 @@ export const Pos = () => {
         className="flex-grow-1 p-3 p-lg-4 overflow-auto border-end-lg border-bottom border-bottom-lg-0"
         style={{ flex: 4, minHeight: 0 }}
       >
-        <div className="d-flex justify-content-between align-items-center mb-4">
-            <h1 className="h3 m-0">
+        <div className="d-flex justify-content-between align-items-center mb-4 gap-3">
+            <h1 className="h3 m-0 flex-shrink-0">
                 {editingOrderId ? (
                     <span>
                         {t('pos.editing_order')} <span className="text-primary">#{editingOrderId}</span>
@@ -322,8 +337,28 @@ export const Pos = () => {
                     </span>
                 ) : t('pos.products')}
             </h1>
+            <div className="input-group" style={{ maxWidth: '420px' }}>
+              <span className="input-group-text bg-white">
+                <i className="bi bi-search"></i>
+              </span>
+              <input
+                className="form-control"
+                value={productSearch}
+                onChange={(e) => handleProductSearchChange(e.target.value)}
+                placeholder={t('pos.search_products', 'ค้นหาสินค้า (ชื่อ / SKU / Barcode)')}
+              />
+              {productSearch.trim() !== '' && (
+                <button
+                  className="btn btn-outline-secondary"
+                  type="button"
+                  onClick={() => handleProductSearchChange('')}
+                >
+                  <i className="bi bi-x-lg"></i>
+                </button>
+              )}
+            </div>
         </div>
-        
+
         {/* Category Filter */}
         <div className="mb-4 d-flex gap-2 overflow-auto pb-2">
           <button 
@@ -361,7 +396,13 @@ export const Pos = () => {
         ) : (
           <>
             <div className="row g-2 g-lg-3">
-              {products.map((product) => {
+              {products.length === 0 ? (
+                <div className="col-12">
+                  <div className="text-center text-muted py-5">
+                    {t('pos.no_products', 'ไม่พบสินค้า')}
+                  </div>
+                </div>
+              ) : products.map((product) => {
                 const coverImage = product.images?.find(img => img.is_cover) || product.images?.[0];
                 const isOutOfStock = product.product_type !== 'service' && product.stock === 0;
                 

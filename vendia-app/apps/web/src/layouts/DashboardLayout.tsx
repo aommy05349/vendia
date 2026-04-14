@@ -173,6 +173,7 @@ export const DashboardLayout = () => {
                 <Link to="/users" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/users' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 {t('common.users')}</Link>
                 <Link to="/categories" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/categories' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📁 {t('common.categories')}</Link>
                 <Link to="/products" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/products' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📦 {t('common.products')}</Link>
+                <Link to="/documents" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/documents' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🧾 {t('common.documents', 'เอกสาร')}</Link>
                 <Link to="/brands" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/brands' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏷️ {t('common.brands')}</Link>
                 <Link to="/units" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/units' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚖️ {t('common.units')}</Link>
                 <Link to="/teams" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/teams' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👨‍🔧 {t('common.teams', 'Teams')}</Link>

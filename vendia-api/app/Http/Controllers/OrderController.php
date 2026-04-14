@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Document;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -602,12 +603,20 @@ class OrderController extends Controller
 
         $number = $fullPrefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
 
+        $issuedDate = Carbon::today();
+        $isQuotation = $type === 'QT';
+        $expiresDate = $isQuotation ? $issuedDate->copy()->addDays(7) : null;
+
         // Create Document record
         Document::create([
             'order_id' => $orderId,
             'type' => $type === 'QT' ? 'quotation' : ($type === 'BN' ? 'billing_note' : 'receipt'),
             'number' => $number,
-            'status' => 'active'
+            'status' => 'active',
+            'issued_date' => $issuedDate,
+            'show_issued_date' => true,
+            'expires_date' => $expiresDate,
+            'show_expires_date' => $isQuotation,
         ]);
 
         return $number;

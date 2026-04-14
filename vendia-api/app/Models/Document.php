@@ -14,7 +14,23 @@ class Document extends Model
         'type',
         'number',
         'status',
+        'issued_date',
+        'show_issued_date',
+        'expires_date',
+        'show_expires_date',
+        'customer_name',
+        'customer_address',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'issued_date' => 'date',
+            'show_issued_date' => 'boolean',
+            'expires_date' => 'date',
+            'show_expires_date' => 'boolean',
+        ];
+    }
 
     public function order()
     {

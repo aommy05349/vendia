@@ -185,9 +185,21 @@ export const OrderList = () => {
     setExpandedOrderId(order.id);
   };
 
-  const handlePrint = (e: React.MouseEvent, orderId: number, type: 'receipt' | 'quotation' | 'billing_note') => {
+  const handlePrint = (e: React.MouseEvent, order: Order, type: 'receipt' | 'quotation' | 'billing_note') => {
     e.stopPropagation();
-    window.open(`/print/order/${orderId}?type=${type}`, '_blank');
+    const currentNumber =
+      type === 'quotation'
+        ? order.quotation_number
+        : type === 'billing_note'
+          ? order.billing_note_number
+          : order.receipt_number;
+
+    const docId = order.documents?.find((d) => d.type === type && d.number === currentNumber)?.id;
+    const params = new URLSearchParams();
+    params.set('type', type);
+    params.set('edit', '1');
+    if (docId) params.set('doc_id', String(docId));
+    window.open(`/print/order/${order.id}?${params.toString()}`, '_blank');
   };
 
   const handleCancelDocument = async (orderId: number, type: 'quotation' | 'billing_note' | 'receipt', number: string) => {
@@ -666,7 +678,7 @@ export const OrderList = () => {
                                                         <div className="btn-group">
                                                             {doc.status !== 'cancelled' && (
                                                                 <>
-                                                                    <button className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center" onClick={(e) => handlePrint(e, order.id, 'quotation')} title={t('orders.print')} style={{ width: '40px', height: '40px' }}>
+                                                                    <button className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center" onClick={(e) => handlePrint(e, order, 'quotation')} title={t('orders.print')} style={{ width: '40px', height: '40px' }}>
                                                                         <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
                                                                     </button>
                                                                     <button
@@ -719,7 +731,7 @@ export const OrderList = () => {
                                                         <div className="btn-group">
                                                             {doc.status !== 'cancelled' && (
                                                                 <>
-                                                                    <button className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center" onClick={(e) => handlePrint(e, order.id, 'billing_note')} title={t('orders.print')} style={{ width: '40px', height: '40px' }}>
+                                                                    <button className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center" onClick={(e) => handlePrint(e, order, 'billing_note')} title={t('orders.print')} style={{ width: '40px', height: '40px' }}>
                                                                         <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
                                                                     </button>
                                                                     <button
@@ -772,7 +784,7 @@ export const OrderList = () => {
                                                         <div className="btn-group">
                                                             {doc.status !== 'cancelled' && (
                                                                 <>
-                                                                    <button className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center" onClick={(e) => handlePrint(e, order.id, 'receipt')} title={t('orders.print')} style={{ width: '40px', height: '40px' }}>
+                                                                    <button className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center" onClick={(e) => handlePrint(e, order, 'receipt')} title={t('orders.print')} style={{ width: '40px', height: '40px' }}>
                                                                         <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
                                                                     </button>
                                                                     <button
