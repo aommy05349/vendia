@@ -105,6 +105,8 @@ export const OrderList = () => {
     | { kind: 'cancel-document'; orderId: number; docType: 'quotation' | 'billing_note' | 'receipt'; number: string }
     | { kind: 'convert-quotation'; orderId: number }
     | { kind: 'cancel-order'; orderId: number }
+    | { kind: 'mark-unpaid'; orderId: number }
+    | { kind: 'purge-order'; orderId: number }
     | { kind: 'delete-order'; orderId: number }
   >(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
@@ -338,6 +340,10 @@ export const OrderList = () => {
               ? t('orders.confirm_cancel_document', { number: confirmAction.number })
               : confirmAction.kind === 'convert-quotation'
                 ? t('orders.confirm_convert_quotation')
+                : confirmAction.kind === 'mark-unpaid'
+                  ? t('orders.confirm_mark_unpaid', 'ต้องการเปลี่ยนสถานะการจ่ายเงินเป็น "รอจ่าย" ใช่ไหม?')
+                  : confirmAction.kind === 'purge-order'
+                    ? t('orders.confirm_purge_order', 'ต้องการยกเลิกเอกสารทั้งหมดและลบออเดอร์นี้ถาวรใช่ไหม? (กู้คืนไม่ได้)')
                 : confirmAction.kind === 'delete-order'
                   ? t('orders.confirm_delete_order', 'ต้องการลบออเดอร์นี้ออกจากระบบถาวรใช่ไหม? (ลบแล้วกู้คืนไม่ได้)')
                   : t('orders.confirm_cancel_order')
@@ -357,6 +363,16 @@ export const OrderList = () => {
             } else if (action.kind === 'convert-quotation') {
               await api.put(`/orders/${action.orderId}`, { status: 'pending' });
               fetchOrders(currentPage);
+            } else if (action.kind === 'mark-unpaid') {
+              await api.put(`/orders/${action.orderId}`, { status: 'pending' });
+              fetchOrders(currentPage);
+              fetchDailySales();
+              setAlertMessage({ type: 'success', text: t('orders.update_success') });
+            } else if (action.kind === 'purge-order') {
+              await api.post(`/orders/${action.orderId}/purge`);
+              fetchOrders(currentPage);
+              fetchDailySales();
+              setAlertMessage({ type: 'success', text: t('orders.update_success') });
             } else if (action.kind === 'delete-order') {
               await api.delete(`/orders/${action.orderId}`);
               fetchOrders(currentPage);
@@ -494,105 +510,142 @@ export const OrderList = () => {
                       <td className="p-3 fw-bold">฿{parseFloat(order.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className="p-3">{order.items.length} {t('orders.items')}</td>
                       <td className="p-3">
-                        {order.status === 'quotation' && (
-                            <>
-                                <button 
-                                    className="btn btn-success btn-sm me-2"
+                        <div className="d-flex align-items-center justify-content-between gap-2">
+                          <div className="d-flex align-items-center flex-wrap gap-2">
+                            {order.status === 'quotation' && (
+                              <>
+                                <button
+                                  className="btn btn-success btn-sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setConfirmAction({ kind: 'convert-quotation', orderId: order.id });
+                                  }}
+                                >
+                                  {t('orders.to_order')}
+                                </button>
+                                <button
+                                  className="btn btn-warning btn-sm"
+                                  onClick={(e) => handleEditOrder(e, order)}
+                                >
+                                  {t('actions.edit')}
+                                </button>
+                                <button
+                                  className="btn btn-danger btn-sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setConfirmAction({ kind: 'cancel-order', orderId: order.id });
+                                  }}
+                                >
+                                  {t('common.cancel')}
+                                </button>
+                              </>
+                            )}
+                            {order.status === 'pending' && (
+                              <>
+                                <button
+                                  className="btn btn-success btn-sm"
+                                  onClick={(e) => handlePayClick(order, e)}
+                                >
+                                  {t('orders.pay_now')}
+                                </button>
+                                <button
+                                  className="btn btn-warning btn-sm"
+                                  onClick={(e) => handleEditOrder(e, order)}
+                                >
+                                  {t('actions.edit')}
+                                </button>
+                                {(order.appointments_count || 0) === 0 && (
+                                  <button
+                                    className="btn btn-primary btn-sm"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setConfirmAction({ kind: 'convert-quotation', orderId: order.id });
+                                      navigate(`/appointments/create?order_id=${order.id}&customer_id=${order.customer?.id}`);
                                     }}
+                                  >
+                                    {t('orders.create_appt')}
+                                  </button>
+                                )}
+                                <button
+                                  className="btn btn-danger btn-sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setConfirmAction({ kind: 'cancel-order', orderId: order.id });
+                                  }}
                                 >
-                                    {t('orders.to_order')}
+                                  {t('common.cancel')}
                                 </button>
-                                <button 
-                                    className="btn btn-warning btn-sm me-2"
-                                    onClick={(e) => handleEditOrder(e, order)}
-                                >
-                                    {t('actions.edit')}
-                                </button>
-                                <button 
-                                    className="btn btn-danger btn-sm"
+                              </>
+                            )}
+                            {order.status === 'completed' && (
+                              <>
+                                {user?.role === 'admin' && (!order.receipt_number || order.receipt_status === 'cancelled') && (
+                                  <button
+                                    className="btn btn-outline-danger btn-sm"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setConfirmAction({ kind: 'cancel-order', orderId: order.id });
+                                      setConfirmAction({ kind: 'mark-unpaid', orderId: order.id });
                                     }}
+                                  >
+                                    {t('orders.mark_unpaid', 'รอจ่าย')}
+                                  </button>
+                                )}
+                                <button
+                                  className="btn btn-warning btn-sm"
+                                  onClick={(e) => handleEditCustomerOnly(e, order)}
                                 >
-                                    {t('common.cancel')}
+                                  {t('orders.edit_customer', 'แก้ลูกค้า')}
                                 </button>
-                            </>
-                        )}
-                        {order.status === 'pending' && (
-                          <>
-                            <button 
-                              className="btn btn-success btn-sm me-2"
-                              onClick={(e) => handlePayClick(order, e)}
-                            >
-                              {t('orders.pay_now')}
-                            </button>
-                            <button 
-                                className="btn btn-warning btn-sm me-2"
-                                onClick={(e) => handleEditOrder(e, order)}
-                            >
-                                {t('actions.edit')}
-                            </button>
-                            {(order.appointments_count || 0) === 0 && (
-                              <button 
-                                  className="btn btn-primary btn-sm me-2"
-                                  onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/appointments/create?order_id=${order.id}&customer_id=${order.customer?.id}`);
-                                  }}
-                              >
-                                  {t('orders.create_appt')}
-                              </button>
+                                {(order.appointments_count || 0) === 0 && (
+                                  <button
+                                    className="btn btn-primary btn-sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/appointments/create?order_id=${order.id}&customer_id=${order.customer?.id}`);
+                                    }}
+                                  >
+                                    {t('orders.create_appt')}
+                                  </button>
+                                )}
+                              </>
                             )}
-                            <button 
-                                className="btn btn-danger btn-sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setConfirmAction({ kind: 'cancel-order', orderId: order.id });
-                                }}
+                            <button
+                              className="btn btn-outline-secondary btn-sm px-2 d-inline-flex align-items-center justify-content-center"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpand(order.id);
+                              }}
+                              title={expandedOrderId === order.id ? t('orders.hide') : t('orders.view')}
                             >
-                                {t('common.cancel')}
+                              <i className={`bi ${expandedOrderId === order.id ? 'bi-eye-slash' : 'bi-eye'}`}></i>
                             </button>
-                          </>
-                        )}
-                        {order.status === 'completed' && (
-                            <>
-                            <button 
-                                className="btn btn-warning btn-sm me-2"
-                                onClick={(e) => handleEditCustomerOnly(e, order)}
+                          </div>
+
+                          {order.status === 'cancelled' && user?.role === 'admin' ? (
+                            <button
+                              className="btn btn-outline-danger btn-sm px-2 d-inline-flex align-items-center justify-content-center"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmAction({ kind: 'delete-order', orderId: order.id });
+                              }}
+                              title={t('actions.delete', 'ลบ')}
                             >
-                                {t('orders.edit_customer', 'แก้ลูกค้า')}
+                              <i className="bi bi-trash"></i>
                             </button>
-                            {(order.appointments_count || 0) === 0 && (
-                              <button 
-                                  className="btn btn-primary btn-sm me-2"
-                                  onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/appointments/create?order_id=${order.id}&customer_id=${order.customer?.id}`);
-                                  }}
-                              >
-                                  {t('orders.create_appt')}
-                              </button>
-                            )}
-                            </>
-                        )}
-                        {order.status === 'cancelled' && user?.role === 'admin' && (
-                          <button
-                            className="btn btn-danger btn-sm me-2"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setConfirmAction({ kind: 'delete-order', orderId: order.id });
-                            }}
-                          >
-                            {t('actions.delete')}
-                          </button>
-                        )}
-                        <button className="btn btn-sm btn-link text-decoration-none">
-                          {expandedOrderId === order.id ? t('orders.hide') : t('orders.view')}
-                        </button>
+                          ) : user?.role === 'admin' && (order.appointments_count || 0) === 0 ? (
+                            <button
+                              className="btn btn-outline-danger btn-sm px-2 d-inline-flex align-items-center justify-content-center"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmAction({ kind: 'purge-order', orderId: order.id });
+                              }}
+                              title={t('orders.delete_permanent', 'ลบถาวร')}
+                            >
+                              <i className="bi bi-trash"></i>
+                            </button>
+                          ) : (
+                            <span />
+                          )}
+                        </div>
                       </td>
                     </tr>
                     {expandedOrderId === order.id && (

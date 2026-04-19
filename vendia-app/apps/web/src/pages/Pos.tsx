@@ -419,7 +419,7 @@ export const Pos = () => {
                     onMouseEnter={(e) => { if(!isOutOfStock) { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.classList.add('shadow'); } }}
                     onMouseLeave={(e) => { if(!isOutOfStock) { e.currentTarget.style.transform = 'none'; e.currentTarget.classList.remove('shadow'); } }}
                   >
-                    <div style={{ height: '140px', overflow: 'hidden', position: 'relative' }} className="bg-light rounded-top">
+                    <div style={{ height: '84px', overflow: 'hidden', position: 'relative' }} className="bg-light rounded-top">
                         {coverImage ? (
                             <img 
                                 src={getImageUrl(coverImage.image_path)} 
@@ -448,7 +448,13 @@ export const Pos = () => {
                     </div>
 
                     <div className="card-body d-flex flex-column p-2 p-lg-3">
-                      <h6 className="card-title fw-bold mb-1 text-truncate" title={product.name}>{product.name}</h6>
+                      <h6
+                        className="card-title fw-bold mb-1"
+                        title={product.name}
+                        style={{ whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.25' }}
+                      >
+                        {product.name}
+                      </h6>
                       <p className="card-text text-muted small mb-2 flex-grow-1" style={{ 
                           display: '-webkit-box',
                           WebkitLineClamp: 2,

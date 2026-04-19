@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Document;
+use App\Models\DocumentCounter;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -260,6 +261,14 @@ class OrderController extends Controller
         return DB::transaction(function () use ($request, $order) {
             $oldStatus = $order->status;
             $newStatus = $request->input('status', $oldStatus);
+
+            if ($oldStatus === 'completed' && $newStatus === 'pending') {
+                if ($order->receipt_number && ($order->receipt_status ?? 'active') !== 'cancelled') {
+                    return response()->json([
+                        'message' => 'ไม่สามารถเปลี่ยนเป็นรอจ่ายได้ เนื่องจากมีใบเสร็จที่ยังไม่ถูกยกเลิก',
+                    ], 422);
+                }
+            }
             
             // Helper to check if status requires stock reservation
             $isRealOrder = function($status) {
@@ -445,6 +454,44 @@ class OrderController extends Controller
         });
     }
 
+    public function purge(Request $request, Order $order)
+    {
+        $user = $request->user();
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($order->appointments()->exists()) {
+            return response()->json([
+                'message' => 'ไม่สามารถลบได้ เนื่องจากออเดอร์นี้มีนัดหมายอยู่',
+            ], 422);
+        }
+
+        return DB::transaction(function () use ($order) {
+            Document::where('order_id', $order->id)->update(['status' => 'cancelled']);
+
+            $order->quotation_status = 'cancelled';
+            $order->billing_note_status = 'cancelled';
+            $order->receipt_status = 'cancelled';
+            $order->quotation_number = null;
+            $order->billing_note_number = null;
+            $order->receipt_number = null;
+
+            $wasReal = !in_array($order->status, ['quotation', 'cancelled']);
+            if ($wasReal) {
+                foreach ($order->items as $item) {
+                    $this->revertItemStock($item);
+                }
+            }
+
+            $order->status = 'cancelled';
+            $order->save();
+
+            $order->delete();
+            return response()->noContent();
+        });
+    }
+
     private function calculateTaxTotals(float $subtotal, float $vatRate, float $withholdingRate): array
     {
         $subtotal = round($subtotal, 2);
@@ -571,55 +618,61 @@ class OrderController extends Controller
 
     private function generateDocumentNumber($type, $orderId)
     {
-        $dateStr = date('Ymd'); // e.g. 20240205
-        $fullPrefix = "PT-{$type}-{$dateStr}-"; // e.g. PT-QT-20240205-
-        
-        // Find highest number in Documents table
-        $lastDoc = Document::where('number', 'like', "{$fullPrefix}%")
-            ->orderBy('number', 'desc')
-            ->lockForUpdate()
-            ->first();
+        return DB::transaction(function () use ($type, $orderId) {
+            $dateStr = date('Ym'); // e.g. 202604
+            $fullPrefix = "PT-{$type}-{$dateStr}-"; // e.g. PT-QT-202604-
 
-        if ($lastDoc) {
-            $lastNumber = intval(substr($lastDoc->number, -4));
-            $newNumber = $lastNumber + 1;
-        } else {
-            // Fallback to checking Orders table for migration safety (optional, but good)
-            $column = 'receipt_number';
-            if ($type === 'QT') $column = 'quotation_number';
-            if ($type === 'BN') $column = 'billing_note_number';
-            
-            $lastOrder = Order::where($column, 'like', "{$fullPrefix}%")
-                ->orderBy($column, 'desc')
-                ->first();
-                
-            if ($lastOrder) {
-                $lastNumber = intval(substr($lastOrder->$column, -4));
-                $newNumber = $lastNumber + 1;
-            } else {
-                $newNumber = 1;
+            $counter = DocumentCounter::where('prefix', $fullPrefix)->lockForUpdate()->first();
+            if (!$counter) {
+                $lastNumber = 0;
+
+                $lastDoc = Document::where('number', 'like', "{$fullPrefix}%")
+                    ->orderBy('number', 'desc')
+                    ->first();
+                if ($lastDoc) {
+                    $lastNumber = intval(substr($lastDoc->number, -4));
+                } else {
+                    $column = 'receipt_number';
+                    if ($type === 'QT') $column = 'quotation_number';
+                    if ($type === 'BN') $column = 'billing_note_number';
+
+                    $lastOrder = Order::where($column, 'like', "{$fullPrefix}%")
+                        ->orderBy($column, 'desc')
+                        ->first();
+                    if ($lastOrder) {
+                        $lastNumber = intval(substr($lastOrder->$column, -4));
+                    }
+                }
+
+                $counter = DocumentCounter::create([
+                    'prefix' => $fullPrefix,
+                    'last_number' => $lastNumber,
+                ]);
             }
-        }
 
-        $number = $fullPrefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+            $newNumber = $counter->last_number + 1;
+            $counter->last_number = $newNumber;
+            $counter->save();
 
-        $issuedDate = Carbon::today();
-        $isQuotation = $type === 'QT';
-        $expiresDate = $isQuotation ? $issuedDate->copy()->addDays(7) : null;
+            $number = $fullPrefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
 
-        // Create Document record
-        Document::create([
-            'order_id' => $orderId,
-            'type' => $type === 'QT' ? 'quotation' : ($type === 'BN' ? 'billing_note' : 'receipt'),
-            'number' => $number,
-            'status' => 'active',
-            'issued_date' => $issuedDate,
-            'show_issued_date' => true,
-            'expires_date' => $expiresDate,
-            'show_expires_date' => $isQuotation,
-        ]);
+            $issuedDate = Carbon::today();
+            $isQuotation = $type === 'QT';
+            $expiresDate = $isQuotation ? $issuedDate->copy()->addDays(7) : null;
 
-        return $number;
+            Document::create([
+                'order_id' => $orderId,
+                'type' => $type === 'QT' ? 'quotation' : ($type === 'BN' ? 'billing_note' : 'receipt'),
+                'number' => $number,
+                'status' => 'active',
+                'issued_date' => $issuedDate,
+                'show_issued_date' => true,
+                'expires_date' => $expiresDate,
+                'show_expires_date' => $isQuotation,
+            ]);
+
+            return $number;
+        });
     }
 
     private function revertItemStock($item)

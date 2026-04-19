@@ -198,7 +198,6 @@ export const EditCustomer = () => {
                 className="form-control"
                 value={formData.last_name}
                 onChange={handleChange}
-                required
               />
             </div>
           </div>

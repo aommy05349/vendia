@@ -59,6 +59,8 @@ interface Order {
         show_expires_date?: boolean;
         customer_name?: string | null;
         customer_address?: string | null;
+        header_title?: string | null;
+        header_subtitle?: string | null;
     }[];
 }
 
@@ -73,6 +75,8 @@ type DocumentRecord = {
     show_expires_date?: boolean;
     customer_name?: string | null;
     customer_address?: string | null;
+    header_title?: string | null;
+    header_subtitle?: string | null;
     order?: Order;
 };
 
@@ -93,6 +97,9 @@ export const PrintOrder = () => {
     const [showExpiryDate, setShowExpiryDate] = useState(false);
     const [customerNameOverride, setCustomerNameOverride] = useState('');
     const [customerAddressOverride, setCustomerAddressOverride] = useState('');
+    const [headerTitleOverride, setHeaderTitleOverride] = useState('');
+    const [headerSubtitleOverride, setHeaderSubtitleOverride] = useState('');
+    const [updateOrderCreatedAt, setUpdateOrderCreatedAt] = useState(true);
     const [saveModal, setSaveModal] = useState<{ type: 'success' | 'danger'; message: string } | null>(null);
     const [saving, setSaving] = useState(false);
 
@@ -211,6 +218,10 @@ export const PrintOrder = () => {
         setCustomerNameOverride(typeof nameFromUrl === 'string' ? nameFromUrl : (docForDefaults?.customer_name || ''));
         const addressFromUrl = searchParams.get('customer_address');
         setCustomerAddressOverride(typeof addressFromUrl === 'string' ? addressFromUrl : (docForDefaults?.customer_address || ''));
+
+        setHeaderTitleOverride(docForDefaults?.header_title || '');
+        setHeaderSubtitleOverride(docForDefaults?.header_subtitle || '');
+        setUpdateOrderCreatedAt(true);
     }, [order, isQuotation, searchParams, type, documentRecord]);
 
     useEffect(() => {
@@ -261,6 +272,9 @@ export const PrintOrder = () => {
         : isBillingNote
             ? t('print.billing_note.subtitle')
             : t('print.receipt.subtitle');
+
+    const displayTitle = headerTitleOverride.trim() !== '' ? headerTitleOverride.trim() : (documentRecord?.header_title || documentTitle);
+    const displaySubtitle = headerSubtitleOverride.trim() !== '' ? headerSubtitleOverride.trim() : (documentRecord?.header_subtitle || documentSubtitle);
 
     const issueDateValue = parseDateInput(issueDate) || new Date(order.created_at);
     const expiryDateValue = parseDateInput(expiryDate);
@@ -376,8 +390,8 @@ export const PrintOrder = () => {
             {/* Header Section */}
             <div className="row mb-1">
                 <div className="col-8">
-                    <h2 className="fw-bold mb-0">{documentTitle}</h2>
-                    <h4 className="fw-bold text-uppercase mb-4">{documentSubtitle}</h4>
+                    <h2 className="fw-bold mb-0">{displayTitle}</h2>
+                    <h4 className="fw-bold text-uppercase mb-4">{displaySubtitle}</h4>
 
                     <div className="row" style={{ fontSize: '15px' }}>
                         <div className="col-2 fw-bold">{t('print.issuer.label_th')}</div>
@@ -609,6 +623,24 @@ export const PrintOrder = () => {
                         <div className="card-body">
                             <div className="row g-3 align-items-end">
                                 <div className="col-12 col-md-6">
+                                    <label className="form-label fw-bold">{t('print.settings.title', 'หัวเอกสาร')}</label>
+                                    <input
+                                        className="form-control"
+                                        value={headerTitleOverride}
+                                        onChange={(e) => setHeaderTitleOverride(e.target.value)}
+                                        placeholder={documentTitle}
+                                    />
+                                </div>
+                                <div className="col-12 col-md-6">
+                                    <label className="form-label fw-bold">{t('print.settings.subtitle', 'หัวข้อย่อย')}</label>
+                                    <input
+                                        className="form-control"
+                                        value={headerSubtitleOverride}
+                                        onChange={(e) => setHeaderSubtitleOverride(e.target.value)}
+                                        placeholder={documentSubtitle}
+                                    />
+                                </div>
+                                <div className="col-12 col-md-6">
                                     <label className="form-label fw-bold">{t('print.customer.label', 'ลูกค้า / Customer')}</label>
                                     <input
                                         className="form-control"
@@ -647,6 +679,20 @@ export const PrintOrder = () => {
                                         />
                                         <label className="form-check-label" htmlFor="showIssueDate">
                                             {t('print.settings.show', 'แสดง')}
+                                        </label>
+                                    </div>
+                                </div>
+                                <div className="col-12 col-md-6">
+                                    <div className="form-check mt-4">
+                                        <input
+                                            className="form-check-input"
+                                            type="checkbox"
+                                            checked={updateOrderCreatedAt}
+                                            onChange={(e) => setUpdateOrderCreatedAt(e.target.checked)}
+                                            id="updateOrderCreatedAt"
+                                        />
+                                        <label className="form-check-label" htmlFor="updateOrderCreatedAt">
+                                            {t('print.settings.update_order_date', 'อัปเดตวันที่สร้างออเดอร์ให้ตรงกับวันที่ออกเอกสาร')}
                                         </label>
                                     </div>
                                 </div>
@@ -696,7 +742,15 @@ export const PrintOrder = () => {
                                                     show_expires_date: showExpiryDate,
                                                     customer_name: customerNameOverride.trim() === '' ? null : customerNameOverride.trim(),
                                                     customer_address: customerAddressOverride.trim() === '' ? null : customerAddressOverride.trim(),
+                                                    header_title: headerTitleOverride.trim() === '' ? null : headerTitleOverride.trim(),
+                                                    header_subtitle: headerSubtitleOverride.trim() === '' ? null : headerSubtitleOverride.trim(),
+                                                    update_order_created_at: updateOrderCreatedAt,
                                                 });
+                                                if (documentId) {
+                                                    const refreshed = await api.get(`/documents/${documentId}`);
+                                                    setDocumentRecord(refreshed.data);
+                                                    if (refreshed.data?.order) setOrder(refreshed.data.order);
+                                                }
                                                 setSaveModal({ type: 'success', message: t('common.saved', 'บันทึกแล้ว') });
                                             } catch (err) {
                                                 setSaveModal({ type: 'danger', message: t('common.save_failed', 'บันทึกไม่สำเร็จ') });

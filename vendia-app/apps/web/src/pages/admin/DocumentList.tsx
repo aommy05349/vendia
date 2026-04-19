@@ -189,6 +189,23 @@ export const DocumentList = () => {
                         >
                           {t('common.edit', 'แก้ไข')}
                         </button>
+                        {doc.status === 'cancelled' && (
+                          <button
+                            className="btn btn-outline-danger ms-2"
+                            onClick={async () => {
+                              const ok = window.confirm(t('documents.confirm_delete', 'ต้องการลบเอกสารที่ยกเลิกนี้ใช่ไหม?'));
+                              if (!ok) return;
+                              try {
+                                await api.delete(`/documents/${doc.id}`);
+                                fetchDocuments(page);
+                              } catch (err) {
+                                setError(t('common.delete_failed', 'ลบไม่สำเร็จ'));
+                              }
+                            }}
+                          >
+                            {t('actions.delete', 'ลบ')}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))

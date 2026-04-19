@@ -37,12 +37,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders/daily-sales', [OrderController::class, 'dailySales']);
     Route::post('/orders/{id}/cancel-document', [OrderController::class, 'cancelDocument']);
     Route::post('/orders/{id}/issue-document', [OrderController::class, 'issueDocument']);
+    Route::post('/orders/{order}/purge', [OrderController::class, 'purge']);
     Route::apiResource('orders', OrderController::class);
 
     // Documents
     Route::get('/documents', [DocumentController::class, 'index']);
     Route::get('/documents/{document}', [DocumentController::class, 'show']);
     Route::put('/documents/{document}', [DocumentController::class, 'update']);
+    Route::delete('/documents/{document}', [DocumentController::class, 'destroy']);
 
     // Attendance
     Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn']);

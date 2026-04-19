@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Document;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class DocumentController extends Controller
 {
@@ -68,10 +70,40 @@ class DocumentController extends Controller
             'show_expires_date' => 'sometimes|boolean',
             'customer_name' => 'sometimes|nullable|string|max:255',
             'customer_address' => 'sometimes|nullable|string',
+            'header_title' => 'sometimes|nullable|string|max:255',
+            'header_subtitle' => 'sometimes|nullable|string|max:255',
+            'update_order_created_at' => 'sometimes|boolean',
         ]);
 
-        $document->update($validated);
-        return response()->json($document->fresh()->load(['order.customer']));
+        return DB::transaction(function () use ($validated, $document) {
+            $updateOrderCreatedAt = (bool) ($validated['update_order_created_at'] ?? false);
+            unset($validated['update_order_created_at']);
+
+            $document->update($validated);
+
+            if ($updateOrderCreatedAt && array_key_exists('issued_date', $validated) && $validated['issued_date']) {
+                $order = $document->order;
+                if ($order) {
+                    $issued = Carbon::parse($validated['issued_date']);
+                    $existing = Carbon::parse($order->created_at);
+                    $order->created_at = $issued->copy()->setTimeFrom($existing);
+                    $order->save();
+                }
+            }
+
+            return response()->json($document->fresh()->load(['order.customer']));
+        });
+    }
+
+    public function destroy(Document $document)
+    {
+        if (($document->status ?? 'active') !== 'cancelled') {
+            return response()->json([
+                'message' => 'ลบได้เฉพาะเอกสารที่ถูกยกเลิกแล้วเท่านั้น',
+            ], 422);
+        }
+
+        $document->delete();
+        return response()->noContent();
     }
 }
-
