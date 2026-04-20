@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
 {
@@ -24,6 +26,24 @@ class ProductController extends Controller
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
+        }
+
+        if ($request->filled('parent_category_id')) {
+            $parentId = (int) $request->input('parent_category_id');
+            $ids = Category::query()
+                ->where('id', $parentId)
+                ->orWhere('parent_id', $parentId)
+                ->pluck('id')
+                ->all();
+            $query->whereIn('category_id', $ids);
+        }
+
+        if ($request->filled('product_type')) {
+            $productType = $request->input('product_type');
+            $allowed = ['single', 'variable', 'bundle', 'service'];
+            if (in_array($productType, $allowed, true)) {
+                $query->where('product_type', $productType);
+            }
         }
 
         if ($request->filled('search')) {
@@ -54,7 +74,7 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'slug' => 'nullable|string|unique:products,slug',
             'description' => 'nullable|string',
-            'price' => 'required|numeric|min:0',
+            'price' => 'required|numeric',
             'stock' => 'required|integer|min:0',
             'sku' => 'required|string|unique:products,sku',
             'category_id' => 'nullable|exists:categories,id',
@@ -76,6 +96,18 @@ class ProductController extends Controller
             'bundle_items.*.id' => 'required_if:product_type,bundle|exists:products,id',
             'bundle_items.*.quantity' => 'required_if:product_type,bundle|integer|min:1',
         ]);
+
+        $productType = $validated['product_type'] ?? 'single';
+        if ($productType !== 'service' && (float) $validated['price'] < 0) {
+            throw ValidationException::withMessages([
+                'price' => ['The price field must be at least 0.'],
+            ]);
+        }
+
+        if ($productType === 'service') {
+            $validated['stock'] = 0;
+            $validated['quantity_alert'] = 0;
+        }
 
         if (empty($validated['slug'])) {
             $validated['slug'] = Str::slug($validated['name']) . '-' . Str::random(5);
@@ -133,7 +165,7 @@ class ProductController extends Controller
             'name' => 'sometimes|required|string|max:255',
             'slug' => 'nullable|string|unique:products,slug,' . $product->id,
             'description' => 'nullable|string',
-            'price' => 'sometimes|required|numeric|min:0',
+            'price' => 'sometimes|required|numeric',
             'stock' => 'sometimes|required|integer|min:0',
             'sku' => 'sometimes|required|string|unique:products,sku,' . $product->id,
             'category_id' => 'nullable|exists:categories,id',
@@ -155,6 +187,18 @@ class ProductController extends Controller
             'bundle_items.*.id' => 'required_if:product_type,bundle|exists:products,id',
             'bundle_items.*.quantity' => 'required_if:product_type,bundle|integer|min:1',
         ]);
+
+        $productType = $validated['product_type'] ?? $product->product_type;
+        if ($productType !== 'service' && array_key_exists('price', $validated) && (float) $validated['price'] < 0) {
+            throw ValidationException::withMessages([
+                'price' => ['The price field must be at least 0.'],
+            ]);
+        }
+
+        if ($productType === 'service') {
+            $validated['stock'] = 0;
+            $validated['quantity_alert'] = 0;
+        }
 
         if (isset($validated['name']) && empty($validated['slug'])) {
              $validated['slug'] = Str::slug($validated['name']) . '-' . Str::random(5);

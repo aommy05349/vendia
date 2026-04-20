@@ -15,6 +15,7 @@ export const Pos = () => {
   const { categories, fetchCategories } = useCategoryStore();
   const { customers, fetchCustomers, createCustomer } = useCustomerStore();
   
+  const [selectedParentCategory, setSelectedParentCategory] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [productSearch, setProductSearch] = useState('');
   const [debouncedProductSearch, setDebouncedProductSearch] = useState('');
@@ -87,10 +88,11 @@ export const Pos = () => {
     fetchProducts({
       page: currentPage,
       category_id: selectedCategory || undefined,
+      parent_category_id: selectedCategory ? undefined : (selectedParentCategory || undefined),
       search: debouncedProductSearch || undefined,
       per_page: 12
     });
-  }, [fetchProducts, currentPage, selectedCategory, debouncedProductSearch]);
+  }, [fetchProducts, currentPage, selectedCategory, selectedParentCategory, debouncedProductSearch]);
 
   useEffect(() => {
     fetchCategories({ has_products: true });
@@ -190,7 +192,32 @@ export const Pos = () => {
   }, [editingOrderId, setCart, clearCart, searchParams]);
 
   const handleCategorySelect = (id: number | null) => {
+    setSelectedParentCategory(null);
     setSelectedCategory(id);
+    setCurrentPage(1);
+  };
+
+  const handleParentCategorySelect = (id: number | null, hasChildren: boolean) => {
+    if (id === null) {
+      setSelectedParentCategory(null);
+      setSelectedCategory(null);
+      setCurrentPage(1);
+      return;
+    }
+    if (hasChildren) {
+      setSelectedParentCategory(id);
+      setSelectedCategory(null);
+      setCurrentPage(1);
+      return;
+    }
+    setSelectedParentCategory(null);
+    setSelectedCategory(id);
+    setCurrentPage(1);
+  };
+
+  const handleSubcategorySelect = (parentId: number, childId: number | null) => {
+    setSelectedParentCategory(parentId);
+    setSelectedCategory(childId);
     setCurrentPage(1);
   };
 
@@ -360,23 +387,72 @@ export const Pos = () => {
         </div>
 
         {/* Category Filter */}
-        <div className="mb-4 d-flex gap-2 overflow-auto pb-2">
-          <button 
-            className={`btn ${selectedCategory === null ? 'btn-dark' : 'btn-outline-dark'}`}
-            onClick={() => handleCategorySelect(null)}
-          >
-            {t('common.all')}
-          </button>
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              className={`btn ${selectedCategory === category.id ? 'btn-dark' : 'btn-outline-dark'}`}
-              onClick={() => handleCategorySelect(category.id)}
-            >
-              {category.name}
-            </button>
-          ))}
-        </div>
+        {(() => {
+          const parents = categories.filter((c) => !c.parent_id);
+          const childrenByParent = categories.reduce<Record<number, typeof categories>>((acc, c) => {
+            if (c.parent_id) {
+              acc[c.parent_id] = acc[c.parent_id] || [];
+              acc[c.parent_id].push(c);
+            }
+            return acc;
+          }, {});
+
+          const activeParentId =
+            selectedParentCategory
+              ? selectedParentCategory
+              : selectedCategory
+                ? (categories.find((c) => c.id === selectedCategory)?.parent_id || null)
+                : null;
+
+          const children = activeParentId ? (childrenByParent[activeParentId] || []) : [];
+          const hasChildren = children.length > 0;
+
+          return (
+            <>
+              <div className="mb-2 d-flex gap-2 overflow-auto pb-2">
+                <button
+                  className={`btn ${(selectedCategory === null && selectedParentCategory === null) ? 'btn-dark' : 'btn-outline-dark'}`}
+                  onClick={() => handleParentCategorySelect(null, false)}
+                >
+                  {t('common.all')}
+                </button>
+                {parents.map((category) => {
+                  const parentHasChildren = (childrenByParent[category.id] || []).length > 0;
+                  const active = (selectedCategory === category.id && !parentHasChildren) || (selectedParentCategory === category.id);
+                  return (
+                    <button
+                      key={category.id}
+                      className={`btn ${active ? 'btn-dark' : 'btn-outline-dark'}`}
+                      onClick={() => handleParentCategorySelect(category.id, parentHasChildren)}
+                    >
+                      {category.name}
+                    </button>
+                  );
+                })}
+              </div>
+              {hasChildren && (
+                <div className="mb-4 d-flex gap-2 overflow-auto pb-2">
+                  <button
+                    className={`btn ${selectedCategory === null ? 'btn-dark' : 'btn-outline-dark'}`}
+                    onClick={() => handleSubcategorySelect(activeParentId as number, null)}
+                  >
+                    {t('common.all')}
+                  </button>
+                  {children.map((c) => (
+                    <button
+                      key={c.id}
+                      className={`btn ${selectedCategory === c.id ? 'btn-dark' : 'btn-outline-dark'}`}
+                      onClick={() => handleSubcategorySelect(activeParentId as number, c.id)}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!hasChildren && <div className="mb-4" />}
+            </>
+          );
+        })()}
 
         <MessageModal
           open={alertMessage !== null}

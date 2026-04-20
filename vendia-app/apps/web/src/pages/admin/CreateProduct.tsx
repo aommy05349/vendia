@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useProductStore, useCategoryStore, useAuxStore, Product } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +22,8 @@ export const CreateProduct = () => {
   const [barcode, setBarcode] = useState('');
   const [barcodeSymbology, setBarcodeSymbology] = useState('Code128');
   const [categoryId, setCategoryId] = useState('');
+  const [parentCategoryId, setParentCategoryId] = useState('');
+  const [subCategoryId, setSubCategoryId] = useState('');
   const [brandId, setBrandId] = useState('');
   const [unitId, setUnitId] = useState('');
   const [warehouseId, setWarehouseId] = useState('');
@@ -66,6 +68,50 @@ export const CreateProduct = () => {
     fetchUnits();
     fetchWarehouses();
   }, [fetchCategories, fetchBrands, fetchUnits, fetchWarehouses]);
+
+  const parents = useMemo(() => categories.filter((c) => !c.parent_id), [categories]);
+  const childrenByParent = useMemo(() => {
+    return categories.reduce<Record<number, typeof categories>>((acc, c) => {
+      if (c.parent_id) {
+        acc[c.parent_id] = acc[c.parent_id] || [];
+        acc[c.parent_id].push(c);
+      }
+      return acc;
+    }, {});
+  }, [categories]);
+
+  const activeChildren = useMemo(() => {
+    const pid = Number(parentCategoryId);
+    if (!pid) return [];
+    return (childrenByParent[pid] || []).slice().sort((a, b) => a.name.localeCompare(b.name));
+  }, [childrenByParent, parentCategoryId]);
+
+  useEffect(() => {
+    if (!parentCategoryId) {
+      setSubCategoryId('');
+      setCategoryId('');
+      return;
+    }
+    const pid = Number(parentCategoryId);
+    const hasChildren = (childrenByParent[pid] || []).length > 0;
+    if (hasChildren) {
+      setSubCategoryId('');
+      setCategoryId(parentCategoryId);
+      return;
+    }
+    setSubCategoryId('');
+    setCategoryId(parentCategoryId);
+  }, [parentCategoryId, childrenByParent]);
+
+  useEffect(() => {
+    if (subCategoryId) {
+      setCategoryId(subCategoryId);
+    } else if (parentCategoryId) {
+      setCategoryId(parentCategoryId);
+    } else {
+      setCategoryId('');
+    }
+  }, [subCategoryId, parentCategoryId]);
 
   useEffect(() => {
     if (!warehouseId && warehouses.length === 1) {
@@ -149,7 +195,7 @@ export const CreateProduct = () => {
         formData.append('stock', stock);
       }
       
-      formData.append('quantity_alert', quantityAlert);
+      formData.append('quantity_alert', productType === 'service' ? '0' : quantityAlert);
       formData.append('tax_type', taxType);
       formData.append('tax_amount', taxAmount);
       formData.append('discount_type', discountType);
@@ -253,15 +299,57 @@ export const CreateProduct = () => {
                 <div className="row mb-3">
                   <div className="col-md-6">
                     <label className="form-label">{t('products.form.fields.category')} <span className="text-danger">*</span></label>
-                    <select className="form-select" value={categoryId} onChange={e => setCategoryId(e.target.value)} required>
-                      <option value="">{t('products.form.fields.select_category')}</option>
-                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                    <div className="border rounded p-3 bg-light">
+                      <div className="mb-2 text-muted small">
+                        {t('categories.form.hint_related', 'เลือกหมวดหลักก่อน แล้วเลือกหมวดย่อย (ถ้ามี)')}
+                      </div>
+                      <div className="mb-2">
+                        <label className="form-label mb-1">{t('categories.parent_category', 'หมวดหลัก')}</label>
+                        <select
+                          className="form-select"
+                          value={parentCategoryId}
+                          onChange={(e) => setParentCategoryId(e.target.value)}
+                          required
+                        >
+                          <option value="">{t('products.form.fields.select_category')}</option>
+                          {parents.map((c) => (
+                            <option key={c.id} value={String(c.id)}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="form-label mb-1 d-flex align-items-center gap-2">
+                          <span>{t('categories.subcategory', 'หมวดย่อย')}</span>
+                          <span className="text-muted small">{t('common.optional', '(ถ้ามี)')}</span>
+                        </label>
+                        <select
+                          className="form-select"
+                          value={subCategoryId}
+                          onChange={(e) => setSubCategoryId(e.target.value)}
+                          disabled={!parentCategoryId || activeChildren.length === 0}
+                        >
+                          {!parentCategoryId ? (
+                            <option value="">{t('categories.subcategory_select_parent_first', 'เลือกหมวดหลักก่อน')}</option>
+                          ) : activeChildren.length === 0 ? (
+                            <option value="">{t('categories.subcategory_none', 'ไม่มีหมวดย่อย')}</option>
+                          ) : (
+                            <option value="">{t('categories.subcategory_use_parent', 'ใช้หมวดหลักนี้')}</option>
+                          )}
+                          {activeChildren.map((c) => (
+                            <option key={c.id} value={String(c.id)}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
                   <div className="col-md-6">
                     <label className="form-label">{t('products.form.fields.brand')}</label>
                     <select className="form-select" value={brandId} onChange={e => setBrandId(e.target.value)}>
-                      <option value="">{t('products.form.fields.select_brand')}</option>
                       {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
                   </div>
@@ -310,10 +398,17 @@ export const CreateProduct = () => {
                       <option value="service">{t('products.form.fields.types.service')}</option>
                     </select>
                   </div>
-                  <div className="col-md-6">
-                    <label className="form-label">{t('products.form.fields.quantity_alert')}</label>
-                    <input type="number" className="form-control" value={quantityAlert} onChange={e => setQuantityAlert(e.target.value)} />
-                  </div>
+                  {productType !== 'service' ? (
+                    <div className="col-md-6">
+                      <label className="form-label">{t('products.form.fields.quantity_alert')}</label>
+                      <input type="number" className="form-control" value={quantityAlert} onChange={e => setQuantityAlert(e.target.value)} />
+                    </div>
+                  ) : (
+                    <div className="col-md-6">
+                      <label className="form-label">{t('products.form.fields.quantity_alert')}</label>
+                      <input type="text" className="form-control" value={t('products.form.service.no_stock_alert', 'บริการไม่ใช้การแจ้งเตือนสต๊อก')} disabled />
+                    </div>
+                  )}
                 </div>
 
                 {productType === 'bundle' && (
@@ -392,7 +487,15 @@ export const CreateProduct = () => {
                 <div className="row mb-3">
                   <div className="col-md-6">
                     <label className="form-label">{t('products.form.fields.price')} <span className="text-danger">*</span></label>
-                    <input type="number" step="0.01" className="form-control" value={price} onChange={e => setPrice(e.target.value)} required />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={productType === 'service' ? undefined : 0}
+                      className="form-control"
+                      value={price}
+                      onChange={e => setPrice(e.target.value)}
+                      required
+                    />
                   </div>
                   {productType !== 'service' && (
                   <div className="col-md-6">

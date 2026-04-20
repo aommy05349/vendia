@@ -61,6 +61,8 @@ export interface ProductQueryParams {
   page?: number;
   per_page?: number;
   category_id?: number | string;
+  parent_category_id?: number | string;
+  product_type?: 'single' | 'variable' | 'bundle' | 'service' | 'all' | string;
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
   search?: string;

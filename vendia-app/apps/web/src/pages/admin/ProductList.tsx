@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useProductStore, useCategoryStore } from '@vendia/shared';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -16,19 +16,41 @@ export const ProductList = () => {
 
   // Filter and Sort State
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [selectedParentCategoryId, setSelectedParentCategoryId] = useState<string>('');
+  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState<string>('');
+  const [productType, setProductType] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
-    fetchProducts({
-      page: currentPage,
-      category_id: selectedCategory,
-      sort_by: sortBy,
-      sort_order: sortOrder
-    });
     fetchCategories();
-  }, [currentPage, selectedCategory, sortBy, sortOrder]);
+  }, [fetchCategories]);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(handle);
+  }, [search]);
+
+  useEffect(() => {
+    const params: any = {
+      page: currentPage,
+      sort_by: sortBy,
+      sort_order: sortOrder,
+    };
+
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (productType) params.product_type = productType;
+
+    if (selectedSubCategoryId) {
+      params.category_id = selectedSubCategoryId;
+    } else if (selectedParentCategoryId) {
+      params.parent_category_id = selectedParentCategoryId;
+    }
+
+    fetchProducts(params);
+  }, [currentPage, selectedParentCategoryId, selectedSubCategoryId, sortBy, sortOrder, debouncedSearch, productType, fetchProducts]);
 
   useEffect(() => {
     if (error) {
@@ -40,10 +62,32 @@ export const ProductList = () => {
     setConfirmProductId(id);
   };
 
+  const parents = useMemo(() => categories.filter((c) => !c.parent_id), [categories]);
+  const childrenByParent = useMemo(() => {
+    return categories.reduce<Record<number, typeof categories>>((acc, c) => {
+      if (c.parent_id) {
+        acc[c.parent_id] = acc[c.parent_id] || [];
+        acc[c.parent_id].push(c);
+      }
+      return acc;
+    }, {});
+  }, [categories]);
+
+  const activeChildren = useMemo(() => {
+    const pid = Number(selectedParentCategoryId);
+    if (!pid) return [];
+    return (childrenByParent[pid] || []).slice().sort((a, b) => a.name.localeCompare(b.name));
+  }, [childrenByParent, selectedParentCategoryId]);
+
   const getCategoryName = (categoryId?: number) => {
     if (!categoryId) return '-';
     const category = categories.find(c => c.id === categoryId);
-    return category ? category.name : '-';
+    if (!category) return '-';
+    if (category.parent_id) {
+      const parent = categories.find(p => p.id === category.parent_id);
+      return parent ? `${parent.name} / ${category.name}` : category.name;
+    }
+    return category.name;
   };
 
   const getImageUrl = (path: string) => {
@@ -107,42 +151,90 @@ export const ProductList = () => {
 
       {/* Filters and Sort Toolbar */}
       <div className="card shadow-sm border-0 mb-4">
-        <div className="card-body">
-            <div className="row g-3">
-                <div className="col-md-4">
-                    <label className="form-label">{t('products.list.filter.category')}</label>
-                    <select 
-                        className="form-select" 
-                        value={selectedCategory} 
-                        onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1); }}
-                    >
-                        <option value="">{t('products.list.filter.all_categories')}</option>
-                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                </div>
-                <div className="col-md-4">
-                    <label className="form-label">{t('products.list.filter.sort_by')}</label>
-                    <select 
-                        className="form-select" 
-                        value={`${sortBy}-${sortOrder}`} 
-                        onChange={(e) => { 
-                            const [field, order] = e.target.value.split('-'); 
-                            setSortBy(field); 
-                            setSortOrder(order as 'asc' | 'desc'); 
-                            setCurrentPage(1);
-                        }}
-                    >
-                        <option value="created_at-desc">{t('products.list.filter.sort_options.newest')}</option>
-                        <option value="created_at-asc">{t('products.list.filter.sort_options.oldest')}</option>
-                        <option value="name-asc">{t('products.list.filter.sort_options.name_az')}</option>
-                        <option value="name-desc">{t('products.list.filter.sort_options.name_za')}</option>
-                        <option value="price-asc">{t('products.list.filter.sort_options.price_low_high')}</option>
-                        <option value="price-desc">{t('products.list.filter.sort_options.price_high_low')}</option>
-                        <option value="stock-asc">{t('products.list.filter.sort_options.stock_low_high')}</option>
-                        <option value="stock-desc">{t('products.list.filter.sort_options.stock_high_low')}</option>
-                    </select>
-                </div>
+        <div className="card-body py-3">
+          <div className="row g-2 align-items-end">
+            <div className="col-md-4">
+              <label className="form-label mb-1">{t('products.list.filter.category')}</label>
+              <div className="d-flex gap-2">
+                <select
+                  className="form-select form-select-sm"
+                  value={selectedParentCategoryId}
+                  onChange={(e) => {
+                    setSelectedParentCategoryId(e.target.value);
+                    setSelectedSubCategoryId('');
+                    setCurrentPage(1);
+                  }}
+                >
+                  <option value="">{t('categories.parent_category', 'หมวดหลัก')} ({t('common.all', 'ทั้งหมด')})</option>
+                  {parents.map((c) => (
+                    <option key={c.id} value={String(c.id)}>{c.name}</option>
+                  ))}
+                </select>
+
+                <select
+                  className="form-select form-select-sm"
+                  value={selectedSubCategoryId}
+                  onChange={(e) => { setSelectedSubCategoryId(e.target.value); setCurrentPage(1); }}
+                  disabled={!selectedParentCategoryId || activeChildren.length === 0}
+                >
+                  {!selectedParentCategoryId ? (
+                    <option value="">{t('categories.subcategory', 'หมวดย่อย')} ({t('categories.subcategory_select_parent_first', 'เลือกหมวดหลักก่อน')})</option>
+                  ) : activeChildren.length === 0 ? (
+                    <option value="">{t('categories.subcategory', 'หมวดย่อย')} ({t('categories.subcategory_none', 'ไม่มีหมวดย่อย')})</option>
+                  ) : (
+                    <option value="">{t('categories.subcategory_use_parent', 'ใช้หมวดหลักนี้')}</option>
+                  )}
+                  {activeChildren.map((c) => (
+                    <option key={c.id} value={String(c.id)}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
+            <div className="col-md-2">
+              <label className="form-label mb-1">{t('products.list.filter.type', 'ประเภท')}</label>
+              <select
+                className="form-select form-select-sm"
+                value={productType}
+                onChange={(e) => { setProductType(e.target.value); setCurrentPage(1); }}
+              >
+                <option value="">{t('common.all', 'ทั้งหมด')}</option>
+                <option value="single">{t('products.form.fields.types.single')}</option>
+                <option value="bundle">{t('products.form.fields.types.bundle')}</option>
+                <option value="service">{t('products.form.fields.types.service')}</option>
+              </select>
+            </div>
+            <div className="col-md-2">
+              <label className="form-label mb-1">{t('products.list.filter.sort_by')}</label>
+              <select 
+                  className="form-select form-select-sm" 
+                  value={`${sortBy}-${sortOrder}`} 
+                  onChange={(e) => { 
+                      const [field, order] = e.target.value.split('-'); 
+                      setSortBy(field); 
+                      setSortOrder(order as 'asc' | 'desc'); 
+                      setCurrentPage(1);
+                  }}
+              >
+                  <option value="created_at-desc">{t('products.list.filter.sort_options.newest')}</option>
+                  <option value="created_at-asc">{t('products.list.filter.sort_options.oldest')}</option>
+                  <option value="name-asc">{t('products.list.filter.sort_options.name_az')}</option>
+                  <option value="name-desc">{t('products.list.filter.sort_options.name_za')}</option>
+                  <option value="price-asc">{t('products.list.filter.sort_options.price_low_high')}</option>
+                  <option value="price-desc">{t('products.list.filter.sort_options.price_high_low')}</option>
+                  <option value="stock-asc">{t('products.list.filter.sort_options.stock_low_high')}</option>
+                  <option value="stock-desc">{t('products.list.filter.sort_options.stock_high_low')}</option>
+              </select>
+            </div>
+            <div className="col-md-4">
+              <label className="form-label mb-1">{t('common.search', 'ค้นหา')}</label>
+              <input
+                className="form-control form-control-sm"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                placeholder={t('products.list.filter.search_placeholder', 'ชื่อสินค้า / SKU / รายละเอียด')}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -164,7 +256,6 @@ export const ProductList = () => {
                         <th className="p-3 border-bottom-2">{t('products.list.table.stock')}</th>
                         <th className="p-3 border-bottom-2">{t('products.list.table.category')}</th>
                         <th className="p-3 border-bottom-2">{t('products.list.table.sku')}</th>
-                        <th className="p-3 border-bottom-2">{t('products.list.table.value')}</th>
                         <th className="p-3 border-bottom-2">{t('products.list.table.type')}</th>
                         <th className="p-3 border-bottom-2">{t('products.list.table.actions')}</th>
                     </tr>
@@ -214,13 +305,6 @@ export const ProductList = () => {
                         <td className="p-3">{product.category?.name || getCategoryName(product.category_id)}</td>
                         <td className="p-3">{product.sku}</td>
                         <td className="p-3">
-                            {product.product_type === 'service' ? (
-                                <span className="text-muted">-</span>
-                            ) : (
-                                Number(product.price * product.stock).toLocaleString('en-US', { minimumFractionDigits: 2 })
-                            )}
-                        </td>
-                        <td className="p-3">
                             {product.product_type === 'bundle' ? (
                                 <span className="badge bg-info text-dark">{t('products.form.fields.types.bundle')}</span>
                             ) : product.product_type === 'service' ? (
@@ -247,7 +331,7 @@ export const ProductList = () => {
                         );
                     }) : (
                         <tr>
-                            <td colSpan={7} className="text-center p-5 text-muted">{t('common.no_data')}</td>
+                            <td colSpan={8} className="text-center p-5 text-muted">{t('common.no_data')}</td>
                         </tr>
                     )}
                     </tbody>

@@ -25,22 +25,31 @@ export const CreateCategory = () => {
   };
 
   return (
-    <div className="container mt-5" style={{ maxWidth: '600px' }}>
-      <h1 className="mb-4">{t('categories.create_title')}</h1>
+    <div className="container mt-5" style={{ maxWidth: '760px' }}>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h1 className="mb-0">{t('categories.create_title')}</h1>
+        <button type="button" className="btn btn-outline-secondary" onClick={() => navigate('/categories')}>
+          {t('common.back', 'ย้อนกลับ')}
+        </button>
+      </div>
       
       {error && <div className="alert alert-danger">{error}</div>}
 
       <div className="card shadow-sm">
         <div className="card-body p-4">
+          <div className="alert alert-info mb-4">
+            {t('categories.form.hint_parent_removed', 'หน้านี้ใช้สำหรับเพิ่ม “หมวดหลัก” เท่านั้น (หมวดย่อยเพิ่มได้ในหน้าแก้ไขหมวดหลัก)')}
+          </div>
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
               <label className="form-label fw-bold">{t('categories.form.name')}</label>
-              <input 
-                type="text" 
-                className="form-control" 
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
+              <input
+                type="text"
+                className="form-control"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 required
+                placeholder={t('categories.form.name_placeholder', 'เช่น ล้างแอร์ / อะไหล่ / อุปกรณ์')}
               />
             </div>
 
@@ -51,10 +60,11 @@ export const CreateCategory = () => {
                 rows={3}
                 value={description} 
                 onChange={(e) => setDescription(e.target.value)} 
+                placeholder={t('categories.form.description_placeholder', 'รายละเอียด (ถ้ามี)')}
               />
             </div>
 
-            <div className="d-flex justify-content-between">
+            <div className="d-flex justify-content-end gap-2">
               <button 
                 type="button" 
                 className="btn btn-secondary"

@@ -29,6 +29,8 @@ export const CategoryList = () => {
 
   if (loading && categories.length === 0) return <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>;
 
+  const parents = categories.filter((c) => !c.parent_id);
+
   return (
     <div className="container-fluid p-4">
       <MessageModal
@@ -86,10 +88,10 @@ export const CategoryList = () => {
               </tr>
             </thead>
             <tbody>
-              {categories.map((category) => (
+              {parents.map((category) => (
                 <tr key={category.id}>
                   <td className="p-3">{category.id}</td>
-                  <td className="p-3">{category.name}</td>
+                  <td className="p-3 fw-bold">{category.name}</td>
                   <td className="p-3">{category.description || '-'}</td>
                   <td className="p-3">
                     <button
@@ -107,7 +109,7 @@ export const CategoryList = () => {
                   </td>
                 </tr>
               ))}
-              {categories.length === 0 && !loading && (
+              {parents.length === 0 && !loading && (
                 <tr>
                   <td colSpan={4} className="text-center p-4 text-muted">{t('common.no_data')}</td>
                 </tr>
