@@ -334,7 +334,7 @@ export const Pos = () => {
         className="flex-grow-1 p-3 p-lg-4 overflow-auto border-end-lg border-bottom border-bottom-lg-0"
         style={{ flex: 4, minHeight: 0 }}
       >
-        <div className="d-flex justify-content-between align-items-center mb-4 gap-3">
+        <div className="d-flex justify-content-between align-items-center mb-2 gap-3">
             <h1 className="h3 m-0 flex-shrink-0">
                 {editingOrderId ? (
                     <span>
@@ -364,26 +364,6 @@ export const Pos = () => {
                     </span>
                 ) : t('pos.products')}
             </h1>
-            <div className="input-group" style={{ maxWidth: '420px' }}>
-              <span className="input-group-text bg-white">
-                <i className="bi bi-search"></i>
-              </span>
-              <input
-                className="form-control"
-                value={productSearch}
-                onChange={(e) => handleProductSearchChange(e.target.value)}
-                placeholder={t('pos.search_products', 'ค้นหาสินค้า (ชื่อ / SKU / Barcode)')}
-              />
-              {productSearch.trim() !== '' && (
-                <button
-                  className="btn btn-outline-secondary"
-                  type="button"
-                  onClick={() => handleProductSearchChange('')}
-                >
-                  <i className="bi bi-x-lg"></i>
-                </button>
-              )}
-            </div>
         </div>
 
         {/* Category Filter */}
@@ -409,31 +389,56 @@ export const Pos = () => {
 
           return (
             <>
-              <div className="mb-2 d-flex gap-2 overflow-auto pb-2">
-                <button
-                  className={`btn ${(selectedCategory === null && selectedParentCategory === null) ? 'btn-dark' : 'btn-outline-dark'}`}
-                  onClick={() => handleParentCategorySelect(null, false)}
-                >
-                  {t('common.all')}
-                </button>
-                {parents.map((category) => {
-                  const parentHasChildren = (childrenByParent[category.id] || []).length > 0;
-                  const active = (selectedCategory === category.id && !parentHasChildren) || (selectedParentCategory === category.id);
-                  return (
+              <div className="mb-2 d-flex flex-wrap align-items-center gap-3">
+                <div className="d-flex gap-2 overflow-auto pb-2 flex-grow-1" style={{ minWidth: 0 }}>
+                  <button
+                    className={`btn ${(selectedCategory === null && selectedParentCategory === null) ? 'btn-dark' : 'btn-outline-dark'}`}
+                    onClick={() => handleParentCategorySelect(null, false)}
+                  >
+                    {t('common.all')}
+                  </button>
+                  {parents.map((category) => {
+                    const parentHasChildren = (childrenByParent[category.id] || []).length > 0;
+                    const active = (selectedCategory === category.id && !parentHasChildren) || (selectedParentCategory === category.id);
+                    return (
+                      <button
+                        key={category.id}
+                        className={`btn ${active ? 'btn-dark' : 'btn-outline-dark'}`}
+                        onClick={() => handleParentCategorySelect(category.id, parentHasChildren)}
+                      >
+                        {category.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="input-group input-group-sm flex-shrink-0" style={{ maxWidth: '420px' }}>
+                  <span className="input-group-text bg-white">
+                    <i className="bi bi-search"></i>
+                  </span>
+                  <input
+                    className="form-control"
+                    value={productSearch}
+                    onChange={(e) => handleProductSearchChange(e.target.value)}
+                    placeholder={t('pos.search_products', 'ค้นหาสินค้า...')}
+                  />
+                  {productSearch.trim() !== '' && (
                     <button
-                      key={category.id}
-                      className={`btn ${active ? 'btn-dark' : 'btn-outline-dark'}`}
-                      onClick={() => handleParentCategorySelect(category.id, parentHasChildren)}
+                      className="btn btn-outline-secondary"
+                      type="button"
+                      onClick={() => handleProductSearchChange('')}
                     >
-                      {category.name}
+                      <i className="bi bi-x-lg"></i>
                     </button>
-                  );
-                })}
+                  )}
+                </div>
               </div>
               {hasChildren && (
-                <div className="mb-4 d-flex gap-2 overflow-auto pb-2">
+                <div className="mb-4 d-flex align-items-center gap-2 overflow-auto pb-2 ps-2 border-start">
+                  <span className="text-muted small flex-shrink-0" style={{ whiteSpace: 'nowrap' }}>
+                    ↳ {t('categories.subcategory', 'หมวดย่อย')}
+                  </span>
                   <button
-                    className={`btn ${selectedCategory === null ? 'btn-dark' : 'btn-outline-dark'}`}
+                    className={`btn btn-sm ${selectedCategory === null ? 'btn-secondary' : 'btn-outline-secondary'}`}
                     onClick={() => handleSubcategorySelect(activeParentId as number, null)}
                   >
                     {t('common.all')}
@@ -441,7 +446,7 @@ export const Pos = () => {
                   {children.map((c) => (
                     <button
                       key={c.id}
-                      className={`btn ${selectedCategory === c.id ? 'btn-dark' : 'btn-outline-dark'}`}
+                      className={`btn btn-sm ${selectedCategory === c.id ? 'btn-secondary' : 'btn-outline-secondary'}`}
                       onClick={() => handleSubcategorySelect(activeParentId as number, c.id)}
                     >
                       {c.name}
