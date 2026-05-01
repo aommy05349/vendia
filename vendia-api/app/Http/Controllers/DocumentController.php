@@ -70,8 +70,10 @@ class DocumentController extends Controller
             'show_expires_date' => 'sometimes|boolean',
             'customer_name' => 'sometimes|nullable|string|max:255',
             'customer_address' => 'sometimes|nullable|string',
+            'customer_attention' => 'sometimes|nullable|string|max:255',
             'header_title' => 'sometimes|nullable|string|max:255',
             'header_subtitle' => 'sometimes|nullable|string|max:255',
+            'remarks' => 'sometimes|nullable|string',
             'update_order_created_at' => 'sometimes|boolean',
         ]);
 

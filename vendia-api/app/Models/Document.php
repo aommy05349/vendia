@@ -20,8 +20,10 @@ class Document extends Model
         'show_expires_date',
         'customer_name',
         'customer_address',
+        'customer_attention',
         'header_title',
         'header_subtitle',
+        'remarks',
     ];
 
     protected function casts(): array

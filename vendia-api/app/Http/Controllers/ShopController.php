@@ -72,6 +72,7 @@ class ShopController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'company_name' => 'nullable|string|max:255',
+            'authorized_signatory_name' => 'nullable|string|max:255',
             'bank_details' => 'nullable|string',
             'address' => 'nullable|string',
             'phone' => 'nullable|string',
@@ -90,6 +91,7 @@ class ShopController extends Controller
 
         $shop->name = $validated['name'];
         $shop->company_name = $validated['company_name'] ?? $shop->company_name;
+        $shop->authorized_signatory_name = $validated['authorized_signatory_name'] ?? $shop->authorized_signatory_name;
         $shop->bank_details = $validated['bank_details'] ?? $shop->bank_details;
         $shop->address = $validated['address'] ?? $shop->address;
         $shop->phone = $validated['phone'] ?? $shop->phone;

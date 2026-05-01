@@ -8,6 +8,7 @@ export default function ShopSettings() {
   const { shop, updateShop, fetchShop, loading } = useShopStore();
   const [name, setName] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [authorizedSignatoryName, setAuthorizedSignatoryName] = useState('');
   const [bankDetails, setBankDetails] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
@@ -45,6 +46,7 @@ export default function ShopSettings() {
     } else {
       setName(shop.name);
       setCompanyName(shop.company_name || '');
+      setAuthorizedSignatoryName(shop.authorized_signatory_name || '');
       setBankDetails(shop.bank_details || '');
       setAddress(shop.address || '');
       setPhone(shop.phone || '');
@@ -79,6 +81,7 @@ export default function ShopSettings() {
     const formData = new FormData();
     formData.append('name', name);
     formData.append('company_name', companyName);
+    formData.append('authorized_signatory_name', authorizedSignatoryName);
     formData.append('bank_details', bankDetails);
     formData.append('address', address);
     formData.append('phone', phone);
@@ -248,6 +251,17 @@ export default function ShopSettings() {
                 />
               </div>
               <div className="form-text mt-2">{t('settings.signature_help')}</div>
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label fw-bold">{t('settings.authorized_signatory_name', 'ชื่อผู้มีอำนาจลงนาม')}</label>
+              <input
+                type="text"
+                className="form-control"
+                value={authorizedSignatoryName}
+                onChange={(e) => setAuthorizedSignatoryName(e.target.value)}
+                placeholder={t('settings.authorized_signatory_placeholder', 'เช่น นาย/นาง/นางสาว ...')}
+              />
             </div>
 
             <div className="mb-3">

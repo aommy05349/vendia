@@ -573,6 +573,8 @@
     "remarks": "Remarks",
     "logo": "Shop Logo",
     "signature": "Authorized Signature",
+    "authorized_signatory_name": "Authorized signatory name",
+    "authorized_signatory_placeholder": "e.g. John Doe",
     "upload_help": "Upload new image to change",
     "preview": "Preview",
     "save": "Save Settings",

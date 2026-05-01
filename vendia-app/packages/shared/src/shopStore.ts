@@ -5,6 +5,7 @@ export interface Shop {
   id: number;
   name: string;
   company_name?: string;
+  authorized_signatory_name?: string;
   bank_details?: string;
   address?: string;
   phone?: string;

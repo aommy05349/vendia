@@ -20,6 +20,7 @@ class Shop extends Model
         'bank_details',
         'logo_path',
         'signature_path',
+        'authorized_signatory_name',
         'attendance_office_ips',
     ];
 }

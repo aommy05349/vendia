@@ -15,6 +15,7 @@ interface Shop {
     email: string;
     logo_path: string;
     signature_path?: string;
+    authorized_signatory_name?: string;
     footer_text?: string;
     remarks?: string;
 }
@@ -59,8 +60,10 @@ interface Order {
         show_expires_date?: boolean;
         customer_name?: string | null;
         customer_address?: string | null;
+        customer_attention?: string | null;
         header_title?: string | null;
         header_subtitle?: string | null;
+        remarks?: string | null;
     }[];
 }
 
@@ -75,8 +78,10 @@ type DocumentRecord = {
     show_expires_date?: boolean;
     customer_name?: string | null;
     customer_address?: string | null;
+    customer_attention?: string | null;
     header_title?: string | null;
     header_subtitle?: string | null;
+    remarks?: string | null;
     order?: Order;
 };
 
@@ -97,8 +102,10 @@ export const PrintOrder = () => {
     const [showExpiryDate, setShowExpiryDate] = useState(false);
     const [customerNameOverride, setCustomerNameOverride] = useState('');
     const [customerAddressOverride, setCustomerAddressOverride] = useState('');
+    const [customerAttentionOverride, setCustomerAttentionOverride] = useState('');
     const [headerTitleOverride, setHeaderTitleOverride] = useState('');
     const [headerSubtitleOverride, setHeaderSubtitleOverride] = useState('');
+    const [remarksOverride, setRemarksOverride] = useState('');
     const [updateOrderCreatedAt, setUpdateOrderCreatedAt] = useState(true);
     const [saveModal, setSaveModal] = useState<{ type: 'success' | 'danger'; message: string } | null>(null);
     const [saving, setSaving] = useState(false);
@@ -135,6 +142,27 @@ export const PrintOrder = () => {
         const mm = String(date.getMonth() + 1).padStart(2, '0');
         const yyyy = String(date.getFullYear() + 543);
         return `${dd}/${mm}/${yyyy}`;
+    };
+
+    const formatThaiLongDate = (date: Date) => {
+        const months = [
+            'มกราคม',
+            'กุมภาพันธ์',
+            'มีนาคม',
+            'เมษายน',
+            'พฤษภาคม',
+            'มิถุนายน',
+            'กรกฎาคม',
+            'สิงหาคม',
+            'กันยายน',
+            'ตุลาคม',
+            'พฤศจิกายน',
+            'ธันวาคม',
+        ];
+        const d = date.getDate();
+        const m = months[date.getMonth()] || '';
+        const y = date.getFullYear() + 543;
+        return `${d} ${m} ${y}`;
     };
 
     const getImageUrl = (path: string) => {
@@ -218,9 +246,12 @@ export const PrintOrder = () => {
         setCustomerNameOverride(typeof nameFromUrl === 'string' ? nameFromUrl : (docForDefaults?.customer_name || ''));
         const addressFromUrl = searchParams.get('customer_address');
         setCustomerAddressOverride(typeof addressFromUrl === 'string' ? addressFromUrl : (docForDefaults?.customer_address || ''));
+        const attentionFromUrl = searchParams.get('customer_attention');
+        setCustomerAttentionOverride(typeof attentionFromUrl === 'string' ? attentionFromUrl : (docForDefaults?.customer_attention || ''));
 
         setHeaderTitleOverride(docForDefaults?.header_title || '');
         setHeaderSubtitleOverride(docForDefaults?.header_subtitle || '');
+        setRemarksOverride(docForDefaults?.remarks || '');
         setUpdateOrderCreatedAt(true);
     }, [order, isQuotation, searchParams, type, documentRecord]);
 
@@ -296,10 +327,24 @@ export const PrintOrder = () => {
     const showWithholding = withholdingRate > 0 && !isQuotation;
     const payableForDocument = showWithholding ? payable : totalWithVat;
     const summaryRowCount = 2 + (vatRate > 0 ? 1 : 0) + (showWithholding ? 2 : 0);
+
+    const currentNumberForRemarks =
+        type === 'quotation'
+            ? order.quotation_number
+            : type === 'billing_note'
+                ? order.billing_note_number
+                : order.receipt_number;
+    const currentDocumentForRemarks = order.documents?.find((d) => d.type === type && d.number === currentNumberForRemarks);
+    const docForRemarks = documentRecord || currentDocumentForRemarks;
+
     const attention =
         order.customer?.is_company
             ? (typeof order.customer?.contact_name === 'string' ? order.customer.contact_name.trim() : '')
             : (typeof order.customer?.name === 'string' ? order.customer.name.trim() : '');
+    const displayAttention =
+        (typeof customerAttentionOverride === 'string' && customerAttentionOverride.trim() !== '')
+            ? customerAttentionOverride.trim()
+            : (docForRemarks?.customer_attention && String(docForRemarks.customer_attention).trim() !== '' ? String(docForRemarks.customer_attention) : attention);
     const customerDisplayName =
         (typeof customerNameOverride === 'string' && customerNameOverride.trim() !== '')
             ? customerNameOverride.trim()
@@ -308,18 +353,13 @@ export const PrintOrder = () => {
         (typeof customerAddressOverride === 'string' && customerAddressOverride.trim() !== '')
             ? customerAddressOverride.trim()
             : (order.customer?.address || '-');
+    const displayRemarks =
+        (typeof remarksOverride === 'string' && remarksOverride.trim() !== '')
+            ? remarksOverride.trim()
+            : (docForRemarks?.remarks && String(docForRemarks.remarks).trim() !== '' ? String(docForRemarks.remarks) : (shop.remarks || '-'));
 
-    return (
-        <div className="container-fluid p-4 print-root" style={{ maxWidth: '1000px', background: 'white', fontSize: '12px' }}>
-            <MessageModal
-                open={saveModal !== null}
-                type={saveModal?.type || 'success'}
-                title={saveModal?.type === 'danger' ? t('common.error_title', 'ไม่สำเร็จ') : t('common.success', 'สำเร็จ')}
-                message={saveModal?.message || ''}
-                okLabel={t('common.ok', 'ตกลง')}
-                onClose={() => setSaveModal(null)}
-                zIndex={2500}
-            />
+    const preview = (
+        <div className="p-4 print-root" style={{ maxWidth: '1000px', margin: '0 auto', background: 'white', fontSize: '12px' }}>
             <style>
                 {`
 @page {
@@ -335,6 +375,16 @@ export const PrintOrder = () => {
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  .print-edit-layout {
+    display: block !important;
+  }
+
+  .print-preview-col {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
   }
 
   .print-root {
@@ -443,7 +493,7 @@ export const PrintOrder = () => {
                     </div>
                     <div className="row mb-1">
                         <div className="col-4 fw-bold">{t('print.customer.attention')}</div>
-                        <div className="col-8">{order.customer?.is_company ? attention : (attention || '-')}</div>
+                        <div className="col-8">{displayAttention || '-'}</div>
                     </div>
                 </div>
                 <div className="col-5">
@@ -519,7 +569,7 @@ export const PrintOrder = () => {
                             {/* Bank Info & Remarks */}
                             <div className="text-danger fw-bold mb-2">{t('print.footer.remarks')}</div>
                             <div style={{ whiteSpace: 'pre-line', fontSize: '12px' }}>
-                                {shop.remarks || '-'}
+                                {displayRemarks}
                             </div>
                         </td>
                         <td className="text-end fw-bold">{t('print.footer.subtotal')}<small>{t('print.footer.subtotal_en')}</small></td>
@@ -591,8 +641,36 @@ export const PrintOrder = () => {
                              isBillingNote ? t('print.signatures.received_billing') : 
                              t('print.signatures.receiver')}
                         </div>
-                        <div className="mt-4">{t('print.signatures.sign')}</div>
-                        <div className="mt-2">{t('print.signatures.date')}</div>
+                        <div className="mt-4 d-flex align-items-end justify-content-center">
+                            <div style={{ whiteSpace: 'nowrap' }}>{t('print.signatures.sign')}</div>
+                            <div
+                                className="ms-2"
+                                style={{
+                                    width: '260px',
+                                    borderBottom: '1px dotted #000',
+                                    lineHeight: 1.1,
+                                    paddingBottom: '2px',
+                                }}
+                            >
+                                <div className="text-center">
+                                    <div>{isQuotation ? (shop.authorized_signatory_name || '') : ''}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-2 d-flex align-items-end justify-content-center">
+                            <div style={{ whiteSpace: 'nowrap' }}>{t('print.signatures.date')}</div>
+                            <div
+                                className="ms-2"
+                                style={{
+                                    width: '260px',
+                                    borderBottom: '1px dotted #000',
+                                    lineHeight: 1.1,
+                                    paddingBottom: '2px',
+                                }}
+                            >
+                                <div className="text-center">{isQuotation && showIssueDate ? formatThaiLongDate(issueDateValue) : ''}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div className="col-6 text-center">
@@ -611,163 +689,241 @@ export const PrintOrder = () => {
                              isBillingNote ? t('print.signatures.billing') : 
                              t('print.signatures.collector')}
                         </div>
-                        <div className="mt-4">{t('print.signatures.sign')}</div>
-                        <div className="mt-2">{t('print.signatures.date')}</div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="text-center mt-5 d-print-none">
-                {editMode && (
-                    <div className="card shadow-sm text-start mb-3" style={{ maxWidth: '1000px' }}>
-                        <div className="card-body">
-                            <div className="row g-3 align-items-end">
-                                <div className="col-12 col-md-6">
-                                    <label className="form-label fw-bold">{t('print.settings.title', 'หัวเอกสาร')}</label>
-                                    <input
-                                        className="form-control"
-                                        value={headerTitleOverride}
-                                        onChange={(e) => setHeaderTitleOverride(e.target.value)}
-                                        placeholder={documentTitle}
-                                    />
-                                </div>
-                                <div className="col-12 col-md-6">
-                                    <label className="form-label fw-bold">{t('print.settings.subtitle', 'หัวข้อย่อย')}</label>
-                                    <input
-                                        className="form-control"
-                                        value={headerSubtitleOverride}
-                                        onChange={(e) => setHeaderSubtitleOverride(e.target.value)}
-                                        placeholder={documentSubtitle}
-                                    />
-                                </div>
-                                <div className="col-12 col-md-6">
-                                    <label className="form-label fw-bold">{t('print.customer.label', 'ลูกค้า / Customer')}</label>
-                                    <input
-                                        className="form-control"
-                                        value={customerNameOverride}
-                                        onChange={(e) => setCustomerNameOverride(e.target.value)}
-                                        placeholder={customerDisplayName}
-                                    />
-                                </div>
-                                <div className="col-12 col-md-6">
-                                    <label className="form-label fw-bold">{t('print.customer.address', 'ที่อยู่')}</label>
-                                    <textarea
-                                        className="form-control"
-                                        rows={2}
-                                        value={customerAddressOverride}
-                                        onChange={(e) => setCustomerAddressOverride(e.target.value)}
-                                        placeholder={customerDisplayAddress}
-                                    />
-                                </div>
-                                <div className="col-12 col-md-4">
-                                    <label className="form-label fw-bold">{t('print.document.date', 'วันที่ออกเอกสาร')}</label>
-                                    <input
-                                        type="date"
-                                        className="form-control"
-                                        value={issueDate}
-                                        onChange={(e) => setIssueDate(e.target.value)}
-                                    />
-                                </div>
-                                <div className="col-12 col-md-2">
-                                    <div className="form-check mt-4">
-                                        <input
-                                            className="form-check-input"
-                                            type="checkbox"
-                                            checked={showIssueDate}
-                                            onChange={(e) => setShowIssueDate(e.target.checked)}
-                                            id="showIssueDate"
-                                        />
-                                        <label className="form-check-label" htmlFor="showIssueDate">
-                                            {t('print.settings.show', 'แสดง')}
-                                        </label>
-                                    </div>
-                                </div>
-                                <div className="col-12 col-md-6">
-                                    <div className="form-check mt-4">
-                                        <input
-                                            className="form-check-input"
-                                            type="checkbox"
-                                            checked={updateOrderCreatedAt}
-                                            onChange={(e) => setUpdateOrderCreatedAt(e.target.checked)}
-                                            id="updateOrderCreatedAt"
-                                        />
-                                        <label className="form-check-label" htmlFor="updateOrderCreatedAt">
-                                            {t('print.settings.update_order_date', 'อัปเดตวันที่สร้างออเดอร์ให้ตรงกับวันที่ออกเอกสาร')}
-                                        </label>
-                                    </div>
-                                </div>
-                                <div className="col-12 col-md-4">
-                                    <label className="form-label fw-bold">{t('print.document.valid', 'วันหมดอายุ')}</label>
-                                    <input
-                                        type="date"
-                                        className="form-control"
-                                        value={expiryDate}
-                                        onChange={(e) => setExpiryDate(e.target.value)}
-                                    />
-                                </div>
-                                <div className="col-12 col-md-2">
-                                    <div className="form-check mt-4">
-                                        <input
-                                            className="form-check-input"
-                                            type="checkbox"
-                                            checked={showExpiryDate}
-                                            onChange={(e) => setShowExpiryDate(e.target.checked)}
-                                            id="showExpiryDate"
-                                        />
-                                        <label className="form-check-label" htmlFor="showExpiryDate">
-                                            {t('print.settings.show', 'แสดง')}
-                                        </label>
-                                    </div>
-                                </div>
-                                <div className="col-12 d-flex justify-content-end gap-2">
-                                    <button
-                                        type="button"
-                                        className="btn btn-outline-secondary"
-                                        onClick={() => window.print()}
-                                    >
-                                        {t('print.button', 'พิมพ์')}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btn btn-primary"
-                                        disabled={!documentId || saving}
-                                        onClick={async () => {
-                                            if (!documentId) return;
-                                            setSaving(true);
-                                            try {
-                                                await api.put(`/documents/${documentId}`, {
-                                                    issued_date: issueDate.trim() === '' ? null : issueDate.trim(),
-                                                    show_issued_date: showIssueDate,
-                                                    expires_date: expiryDate.trim() === '' ? null : expiryDate.trim(),
-                                                    show_expires_date: showExpiryDate,
-                                                    customer_name: customerNameOverride.trim() === '' ? null : customerNameOverride.trim(),
-                                                    customer_address: customerAddressOverride.trim() === '' ? null : customerAddressOverride.trim(),
-                                                    header_title: headerTitleOverride.trim() === '' ? null : headerTitleOverride.trim(),
-                                                    header_subtitle: headerSubtitleOverride.trim() === '' ? null : headerSubtitleOverride.trim(),
-                                                    update_order_created_at: updateOrderCreatedAt,
-                                                });
-                                                if (documentId) {
-                                                    const refreshed = await api.get(`/documents/${documentId}`);
-                                                    setDocumentRecord(refreshed.data);
-                                                    if (refreshed.data?.order) setOrder(refreshed.data.order);
-                                                }
-                                                setSaveModal({ type: 'success', message: t('common.saved', 'บันทึกแล้ว') });
-                                            } catch (err) {
-                                                setSaveModal({ type: 'danger', message: t('common.save_failed', 'บันทึกไม่สำเร็จ') });
-                                            } finally {
-                                                setSaving(false);
-                                            }
-                                        }}
-                                    >
-                                        {saving ? t('common.saving', 'กำลังบันทึก...') : t('common.save', 'บันทึก')}
-                                    </button>
+                        <div className="mt-4 d-flex align-items-end justify-content-center">
+                            <div style={{ whiteSpace: 'nowrap' }}>{t('print.signatures.sign')}</div>
+                            <div
+                                className="ms-2"
+                                style={{
+                                    width: '260px',
+                                    borderBottom: '1px dotted #000',
+                                    lineHeight: 1.1,
+                                    paddingBottom: '2px',
+                                }}
+                            >
+                                <div className="text-center">
+                                    <div>{!isQuotation ? (shop.authorized_signatory_name || '') : ''}</div>
                                 </div>
                             </div>
                         </div>
+                        <div className="mt-2 d-flex align-items-end justify-content-center">
+                            <div style={{ whiteSpace: 'nowrap' }}>{t('print.signatures.date')}</div>
+                            <div
+                                className="ms-2"
+                                style={{
+                                    width: '260px',
+                                    borderBottom: '1px dotted #000',
+                                    lineHeight: 1.1,
+                                    paddingBottom: '2px',
+                                }}
+                            >
+                                <div className="text-center">{!isQuotation && showIssueDate ? formatThaiLongDate(issueDateValue) : ''}</div>
+                            </div>
+                        </div>
                     </div>
-                )}
-                {!editMode && <button className="btn btn-primary btn-lg" onClick={() => window.print()}>{t('print.button')}</button>}
+                </div>
             </div>
+        </div>
+    );
+
+    const editor = (
+        <div className="card shadow-sm text-start">
+            <div className="card-body">
+                <div className="row g-3 align-items-end">
+                    <div className="col-12 col-md-6">
+                        <label className="form-label fw-bold">{t('print.settings.title', 'หัวเอกสาร')}</label>
+                        <input
+                            className="form-control"
+                            value={headerTitleOverride}
+                            onChange={(e) => setHeaderTitleOverride(e.target.value)}
+                            placeholder={documentTitle}
+                        />
+                    </div>
+                    <div className="col-12 col-md-6">
+                        <label className="form-label fw-bold">{t('print.settings.subtitle', 'หัวข้อย่อย')}</label>
+                        <input
+                            className="form-control"
+                            value={headerSubtitleOverride}
+                            onChange={(e) => setHeaderSubtitleOverride(e.target.value)}
+                            placeholder={documentSubtitle}
+                        />
+                    </div>
+                    <div className="col-12 col-md-6">
+                        <label className="form-label fw-bold">{t('print.customer.label', 'ลูกค้า / Customer')}</label>
+                        <input
+                            className="form-control"
+                            value={customerNameOverride}
+                            onChange={(e) => setCustomerNameOverride(e.target.value)}
+                            placeholder={customerDisplayName}
+                        />
+                    </div>
+                    <div className="col-12 col-md-6">
+                        <label className="form-label fw-bold">{t('print.customer.address', 'ที่อยู่')}</label>
+                        <textarea
+                            className="form-control"
+                            rows={2}
+                            value={customerAddressOverride}
+                            onChange={(e) => setCustomerAddressOverride(e.target.value)}
+                            placeholder={customerDisplayAddress}
+                        />
+                    </div>
+                    <div className="col-12 col-md-6">
+                        <label className="form-label fw-bold">{t('print.customer.attention', 'ผู้ติดต่อ / Attention')}</label>
+                        <input
+                            className="form-control"
+                            value={customerAttentionOverride}
+                            onChange={(e) => setCustomerAttentionOverride(e.target.value)}
+                            placeholder={displayAttention || ''}
+                        />
+                    </div>
+                    <div className="col-12">
+                        <label className="form-label fw-bold">{t('print.footer.remarks', 'หมายเหตุ')}</label>
+                        <textarea
+                            className="form-control"
+                            rows={3}
+                            value={remarksOverride}
+                            onChange={(e) => setRemarksOverride(e.target.value)}
+                            placeholder={shop.remarks || ''}
+                        />
+                    </div>
+                    <div className="col-12 col-md-4">
+                        <label className="form-label fw-bold">{t('print.document.date', 'วันที่ออกเอกสาร')}</label>
+                        <input
+                            type="date"
+                            className="form-control"
+                            value={issueDate}
+                            onChange={(e) => setIssueDate(e.target.value)}
+                        />
+                    </div>
+                    <div className="col-12 col-md-2">
+                        <div className="form-check mt-4">
+                            <input
+                                className="form-check-input"
+                                type="checkbox"
+                                checked={showIssueDate}
+                                onChange={(e) => setShowIssueDate(e.target.checked)}
+                                id="showIssueDate"
+                            />
+                            <label className="form-check-label" htmlFor="showIssueDate">
+                                {t('print.settings.show', 'แสดง')}
+                            </label>
+                        </div>
+                    </div>
+                    <div className="col-12 col-md-6">
+                        <div className="form-check mt-4">
+                            <input
+                                className="form-check-input"
+                                type="checkbox"
+                                checked={updateOrderCreatedAt}
+                                onChange={(e) => setUpdateOrderCreatedAt(e.target.checked)}
+                                id="updateOrderCreatedAt"
+                            />
+                            <label className="form-check-label" htmlFor="updateOrderCreatedAt">
+                                {t('print.settings.update_order_date', 'อัปเดตวันที่สร้างออเดอร์ให้ตรงกับวันที่ออกเอกสาร')}
+                            </label>
+                        </div>
+                    </div>
+                    <div className="col-12 col-md-4">
+                        <label className="form-label fw-bold">{t('print.document.valid', 'วันหมดอายุ')}</label>
+                        <input
+                            type="date"
+                            className="form-control"
+                            value={expiryDate}
+                            onChange={(e) => setExpiryDate(e.target.value)}
+                        />
+                    </div>
+                    <div className="col-12 col-md-2">
+                        <div className="form-check mt-4">
+                            <input
+                                className="form-check-input"
+                                type="checkbox"
+                                checked={showExpiryDate}
+                                onChange={(e) => setShowExpiryDate(e.target.checked)}
+                                id="showExpiryDate"
+                            />
+                            <label className="form-check-label" htmlFor="showExpiryDate">
+                                {t('print.settings.show', 'แสดง')}
+                            </label>
+                        </div>
+                    </div>
+                    <div className="col-12 d-flex justify-content-end gap-2">
+                        <button
+                            type="button"
+                            className="btn btn-outline-secondary"
+                            onClick={() => window.print()}
+                        >
+                            {t('print.button', 'พิมพ์')}
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={!documentId || saving}
+                            onClick={async () => {
+                                if (!documentId) return;
+                                setSaving(true);
+                                try {
+                                    await api.put(`/documents/${documentId}`, {
+                                        issued_date: issueDate.trim() === '' ? null : issueDate.trim(),
+                                        show_issued_date: showIssueDate,
+                                        expires_date: expiryDate.trim() === '' ? null : expiryDate.trim(),
+                                        show_expires_date: showExpiryDate,
+                                        customer_name: customerNameOverride.trim() === '' ? null : customerNameOverride.trim(),
+                                        customer_address: customerAddressOverride.trim() === '' ? null : customerAddressOverride.trim(),
+                                        customer_attention: customerAttentionOverride.trim() === '' ? null : customerAttentionOverride.trim(),
+                                        header_title: headerTitleOverride.trim() === '' ? null : headerTitleOverride.trim(),
+                                        header_subtitle: headerSubtitleOverride.trim() === '' ? null : headerSubtitleOverride.trim(),
+                                        remarks: remarksOverride.trim() === '' ? null : remarksOverride,
+                                        update_order_created_at: updateOrderCreatedAt,
+                                    });
+                                    if (documentId) {
+                                        const refreshed = await api.get(`/documents/${documentId}`);
+                                        setDocumentRecord(refreshed.data);
+                                        if (refreshed.data?.order) setOrder(refreshed.data.order);
+                                    }
+                                    setSaveModal({ type: 'success', message: t('common.saved', 'บันทึกแล้ว') });
+                                } catch (err) {
+                                    setSaveModal({ type: 'danger', message: t('common.save_failed', 'บันทึกไม่สำเร็จ') });
+                                } finally {
+                                    setSaving(false);
+                                }
+                            }}
+                        >
+                            {saving ? t('common.saving', 'กำลังบันทึก...') : t('common.save', 'บันทึก')}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className={editMode ? 'container-fluid p-3' : 'container-fluid p-4'}>
+            <MessageModal
+                open={saveModal !== null}
+                type={saveModal?.type || 'success'}
+                title={saveModal?.type === 'danger' ? t('common.error_title', 'ไม่สำเร็จ') : t('common.success', 'สำเร็จ')}
+                message={saveModal?.message || ''}
+                okLabel={t('common.ok', 'ตกลง')}
+                onClose={() => setSaveModal(null)}
+                zIndex={2500}
+            />
+
+            {editMode ? (
+                <div className="row g-3 align-items-start print-edit-layout">
+                    <div className="col-12 col-xl-8 print-preview-col">{preview}</div>
+                    <div className="col-12 col-xl-4 d-print-none">
+                        <div style={{ position: 'sticky', top: '16px' }}>{editor}</div>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    {preview}
+                    <div className="text-center mt-5 d-print-none">
+                        <button className="btn btn-primary btn-lg" onClick={() => window.print()}>
+                            {t('print.button')}
+                        </button>
+                    </div>
+                </>
+            )}
         </div>
     );
 };
