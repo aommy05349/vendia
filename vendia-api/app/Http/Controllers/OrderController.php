@@ -564,11 +564,15 @@ class OrderController extends Controller
     public function issueDocument(Request $request, $id)
     {
         $request->validate([
-            'type' => 'required|in:quotation,billing_note,receipt'
+            'type' => 'required|in:quotation,billing_note,receipt',
+            'issued_date' => 'sometimes|nullable|date',
         ]);
 
         $order = Order::findOrFail($id);
         $type = $request->input('type');
+        $issuedDate = $request->filled('issued_date')
+            ? Carbon::parse($request->input('issued_date'))->startOfDay()
+            : Carbon::today();
         $code = '';
 
         if ($type === 'quotation') {
@@ -582,7 +586,7 @@ class OrderController extends Controller
                     return response()->json(['message' => 'Already issued'], 400);
                 }
             }
-            $order->quotation_number = $this->generateDocumentNumber('QT', $order->id);
+            $order->quotation_number = $this->generateDocumentNumber('QT', $order->id, $issuedDate);
             $order->quotation_status = 'active';
         } elseif ($type === 'billing_note') {
             $code = 'BN';
@@ -595,7 +599,7 @@ class OrderController extends Controller
                     return response()->json(['message' => 'Already issued'], 400);
                 }
             }
-            $order->billing_note_number = $this->generateDocumentNumber('BN', $order->id);
+            $order->billing_note_number = $this->generateDocumentNumber('BN', $order->id, $issuedDate);
             $order->billing_note_status = 'active';
         } elseif ($type === 'receipt') {
             $code = 'RE';
@@ -608,7 +612,7 @@ class OrderController extends Controller
                     return response()->json(['message' => 'Already issued'], 400);
                 }
             }
-            $order->receipt_number = $this->generateDocumentNumber('RE', $order->id);
+            $order->receipt_number = $this->generateDocumentNumber('RE', $order->id, $issuedDate);
             $order->receipt_status = 'active';
         }
 
@@ -616,10 +620,10 @@ class OrderController extends Controller
         return response()->json($order->load('documents'));
     }
 
-    private function generateDocumentNumber($type, $orderId)
+    private function generateDocumentNumber($type, $orderId, Carbon $issuedDate)
     {
-        return DB::transaction(function () use ($type, $orderId) {
-            $dateStr = date('Ym'); // e.g. 202604
+        return DB::transaction(function () use ($type, $orderId, $issuedDate) {
+            $dateStr = $issuedDate->format('Ym'); // e.g. 202604
             $fullPrefix = "PT-{$type}-{$dateStr}-"; // e.g. PT-QT-202604-
 
             $counter = DocumentCounter::where('prefix', $fullPrefix)->lockForUpdate()->first();
@@ -656,7 +660,6 @@ class OrderController extends Controller
 
             $number = $fullPrefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
 
-            $issuedDate = Carbon::today();
             $isQuotation = $type === 'QT';
             $expiresDate = $isQuotation ? $issuedDate->copy()->addDays(7) : null;
 

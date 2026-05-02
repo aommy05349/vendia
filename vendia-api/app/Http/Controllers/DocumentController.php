@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DocumentCounter;
 use App\Models\Document;
+use App\Models\Order;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -81,7 +83,62 @@ class DocumentController extends Controller
             $updateOrderCreatedAt = (bool) ($validated['update_order_created_at'] ?? false);
             unset($validated['update_order_created_at']);
 
+            $oldNumber = $document->number;
             $document->update($validated);
+
+            if (array_key_exists('issued_date', $validated) && $validated['issued_date'] && ($document->status ?? 'active') !== 'cancelled') {
+                $issued = Carbon::parse($document->issued_date)->startOfDay();
+                $code = $document->type === 'quotation' ? 'QT' : ($document->type === 'billing_note' ? 'BN' : 'RE');
+                $dateStr = $issued->format('Ym');
+                $fullPrefix = "PT-{$code}-{$dateStr}-";
+
+                if (!is_string($document->number) || !str_starts_with($document->number, $fullPrefix)) {
+                    $counter = DocumentCounter::where('prefix', $fullPrefix)->lockForUpdate()->first();
+                    if (!$counter) {
+                        $lastNumber = 0;
+
+                        $lastDoc = Document::where('number', 'like', "{$fullPrefix}%")
+                            ->orderBy('number', 'desc')
+                            ->first();
+                        if ($lastDoc) {
+                            $lastNumber = intval(substr($lastDoc->number, -4));
+                        } else {
+                            $column = 'receipt_number';
+                            if ($code === 'QT') $column = 'quotation_number';
+                            if ($code === 'BN') $column = 'billing_note_number';
+
+                            $lastOrder = Order::where($column, 'like', "{$fullPrefix}%")
+                                ->orderBy($column, 'desc')
+                                ->first();
+                            if ($lastOrder) {
+                                $lastNumber = intval(substr((string) $lastOrder->$column, -4));
+                            }
+                        }
+
+                        $counter = DocumentCounter::create([
+                            'prefix' => $fullPrefix,
+                            'last_number' => $lastNumber,
+                        ]);
+                    }
+
+                    $newNumber = $counter->last_number + 1;
+                    $counter->last_number = $newNumber;
+                    $counter->save();
+
+                    $newDocNumber = $fullPrefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+                    $document->number = $newDocNumber;
+                    $document->save();
+
+                    $order = $document->order;
+                    if ($order) {
+                        $orderColumn = $document->type === 'quotation' ? 'quotation_number' : ($document->type === 'billing_note' ? 'billing_note_number' : 'receipt_number');
+                        if ($order->$orderColumn === $oldNumber) {
+                            $order->$orderColumn = $newDocNumber;
+                            $order->save();
+                        }
+                    }
+                }
+            }
 
             if ($updateOrderCreatedAt && array_key_exists('issued_date', $validated) && $validated['issued_date']) {
                 $order = $document->order;
