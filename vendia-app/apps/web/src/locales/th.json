@@ -42,6 +42,53 @@
     "please_login": "กรุณาเข้าสู่ระบบ",
     "today": "วันนี้"
   },
+  "dashboard": {
+    "title": "แดชบอร์ด",
+    "range": "ช่วงเวลา",
+    "daily": "รายวัน",
+    "monthly": "รายเดือน",
+    "month_from": "เดือนเริ่มต้น",
+    "month_to": "เดือนสิ้นสุด",
+    "apply_range": "แสดงผล",
+    "presets": {
+      "today": "วันนี้",
+      "this_month": "เดือนนี้",
+      "last_3_months": "3 เดือน",
+      "last_6_months": "6 เดือน",
+      "last_12_months": "ปี"
+    },
+    "completed_total": "ยอดชำระแล้ว",
+    "pending_total": "ยอดรอชำระ",
+    "pending_receivable_total": "ยอดรอชำระ (ใบวางบิล)",
+    "pending_receivable_count": "จำนวนรายการ",
+    "pending_all_total": "รวมทั้งหมด",
+    "pending_billing_note": "ใบวางบิล",
+    "pending_quotation": "ใบเสนอราคา",
+    "completed_count": "จำนวนรายการ",
+    "pending_count": "จำนวนรายการ",
+    "legend": "คำอธิบายกราฟ",
+    "legend_completed": "ชำระแล้ว",
+    "legend_billing_note": "ใบวางบิล",
+    "legend_quotation": "ใบเสนอราคา",
+    "go_orders": "ไปหน้ารายการสั่งซื้อ",
+    "chart_title": "กราฟรายรับ (ชำระแล้ว/รอชำระ)",
+    "pending_list": "รายการรอชำระล่าสุด",
+    "no_pending": "ไม่มีรายการรอชำระในช่วงนี้",
+    "pending_kind": "ประเภท",
+    "document": "เอกสาร",
+    "view_document": "ดูเอกสาร",
+    "kind": {
+      "billing_note": "ใบวางบิล",
+      "quotation": "ใบเสนอราคา"
+    },
+    "tooltip": {
+      "day_prefix": "วันที่",
+      "completed": "ชำระแล้ว",
+      "billing_note": "ใบวางบิล",
+      "quotation": "ใบเสนอราคา",
+      "total": "รวม"
+    }
+  },
   "login": {
     "title": "เข้าสู่ระบบ",
     "invalid_credentials": "อีเมลหรือรหัสผ่านไม่ถูกต้อง",

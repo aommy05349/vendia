@@ -122,6 +122,20 @@ export const OrderList = () => {
   const [withholdingRate, setWithholdingRate] = useState<0 | 3 | 7>(0);
 
   const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+  const formatDateTime = (iso: string) => {
+    const d = new Date(iso);
+    const date = new Intl.DateTimeFormat('th-TH', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(d);
+    const time = new Intl.DateTimeFormat('th-TH', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(d);
+    return { date, time };
+  };
 
   useEffect(() => {
     fetchOrders(currentPage);
@@ -493,7 +507,17 @@ export const OrderList = () => {
                             </div>
                         )}
                       </td>
-                      <td className="p-3">{new Date(order.created_at).toLocaleString()}</td>
+                      <td className="p-3">
+                        {(() => {
+                          const dt = formatDateTime(order.created_at);
+                          return (
+                            <>
+                              <div className="fw-semibold">{dt.date}</div>
+                              <div className="small text-muted">{dt.time}</div>
+                            </>
+                          );
+                        })()}
+                      </td>
                       <td className="p-3">
                         <div className="fw-bold">{order.customer?.company_name || order.customer?.name || t('pos.walk_in')}</div>
                         <div className="small text-muted">{t('orders.staff')}: {order.user?.name || t('orders.unknown')}</div>

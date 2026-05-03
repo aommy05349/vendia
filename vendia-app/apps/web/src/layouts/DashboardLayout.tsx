@@ -55,6 +55,7 @@ export const DashboardLayout = () => {
     if (path.startsWith('/units')) return t('common.units');
     if (path.startsWith('/warehouses')) return t('common.warehouses');
     if (path.startsWith('/settings')) return t('common.settings');
+    if (path.startsWith('/dashboard')) return t('common.dashboard');
 
     return shop?.name || 'Vendia POS';
   };
@@ -170,6 +171,7 @@ export const DashboardLayout = () => {
               <>
                 <div className="text-muted fw-bold small ps-2">{t('common.admin_section')}</div>
                 {/* <Link to="/attendance/history" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/attendance/history' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 Attendance History</Link> */}
+                <Link to="/dashboard" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/dashboard') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📊 {t('common.dashboard')}</Link>
                 <Link to="/users" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/users' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 {t('common.users')}</Link>
                 <Link to="/categories" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/categories' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📁 {t('common.categories')}</Link>
                 <Link to="/products" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/products' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📦 {t('common.products')}</Link>

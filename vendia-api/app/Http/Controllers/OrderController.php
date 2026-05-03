@@ -36,6 +36,201 @@ class OrderController extends Controller
         ]);
     }
 
+    public function summary(Request $request)
+    {
+        $validated = $request->validate([
+            'preset' => 'sometimes|in:today,this_month,last_3_months,last_6_months,last_12_months,custom',
+            'group_by' => 'sometimes|in:day,month',
+            'start_date' => 'sometimes|date',
+            'end_date' => 'sometimes|date',
+            'pending_limit' => 'sometimes|integer|min:0|max:200',
+        ]);
+
+        $preset = $validated['preset'] ?? 'this_month';
+        $groupBy = $validated['group_by'] ?? ($preset === 'today' ? 'day' : 'day');
+
+        $now = Carbon::now();
+        if ($preset === 'today') {
+            $start = $now->copy()->startOfDay();
+            $end = $now->copy()->endOfDay();
+        } elseif ($preset === 'this_month') {
+            $start = $now->copy()->startOfMonth()->startOfDay();
+            $end = $now->copy()->endOfMonth()->endOfDay();
+        } elseif ($preset === 'last_3_months') {
+            $start = $now->copy()->subMonthsNoOverflow(2)->startOfMonth()->startOfDay();
+            $end = $now->copy()->endOfDay();
+        } elseif ($preset === 'last_6_months') {
+            $start = $now->copy()->subMonthsNoOverflow(5)->startOfMonth()->startOfDay();
+            $end = $now->copy()->endOfDay();
+        } elseif ($preset === 'last_12_months') {
+            $start = $now->copy()->subMonthsNoOverflow(11)->startOfMonth()->startOfDay();
+            $end = $now->copy()->endOfDay();
+        } else {
+            $start = isset($validated['start_date'])
+                ? Carbon::parse($validated['start_date'])->startOfDay()
+                : $now->copy()->startOfMonth()->startOfDay();
+            $end = isset($validated['end_date'])
+                ? Carbon::parse($validated['end_date'])->endOfDay()
+                : $now->copy()->endOfDay();
+        }
+
+        if ($start->greaterThan($end)) {
+            [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+        }
+
+        $driver = DB::connection()->getDriverName();
+        $bucketExpr = null;
+        if ($groupBy === 'month') {
+            $bucketExpr = $driver === 'sqlite'
+                ? "strftime('%Y-%m-01', created_at)"
+                : "DATE_FORMAT(created_at, '%Y-%m-01')";
+        } else {
+            $bucketExpr = $driver === 'sqlite'
+                ? "date(created_at)"
+                : "DATE(created_at)";
+        }
+
+        $rows = Order::query()
+            ->selectRaw("{$bucketExpr} as bucket")
+            ->selectRaw("SUM(CASE WHEN status = 'completed' THEN total ELSE 0 END) as completed_total")
+            ->selectRaw("COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_count")
+            ->selectRaw("SUM(CASE WHEN status IN ('pending','quotation') THEN total ELSE 0 END) as pending_total")
+            ->selectRaw("COUNT(CASE WHEN status IN ('pending','quotation') THEN 1 END) as pending_count")
+            ->selectRaw("SUM(CASE WHEN status IN ('pending','quotation') AND billing_note_number IS NOT NULL AND billing_note_status = 'active' THEN total ELSE 0 END) as pending_billing_total")
+            ->selectRaw("COUNT(CASE WHEN status IN ('pending','quotation') AND billing_note_number IS NOT NULL AND billing_note_status = 'active' THEN 1 END) as pending_billing_count")
+            ->selectRaw("SUM(CASE WHEN status IN ('pending','quotation') AND NOT (billing_note_number IS NOT NULL AND billing_note_status = 'active') THEN total ELSE 0 END) as pending_quotation_total")
+            ->selectRaw("COUNT(CASE WHEN status IN ('pending','quotation') AND NOT (billing_note_number IS NOT NULL AND billing_note_status = 'active') THEN 1 END) as pending_quotation_count")
+            ->whereBetween('created_at', [$start, $end])
+            ->whereIn('status', ['completed', 'pending', 'quotation'])
+            ->groupBy('bucket')
+            ->orderBy('bucket')
+            ->get();
+
+        $map = [];
+        foreach ($rows as $r) {
+            $map[(string) $r->bucket] = [
+                'completed_total' => (float) ($r->completed_total ?? 0),
+                'completed_count' => (int) ($r->completed_count ?? 0),
+                'pending_total' => (float) ($r->pending_total ?? 0),
+                'pending_count' => (int) ($r->pending_count ?? 0),
+                'pending_billing_total' => (float) ($r->pending_billing_total ?? 0),
+                'pending_billing_count' => (int) ($r->pending_billing_count ?? 0),
+                'pending_quotation_total' => (float) ($r->pending_quotation_total ?? 0),
+                'pending_quotation_count' => (int) ($r->pending_quotation_count ?? 0),
+            ];
+        }
+
+        $buckets = [];
+        if ($groupBy === 'month') {
+            $cursor = $start->copy()->startOfMonth();
+            $endCursor = $end->copy()->startOfMonth();
+            while ($cursor->lessThanOrEqualTo($endCursor)) {
+                $key = $cursor->format('Y-m-01');
+                $buckets[] = [
+                    'bucket' => $key,
+                    'label' => $cursor->format('Y-m'),
+                ];
+                $cursor->addMonthNoOverflow();
+            }
+        } else {
+            $cursor = $start->copy()->startOfDay();
+            $endCursor = $end->copy()->startOfDay();
+            while ($cursor->lessThanOrEqualTo($endCursor)) {
+                $key = $cursor->format('Y-m-d');
+                $buckets[] = [
+                    'bucket' => $key,
+                    'label' => $cursor->format('Y-m-d'),
+                ];
+                $cursor->addDay();
+            }
+        }
+
+        $series = [];
+        $totals = [
+            'completed_total' => 0.0,
+            'completed_count' => 0,
+            'pending_total' => 0.0,
+            'pending_count' => 0,
+            'pending_billing_total' => 0.0,
+            'pending_billing_count' => 0,
+            'pending_quotation_total' => 0.0,
+            'pending_quotation_count' => 0,
+        ];
+        foreach ($buckets as $b) {
+            $v = $map[$b['bucket']] ?? [
+                'completed_total' => 0.0,
+                'completed_count' => 0,
+                'pending_total' => 0.0,
+                'pending_count' => 0,
+                'pending_billing_total' => 0.0,
+                'pending_billing_count' => 0,
+                'pending_quotation_total' => 0.0,
+                'pending_quotation_count' => 0,
+            ];
+            $series[] = [
+                'bucket' => $b['bucket'],
+                'label' => $b['label'],
+                'completed_total' => $v['completed_total'],
+                'completed_count' => $v['completed_count'],
+                'pending_total' => $v['pending_total'],
+                'pending_count' => $v['pending_count'],
+                'pending_billing_total' => $v['pending_billing_total'],
+                'pending_billing_count' => $v['pending_billing_count'],
+                'pending_quotation_total' => $v['pending_quotation_total'],
+                'pending_quotation_count' => $v['pending_quotation_count'],
+            ];
+            $totals['completed_total'] += $v['completed_total'];
+            $totals['completed_count'] += $v['completed_count'];
+            $totals['pending_total'] += $v['pending_total'];
+            $totals['pending_count'] += $v['pending_count'];
+            $totals['pending_billing_total'] += $v['pending_billing_total'];
+            $totals['pending_billing_count'] += $v['pending_billing_count'];
+            $totals['pending_quotation_total'] += $v['pending_quotation_total'];
+            $totals['pending_quotation_count'] += $v['pending_quotation_count'];
+        }
+
+        $pendingLimit = (int) ($validated['pending_limit'] ?? 15);
+        $pendingOrders = $pendingLimit > 0
+            ? Order::query()
+                ->with(['customer', 'documents'])
+                ->whereIn('status', ['pending', 'quotation'])
+                ->whereBetween('created_at', [$start, $end])
+                ->orderByDesc('created_at')
+                ->limit($pendingLimit)
+                ->get()
+                ->map(function ($o) {
+                    $isBilling = (bool) ($o->billing_note_number && $o->billing_note_status === 'active');
+                    $docType = $isBilling ? 'billing_note' : 'quotation';
+                    $doc = $o->documents
+                        ->where('type', $docType)
+                        ->where('status', 'active')
+                        ->sortByDesc('issued_date')
+                        ->first();
+                    return [
+                        'id' => $o->id,
+                        'created_at' => $o->created_at,
+                        'total' => $o->total,
+                        'customer_name' => $o->customer?->company_name ?: ($o->customer?->name ?: null),
+                        'pending_kind' => $isBilling ? 'billing_note' : 'quotation',
+                        'document_id' => $doc?->id,
+                        'document_type' => $docType,
+                        'document_number' => $doc?->number,
+                    ];
+                })
+                ->values()
+            : collect();
+
+        return response()->json([
+            'preset' => $preset,
+            'group_by' => $groupBy,
+            'start_date' => $start->toDateString(),
+            'end_date' => $end->toDateString(),
+            'series' => $series,
+            'totals' => $totals,
+            'pending_orders' => $pendingOrders,
+        ]);
+    }
+
     public function index(Request $request)
     {
         $query = Order::with('items.product', 'user', 'customer', 'parent', 'documents')

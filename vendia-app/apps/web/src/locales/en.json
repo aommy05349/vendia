@@ -42,6 +42,53 @@
     "please_login": "Please login",
     "today": "Today"
   },
+  "dashboard": {
+    "title": "Dashboard",
+    "range": "Range",
+    "daily": "Daily",
+    "monthly": "Monthly",
+    "month_from": "From",
+    "month_to": "To",
+    "apply_range": "Show",
+    "presets": {
+      "today": "Today",
+      "this_month": "This month",
+      "last_3_months": "3 months",
+      "last_6_months": "6 months",
+      "last_12_months": "Year"
+    },
+    "completed_total": "Paid total",
+    "pending_total": "Unpaid total",
+    "pending_receivable_total": "Receivable (billing note)",
+    "pending_receivable_count": "Count",
+    "pending_all_total": "Total",
+    "pending_billing_note": "Billing note",
+    "pending_quotation": "Quotation",
+    "completed_count": "Count",
+    "pending_count": "Count",
+    "legend": "Legend",
+    "legend_completed": "Paid",
+    "legend_billing_note": "Billing note",
+    "legend_quotation": "Quotation",
+    "go_orders": "Go to orders",
+    "chart_title": "Revenue chart (paid/unpaid)",
+    "pending_list": "Latest unpaid orders",
+    "no_pending": "No unpaid orders in this range",
+    "pending_kind": "Type",
+    "document": "Document",
+    "view_document": "View",
+    "kind": {
+      "billing_note": "Billing note",
+      "quotation": "Quotation"
+    },
+    "tooltip": {
+      "day_prefix": "Day",
+      "completed": "Paid",
+      "billing_note": "Billing note",
+      "quotation": "Quotation",
+      "total": "Total"
+    }
+  },
   "login": {
     "title": "Login",
     "invalid_credentials": "Invalid credentials",
