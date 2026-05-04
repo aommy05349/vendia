@@ -72,6 +72,7 @@
     "legend_quotation": "Quotation",
     "go_orders": "Go to orders",
     "chart_title": "Revenue chart (paid/unpaid)",
+    "line_chart_title": "Line chart (paid/billing note/quotation)",
     "pending_list": "Latest unpaid orders",
     "no_pending": "No unpaid orders in this range",
     "pending_kind": "Type",

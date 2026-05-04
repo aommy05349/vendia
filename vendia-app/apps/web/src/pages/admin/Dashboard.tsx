@@ -29,6 +29,13 @@ type PendingOrder = {
   document_number?: string | null;
 };
 
+type PendingPagination = {
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+};
+
 type SummaryResponse = {
   preset: string;
   group_by: GroupBy;
@@ -46,12 +53,14 @@ type SummaryResponse = {
     pending_quotation_count: number;
   };
   pending_orders: PendingOrder[];
+  pending_pagination?: PendingPagination;
 };
 
 export const Dashboard = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const chartWrapRef = useRef<HTMLDivElement | null>(null);
+  const lineChartWrapRef = useRef<HTMLDivElement | null>(null);
   const [fromMonth, setFromMonth] = useState(() => {
     const d = new Date();
     const yyyy = String(d.getFullYear());
@@ -79,6 +88,8 @@ export const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<SummaryResponse | null>(null);
+  const [pendingPerPage, setPendingPerPage] = useState<5 | 10 | 25 | 50>(5);
+  const [pendingPage, setPendingPage] = useState(1);
   const [hovered, setHovered] = useState<{
     left: number;
     top: number;
@@ -87,6 +98,14 @@ export const Dashboard = () => {
     pendingBilling: number;
     pendingQuotation: number;
     total: number;
+  } | null>(null);
+  const [hoveredLine, setHoveredLine] = useState<{
+    left: number;
+    top: number;
+    label: string;
+    completed: number;
+    pendingBilling: number;
+    pendingQuotation: number;
   } | null>(null);
 
   const formatMoney = (v: number | string) => {
@@ -97,8 +116,8 @@ export const Dashboard = () => {
   const formatDateShort = (iso: string) =>
     new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(iso));
 
-  const formatTime = (iso: string) =>
-    new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso));
+  const formatDateLong = (iso: string) =>
+    new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso));
 
   const openDocument = (o: PendingOrder) => {
     const type = (o.document_type || o.pending_kind || 'quotation') as string;
@@ -210,6 +229,13 @@ export const Dashboard = () => {
 
   const series = data?.series || [];
 
+  const lineIndicator = useMemo(() => {
+    const completedSum = series.reduce((acc, p) => acc + (Number(p.completed_total) || 0), 0);
+    const billingSum = series.reduce((acc, p) => acc + (Number(p.pending_billing_total) || 0), 0);
+    const quotationSum = series.reduce((acc, p) => acc + (Number(p.pending_quotation_total) || 0), 0);
+    return { completedSum, billingSum, quotationSum };
+  }, [series]);
+
   const appliedMonthDiff = useMemo(() => {
     const range = buildMonthRange(appliedFromMonth, appliedToMonth);
     if (!range) return 0;
@@ -245,7 +271,7 @@ export const Dashboard = () => {
     );
 
     const width = 920;
-    const height = 260;
+    const height = 320;
     const padding = { top: 16, right: 10, bottom: 42, left: 10 };
     const innerW = width - padding.left - padding.right;
     const innerH = height - padding.top - padding.bottom;
@@ -260,7 +286,7 @@ export const Dashboard = () => {
     const scaleY = (v: number) => (v / maxY) * innerH;
 
     return (
-      <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="260" role="img" aria-label="Revenue chart">
+      <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="320" role="img" aria-label="Revenue chart">
         <rect x="0" y="0" width={width} height={height} fill="white" />
         {points.map((p, idx) => {
           const completed = Number(p.completed_total) || 0;
@@ -330,6 +356,132 @@ export const Dashboard = () => {
     );
   }, [series, groupBy, formatMoney, formatDateShort, formatMonthLabel, formatDayOfMonth, isOneMonthRange, t]);
 
+  const lineChart = useMemo(() => {
+    const points = series;
+    if (points.length === 0) return null;
+
+    const maxY = Math.max(
+      1,
+      ...points.flatMap((p) => [
+        Number(p.completed_total) || 0,
+        Number(p.pending_billing_total) || 0,
+        Number(p.pending_quotation_total) || 0,
+      ])
+    );
+
+    const width = 920;
+    const height = 340;
+    const padding = { top: 18, right: 12, bottom: 44, left: 96 };
+    const innerW = width - padding.left - padding.right;
+    const innerH = height - padding.top - padding.bottom;
+
+    const stepX = points.length > 1 ? innerW / (points.length - 1) : 0;
+    const xAt = (idx: number) => padding.left + idx * stepX;
+    const yAt = (v: number) => padding.top + (1 - v / maxY) * innerH;
+
+    const axisLabelForPoint = (p: SummaryPoint, idx: number) =>
+      groupBy === 'month'
+        ? formatMonthLabel(p.bucket)
+        : (isOneMonthRange ? formatDayOfMonth(p.bucket) : formatDateShort(p.bucket));
+    const hoverLabelForPoint = (p: SummaryPoint, idx: number) => {
+      const axisLabel = axisLabelForPoint(p, idx);
+      return groupBy === 'month'
+        ? axisLabel
+        : (isOneMonthRange ? `${t('dashboard.tooltip.day_prefix', 'วันที่')} ${formatDayOfMonth(p.bucket)}` : axisLabel);
+    };
+
+    const buildPath = (values: number[]) =>
+      values
+        .map((v, idx) => {
+          const x = xAt(idx);
+          const y = yAt(v);
+          return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
+        })
+        .join(' ');
+
+    const completedVals = points.map((p) => Number(p.completed_total) || 0);
+    const billingVals = points.map((p) => Number(p.pending_billing_total) || 0);
+    const quotationVals = points.map((p) => Number(p.pending_quotation_total) || 0);
+
+    const ticks = [0, 0.25, 0.5, 0.75, 1].map((r) => Math.round(maxY * r));
+
+    return (
+      <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="340" role="img" aria-label="Revenue line chart">
+        <rect x="0" y="0" width={width} height={height} fill="white" />
+
+        {ticks.map((v) => {
+          const y = yAt(v);
+          return (
+            <g key={v}>
+              <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#f1f3f5" strokeWidth="1" />
+              <text x={padding.left - 10} y={y + 4} textAnchor="end" fontSize="12" fill="#6c757d">
+                ฿{formatMoney(v)}
+              </text>
+            </g>
+          );
+        })}
+
+        <path d={buildPath(completedVals)} fill="none" stroke="#198754" strokeWidth="2.5" />
+        <path d={buildPath(billingVals)} fill="none" stroke="#ffc107" strokeWidth="2.5" />
+        <path d={buildPath(quotationVals)} fill="none" stroke="#fd7e14" strokeWidth="2.5" />
+
+        {points.map((p, idx) => {
+          const completed = Number(p.completed_total) || 0;
+          const pendingBilling = Number(p.pending_billing_total) || 0;
+          const pendingQuotation = Number(p.pending_quotation_total) || 0;
+          const x = xAt(idx);
+          const axisLabel = axisLabelForPoint(p, idx);
+          const hoverLabel = hoverLabelForPoint(p, idx);
+
+          const showAxisLabel =
+            (isOneMonthRange && groupBy === 'day'
+              ? new Date(`${p.bucket}T00:00:00`).getDate() % 2 === 1
+              : idx % Math.ceil(points.length / 10) === 0);
+
+          return (
+            <g
+              key={p.bucket}
+              onMouseEnter={(e) => {
+                const rect = lineChartWrapRef.current?.getBoundingClientRect();
+                if (!rect) return;
+                const left = Math.max(8, Math.min(rect.width - 8, e.clientX - rect.left));
+                const top = Math.max(8, Math.min(rect.height - 8, e.clientY - rect.top));
+                setHoveredLine({ left, top, label: hoverLabel, completed, pendingBilling, pendingQuotation });
+              }}
+              onMouseMove={(e) => {
+                const rect = lineChartWrapRef.current?.getBoundingClientRect();
+                if (!rect) return;
+                const left = Math.max(8, Math.min(rect.width - 8, e.clientX - rect.left));
+                const top = Math.max(8, Math.min(rect.height - 8, e.clientY - rect.top));
+                setHoveredLine({ left, top, label: hoverLabel, completed, pendingBilling, pendingQuotation });
+              }}
+              onMouseLeave={() => setHoveredLine(null)}
+              onTouchStart={() =>
+                setHoveredLine({
+                  left: x,
+                  top: Math.min(yAt(Math.max(completed, pendingBilling, pendingQuotation)), padding.top + innerH),
+                  label: hoverLabel,
+                  completed,
+                  pendingBilling,
+                  pendingQuotation,
+                })
+              }
+            >
+              <circle cx={x} cy={yAt(completed)} r="3.5" fill="#198754" />
+              <circle cx={x} cy={yAt(pendingBilling)} r="3.5" fill="#ffc107" />
+              <circle cx={x} cy={yAt(pendingQuotation)} r="3.5" fill="#fd7e14" />
+              {showAxisLabel && (
+                <text x={x} y={height - 18} textAnchor="middle" fontSize="12" fill="#6c757d">
+                  {axisLabel}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    );
+  }, [series, groupBy, formatMoney, formatDateShort, formatMonthLabel, formatDayOfMonth, isOneMonthRange, t]);
+
   useEffect(() => {
     const fetchSummary = async () => {
       setLoading(true);
@@ -342,10 +494,15 @@ export const Dashboard = () => {
             group_by: groupBy,
             start_date: range?.startDate,
             end_date: range?.endDate,
-            pending_limit: 15,
+            pending_page: pendingPage,
+            pending_per_page: pendingPerPage,
           },
         });
         setData(res.data);
+        const serverPage = res.data?.pending_pagination?.page;
+        if (typeof serverPage === 'number' && Number.isFinite(serverPage) && serverPage > 0 && serverPage !== pendingPage) {
+          setPendingPage(serverPage);
+        }
       } catch (e: any) {
         setError(e?.response?.data?.message || t('common.no_data', 'ไม่พบข้อมูล'));
       } finally {
@@ -353,95 +510,119 @@ export const Dashboard = () => {
       }
     };
     fetchSummary();
-  }, [appliedFromMonth, appliedToMonth, groupBy, t]);
+  }, [appliedFromMonth, appliedToMonth, groupBy, pendingPage, pendingPerPage, t]);
+
+  const totalOrdersCount = (data?.totals.completed_count || 0) + (data?.totals.pending_count || 0);
+  const totalOrdersAmount = (data?.totals.completed_total || 0) + (data?.totals.pending_total || 0);
+  const avgOrderValue = totalOrdersCount > 0 ? totalOrdersAmount / totalOrdersCount : 0;
+  const pendingMeta = data?.pending_pagination;
+  const pendingTotalPages = pendingMeta?.total_pages || 1;
+  const pendingTotal = pendingMeta?.total ?? (data?.pending_orders?.length || 0);
+
+  const pendingPages = useMemo(() => {
+    const total = pendingTotalPages;
+    const current = pendingMeta?.page || pendingPage;
+    if (total <= 1) return [1];
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+    const start = Math.max(2, current - 2);
+    const end = Math.min(total - 1, current + 2);
+    const pages: number[] = [1];
+    for (let p = start; p <= end; p += 1) pages.push(p);
+    if (!pages.includes(total)) pages.push(total);
+    return pages;
+  }, [pendingTotalPages, pendingMeta?.page, pendingPage]);
 
   return (
-    <div className="container py-4" style={{ maxWidth: 1200 }}>
-      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+    <div className="container py-4" style={{ maxWidth: 1400 }}>
+      <div className="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
         <div>
           <h2 className="mb-1">{t('dashboard.title', 'แดชบอร์ด')}</h2>
           {data && (
             <div className="text-muted small">
-              {t('dashboard.range', 'ช่วงเวลา')}: {data.start_date} → {data.end_date}
+              {t('dashboard.range', 'ช่วงเวลา')}: {formatRangeLabel(data.start_date, data.end_date)}
             </div>
           )}
         </div>
-        <div className="d-flex flex-wrap gap-2">
-          <div className="d-flex flex-wrap align-items-center gap-2">
-            <span className="text-muted small">{t('dashboard.month_from', 'เดือนเริ่มต้น')}</span>
-              <div className="d-flex gap-2">
-                <select
-                  className="form-select"
-                  style={{ width: 160 }}
-                  value={parseYM(fromMonth)?.month || '01'}
-                  onChange={(e) => setFromMonth((v) => setYM(v, { month: e.target.value }))}
-                >
-                  {months.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="form-select"
-                  style={{ width: 120 }}
-                  value={parseYM(fromMonth)?.year || String(new Date().getFullYear())}
-                  onChange={(e) => setFromMonth((v) => setYM(v, { year: e.target.value }))}
-                >
-                  {years.map((y) => (
-                    <option key={y.value} value={y.value}>
-                      {y.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            <span className="text-muted small">{t('dashboard.month_to', 'เดือนสิ้นสุด')}</span>
-              <div className="d-flex gap-2">
-                <select
-                  className="form-select"
-                  style={{ width: 160 }}
-                  value={parseYM(toMonth)?.month || '01'}
-                  onChange={(e) => setToMonth((v) => setYM(v, { month: e.target.value }))}
-                >
-                  {months.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="form-select"
-                  style={{ width: 120 }}
-                  value={parseYM(toMonth)?.year || String(new Date().getFullYear())}
-                  onChange={(e) => setToMonth((v) => setYM(v, { year: e.target.value }))}
-                >
-                  {years.map((y) => (
-                    <option key={y.value} value={y.value}>
-                      {y.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => {
-                const range = buildMonthRange(fromMonth, toMonth);
-                if (!range) return;
-                setAppliedFromMonth(range.startKey);
-                setAppliedToMonth(range.endKey);
-              }}
-            >
-              {t('dashboard.apply_range', 'ใช้ช่วง')}
-            </button>
+        <div className="d-flex flex-wrap align-items-end gap-2">
+          <div>
+            <div className="text-muted small mb-1">{t('dashboard.month_from', 'เดือนเริ่มต้น')}</div>
+            <div className="d-flex gap-2">
+              <select
+                className="form-select"
+                style={{ width: 150 }}
+                value={parseYM(fromMonth)?.month || '01'}
+                onChange={(e) => setFromMonth((v) => setYM(v, { month: e.target.value }))}
+              >
+                {months.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="form-select"
+                style={{ width: 110 }}
+                value={parseYM(fromMonth)?.year || String(new Date().getFullYear())}
+                onChange={(e) => setFromMonth((v) => setYM(v, { year: e.target.value }))}
+              >
+                {years.map((y) => (
+                  <option key={y.value} value={y.value}>
+                    {y.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
+          <div>
+            <div className="text-muted small mb-1">{t('dashboard.month_to', 'เดือนสิ้นสุด')}</div>
+            <div className="d-flex gap-2">
+              <select
+                className="form-select"
+                style={{ width: 150 }}
+                value={parseYM(toMonth)?.month || '01'}
+                onChange={(e) => setToMonth((v) => setYM(v, { month: e.target.value }))}
+              >
+                {months.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="form-select"
+                style={{ width: 110 }}
+                value={parseYM(toMonth)?.year || String(new Date().getFullYear())}
+                onChange={(e) => setToMonth((v) => setYM(v, { year: e.target.value }))}
+              >
+                {years.map((y) => (
+                  <option key={y.value} value={y.value}>
+                    {y.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              const range = buildMonthRange(fromMonth, toMonth);
+              if (!range) return;
+              setAppliedFromMonth(range.startKey);
+              setAppliedToMonth(range.endKey);
+              setPendingPage(1);
+            }}
+          >
+            {t('dashboard.apply_range', 'แสดงผล')}
+          </button>
         </div>
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
 
       <div className="row g-3 mb-3">
-        <div className="col-12 col-md-3">
+        <div className="col-12 col-lg-4">
           <div className="card border-0 shadow-sm h-100">
             <div className="card-body">
               <div className="text-muted small">{t('dashboard.completed_total', 'ยอดชำระแล้ว')}</div>
@@ -450,12 +631,12 @@ export const Dashboard = () => {
             </div>
           </div>
         </div>
-        <div className="col-12 col-md-3">
+        <div className="col-12 col-lg-4">
           <div className="card border-0 shadow-sm h-100">
             <div className="card-body">
-              <div className="text-muted small">{t('dashboard.pending_receivable_total', 'ยอดรอชำระ (ใบวางบิล)')}</div>
-              <div className="fs-4 fw-bold text-warning">฿{formatMoney(data?.totals.pending_billing_total || 0)}</div>
-              <div className="small text-muted">{t('dashboard.pending_receivable_count', 'จำนวนรายการ')}: {data?.totals.pending_billing_count || 0}</div>
+              <div className="text-muted small">{t('dashboard.pending_total', 'ยอดรอชำระ')}</div>
+              <div className="fs-4 fw-bold text-warning">฿{formatMoney(data?.totals.pending_total || 0)}</div>
+              <div className="small text-muted">{t('dashboard.pending_count', 'จำนวนรายการ')}: {data?.totals.pending_count || 0}</div>
               {data && (
                 <div className="small mt-2">
                   <div className="text-muted d-flex align-items-center gap-2">
@@ -468,101 +649,195 @@ export const Dashboard = () => {
                     <span>{t('dashboard.pending_quotation', 'ใบเสนอราคา')}:</span>
                     <span className="fw-semibold">฿{formatMoney(data.totals.pending_quotation_total || 0)}</span>
                   </div>
-                  <div className="text-muted d-flex align-items-center gap-2 mt-1">
-                    <span>{t('dashboard.pending_all_total', 'รวมทั้งหมด')}:</span>
-                    <span className="fw-semibold">฿{formatMoney(data.totals.pending_total || 0)}</span>
-                  </div>
                 </div>
               )}
             </div>
           </div>
         </div>
-        <div className="col-12 col-md-6">
+        <div className="col-12 col-lg-4">
           <div className="card border-0 shadow-sm h-100">
-            <div className="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
-              <div>
-                <div className="text-muted small">{t('dashboard.legend', 'คำอธิบายกราฟ')}</div>
-                <div className="d-flex align-items-center gap-3 mt-1">
-                  <div className="d-flex align-items-center gap-2">
-                    <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: '#198754' }} />
-                    <span className="small">{t('dashboard.legend_completed', 'ชำระแล้ว')}</span>
-                  </div>
-                  <div className="d-flex align-items-center gap-2">
-                    <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: '#ffc107' }} />
-                    <span className="small">{t('dashboard.legend_billing_note', 'ใบวางบิล')}</span>
-                  </div>
-                  <div className="d-flex align-items-center gap-2">
-                    <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: '#fd7e14' }} />
-                    <span className="small">{t('dashboard.legend_quotation', 'ใบเสนอราคา')}</span>
-                  </div>
-                </div>
+            <div className="card-body">
+              <div className="text-muted small">{t('dashboard.total_orders', 'จำนวนออเดอร์ทั้งหมด')}</div>
+              <div className="fs-4 fw-bold">{totalOrdersCount.toLocaleString('en-US')}</div>
+              <div className="small text-muted">{t('dashboard.avg_order_value', 'ค่าเฉลี่ย/ออเดอร์')}: ฿{formatMoney(avgOrderValue)}</div>
+              <div className="small text-muted mt-2 d-flex flex-wrap gap-2">
+                <span className="d-inline-flex align-items-center gap-2">
+                  <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#198754' }} />
+                  <span>{t('dashboard.legend_completed', 'ชำระแล้ว')}: {data?.totals.completed_count || 0}</span>
+                </span>
+                <span className="d-inline-flex align-items-center gap-2">
+                  <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#ffc107' }} />
+                  <span>{t('dashboard.legend_billing_note', 'ใบวางบิล')}: {data?.totals.pending_billing_count || 0}</span>
+                </span>
+                <span className="d-inline-flex align-items-center gap-2">
+                  <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#fd7e14' }} />
+                  <span>{t('dashboard.legend_quotation', 'ใบเสนอราคา')}: {data?.totals.pending_quotation_count || 0}</span>
+                </span>
               </div>
-              <button className="btn btn-outline-secondary" type="button" onClick={() => navigate('/orders')}>
-                {t('dashboard.go_orders', 'ไปหน้ารายการสั่งซื้อ')}
-              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="card border-0 shadow-sm mb-3">
-        <div className="card-body">
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <h5 className="mb-0">
-              {t('dashboard.chart_title', 'กราฟรายรับ (ชำระแล้ว/รอชำระ)')}
-              {data && (
-                <span className="text-muted fw-normal ms-2">
-                  ({formatRangeLabel(data.start_date, data.end_date)})
-                </span>
-              )}
-            </h5>
-          </div>
-          {loading ? (
-            <div className="text-center py-5">
-              <div className="spinner-border text-primary" role="status" />
-            </div>
-          ) : series.length === 0 ? (
-            <div className="text-muted py-4 text-center">{t('common.no_data', 'ไม่พบข้อมูล')}</div>
-          ) : (
-            <div
-              ref={chartWrapRef}
-              style={{ overflowX: 'auto', position: 'relative' }}
-              onMouseLeave={() => setHovered(null)}
-              onTouchEnd={() => setHovered(null)}
-            >
-              {chart}
-              {hovered && (
+      <div className="row g-3 mb-3">
+        <div className="col-12 col-lg-6">
+          <div className="card border-0 shadow-sm h-100">
+            <div className="card-body p-2">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <h5 className="mb-0">
+                  {t('dashboard.chart_title', 'กราฟรายรับ (ชำระแล้ว/รอชำระ)')}
+                </h5>
+                <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => navigate('/orders')}>
+                  {t('dashboard.go_orders', 'ไปหน้ารายการสั่งซื้อ')}
+                </button>
+              </div>
+              <div className="d-flex align-items-center gap-3 mb-2 flex-wrap">
+                <div className="d-flex align-items-center gap-2">
+                  <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: '#198754' }} />
+                  <span className="small text-muted">{t('dashboard.legend_completed', 'ชำระแล้ว')}</span>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: '#ffc107' }} />
+                  <span className="small text-muted">{t('dashboard.legend_billing_note', 'ใบวางบิล')}</span>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: '#fd7e14' }} />
+                  <span className="small text-muted">{t('dashboard.legend_quotation', 'ใบเสนอราคา')}</span>
+                </div>
+              </div>
+              {loading ? (
+                <div className="text-center py-5">
+                  <div className="spinner-border text-primary" role="status" />
+                </div>
+              ) : series.length === 0 ? (
+                <div className="text-muted py-4 text-center">{t('common.no_data', 'ไม่พบข้อมูล')}</div>
+              ) : (
                 <div
-                  className="shadow-sm bg-dark text-white rounded px-2 py-1"
-                  style={{
-                    position: 'absolute',
-                    left: hovered.left,
-                    top: hovered.top,
-                    transform: 'translate(-50%, -120%)',
-                    pointerEvents: 'none',
-                    maxWidth: 260,
-                    fontSize: 12,
-                    lineHeight: 1.35,
-                    zIndex: 10,
-                    whiteSpace: 'pre-line',
-                  }}
+                  ref={chartWrapRef}
+                  style={{ overflowX: 'auto', position: 'relative' }}
+                  onMouseLeave={() => setHovered(null)}
+                  onTouchEnd={() => setHovered(null)}
                 >
-                  <div className="fw-semibold">{hovered.label}</div>
-                  <div>{t('dashboard.tooltip.completed', 'ชำระแล้ว')}: ฿{formatMoney(hovered.completed)}</div>
-                  <div>{t('dashboard.tooltip.billing_note', 'ใบวางบิล')}: ฿{formatMoney(hovered.pendingBilling)}</div>
-                  <div>{t('dashboard.tooltip.quotation', 'ใบเสนอราคา')}: ฿{formatMoney(hovered.pendingQuotation)}</div>
-                  <div className="opacity-75">{t('dashboard.tooltip.total', 'รวม')}: ฿{formatMoney(hovered.total)}</div>
+                  {chart}
+                  {hovered && (
+                    <div
+                      className="shadow-sm bg-dark text-white rounded px-2 py-1"
+                      style={{
+                        position: 'absolute',
+                        left: hovered.left,
+                        top: hovered.top,
+                        transform: hovered.top < 90 ? 'translate(-50%, 12px)' : 'translate(-50%, -120%)',
+                        pointerEvents: 'none',
+                        maxWidth: 260,
+                        fontSize: 12,
+                        lineHeight: 1.35,
+                        zIndex: 10,
+                        whiteSpace: 'pre-line',
+                      }}
+                    >
+                      <div className="fw-semibold">{hovered.label}</div>
+                      <div>{t('dashboard.tooltip.completed', 'ชำระแล้ว')}: ฿{formatMoney(hovered.completed)}</div>
+                      <div>{t('dashboard.tooltip.billing_note', 'ใบวางบิล')}: ฿{formatMoney(hovered.pendingBilling)}</div>
+                      <div>{t('dashboard.tooltip.quotation', 'ใบเสนอราคา')}: ฿{formatMoney(hovered.pendingQuotation)}</div>
+                      <div className="opacity-75">{t('dashboard.tooltip.total', 'รวม')}: ฿{formatMoney(hovered.total)}</div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
+          </div>
+        </div>
+
+        <div className="col-12 col-lg-6">
+          <div className="card border-0 shadow-sm h-100">
+            <div className="card-body p-2">
+              <div className="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-2">
+                <h5 className="mb-0 flex-grow-1" style={{ minWidth: 260 }}>
+                  {t('dashboard.line_chart_title', 'กราฟเส้น (ชำระแล้ว/ใบวางบิล/ใบเสนอราคา)')}
+                </h5>
+                <div
+                  className="d-flex flex-column align-items-end flex-shrink-0 ms-auto"
+                  style={{ fontSize: 14, lineHeight: 1.25, minWidth: 190, whiteSpace: 'nowrap' }}
+                >
+                  <div className="d-flex align-items-center gap-2">
+                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, background: '#198754' }} />
+                    <span className="fw-semibold text-success">฿{formatMoney(lineIndicator.completedSum)}</span>
+                  </div>
+                  <div className="d-flex align-items-center gap-2">
+                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, background: '#ffc107' }} />
+                    <span className="fw-semibold" style={{ color: '#8a6d00' }}>฿{formatMoney(lineIndicator.billingSum)}</span>
+                  </div>
+                  <div className="d-flex align-items-center gap-2">
+                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, background: '#fd7e14' }} />
+                    <span className="fw-semibold" style={{ color: '#b24a00' }}>฿{formatMoney(lineIndicator.quotationSum)}</span>
+                  </div>
+                </div>
+              </div>
+              {loading ? (
+                <div className="text-center py-5">
+                  <div className="spinner-border text-primary" role="status" />
+                </div>
+              ) : series.length === 0 ? (
+                <div className="text-muted py-4 text-center">{t('common.no_data', 'ไม่พบข้อมูล')}</div>
+              ) : (
+                <div
+                  ref={lineChartWrapRef}
+                  style={{ overflowX: 'auto', position: 'relative' }}
+                  onMouseLeave={() => setHoveredLine(null)}
+                  onTouchEnd={() => setHoveredLine(null)}
+                >
+                  {lineChart}
+                  {hoveredLine && (
+                    <div
+                      className="shadow-sm bg-dark text-white rounded px-2 py-1"
+                      style={{
+                        position: 'absolute',
+                        left: hoveredLine.left,
+                        top: hoveredLine.top,
+                        transform: hoveredLine.top < 90 ? 'translate(-50%, 12px)' : 'translate(-50%, -120%)',
+                        pointerEvents: 'none',
+                        maxWidth: 260,
+                        fontSize: 12,
+                        lineHeight: 1.35,
+                        zIndex: 10,
+                        whiteSpace: 'pre-line',
+                      }}
+                    >
+                      <div className="fw-semibold">{hoveredLine.label}</div>
+                      <div>{t('dashboard.tooltip.completed', 'ชำระแล้ว')}: ฿{formatMoney(hoveredLine.completed)}</div>
+                      <div>{t('dashboard.tooltip.billing_note', 'ใบวางบิล')}: ฿{formatMoney(hoveredLine.pendingBilling)}</div>
+                      <div>{t('dashboard.tooltip.quotation', 'ใบเสนอราคา')}: ฿{formatMoney(hoveredLine.pendingQuotation)}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="card border-0 shadow-sm">
         <div className="card-body">
-          <div className="d-flex justify-content-between align-items-center mb-2">
+          <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
             <h5 className="mb-0">{t('dashboard.pending_list', 'รายการรอชำระล่าสุด')}</h5>
+            <div className="d-flex align-items-center gap-2">
+              <div className="text-muted small">{t('dashboard.per_page', 'ต่อหน้า')}</div>
+              <select
+                className="form-select form-select-sm"
+                style={{ width: 90 }}
+                value={pendingPerPage}
+                onChange={(e) => {
+                  const next = Number(e.target.value) as 5 | 10 | 25 | 50;
+                  setPendingPerPage(next);
+                  setPendingPage(1);
+                }}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
           </div>
           {!data || data.pending_orders.length === 0 ? (
             <div className="text-muted py-4 text-center">{t('dashboard.no_pending', 'ไม่มีรายการรอชำระในช่วงนี้')}</div>
@@ -597,7 +872,7 @@ export const Dashboard = () => {
                       </td>
                       <td>{o.customer_name || t('pos.walk_in', 'ลูกค้าหน้าร้าน')}</td>
                       <td className="text-muted">
-                        {formatDateShort(o.created_at)} <span className="ms-1">{formatTime(o.created_at)}</span>
+                        {formatDateLong(o.created_at)}
                       </td>
                       <td className="text-end fw-semibold">฿{formatMoney(o.total)}</td>
                       <td className="text-end">
@@ -615,6 +890,71 @@ export const Dashboard = () => {
                   ))}
                 </tbody>
               </table>
+              <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
+                <div className="text-muted small">
+                  {pendingTotal > 0 ? (
+                    <>
+                      {t('dashboard.showing', 'แสดง')}
+                      {' '}
+                      {((pendingMeta?.page || pendingPage) - 1) * (pendingMeta?.per_page || pendingPerPage) + 1}
+                      {' '}
+                      {t('dashboard.to', 'ถึง')}
+                      {' '}
+                      {((pendingMeta?.page || pendingPage) - 1) * (pendingMeta?.per_page || pendingPerPage) + (data.pending_orders.length || 0)}
+                      {' '}
+                      {t('dashboard.of', 'จาก')}
+                      {' '}
+                      {pendingTotal}
+                    </>
+                  ) : (
+                    t('common.no_data', 'ไม่พบข้อมูล')
+                  )}
+                </div>
+                {pendingTotalPages > 1 && (
+                  <nav aria-label="Pending pagination">
+                    <ul className="pagination pagination-sm mb-0">
+                      <li className={`page-item ${(pendingMeta?.page || pendingPage) <= 1 ? 'disabled' : ''}`}>
+                        <button
+                          type="button"
+                          className="page-link"
+                          onClick={() => setPendingPage((p) => Math.max(1, p - 1))}
+                          disabled={(pendingMeta?.page || pendingPage) <= 1}
+                        >
+                          {t('common.previous', 'ก่อนหน้า')}
+                        </button>
+                      </li>
+                      {pendingPages.map((p, idx) => {
+                        const prev = pendingPages[idx - 1];
+                        const needEllipsis = typeof prev === 'number' && p - prev > 1;
+                        return (
+                          <React.Fragment key={p}>
+                            {needEllipsis && (
+                              <li className="page-item disabled">
+                                <span className="page-link">…</span>
+                              </li>
+                            )}
+                            <li className={`page-item ${(pendingMeta?.page || pendingPage) === p ? 'active' : ''}`}>
+                              <button type="button" className="page-link" onClick={() => setPendingPage(p)}>
+                                {p}
+                              </button>
+                            </li>
+                          </React.Fragment>
+                        );
+                      })}
+                      <li className={`page-item ${(pendingMeta?.page || pendingPage) >= pendingTotalPages ? 'disabled' : ''}`}>
+                        <button
+                          type="button"
+                          className="page-link"
+                          onClick={() => setPendingPage((p) => Math.min(pendingTotalPages, p + 1))}
+                          disabled={(pendingMeta?.page || pendingPage) >= pendingTotalPages}
+                        >
+                          {t('common.next', 'ถัดไป')}
+                        </button>
+                      </li>
+                    </ul>
+                  </nav>
+                )}
+              </div>
             </div>
           )}
         </div>

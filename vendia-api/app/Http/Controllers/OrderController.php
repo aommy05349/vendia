@@ -44,6 +44,8 @@ class OrderController extends Controller
             'start_date' => 'sometimes|date',
             'end_date' => 'sometimes|date',
             'pending_limit' => 'sometimes|integer|min:0|max:200',
+            'pending_page' => 'sometimes|integer|min:1|max:10000',
+            'pending_per_page' => 'sometimes|integer|in:5,10,25,50',
         ]);
 
         $preset = $validated['preset'] ?? 'this_month';
@@ -189,14 +191,34 @@ class OrderController extends Controller
             $totals['pending_quotation_count'] += $v['pending_quotation_count'];
         }
 
-        $pendingLimit = (int) ($validated['pending_limit'] ?? 15);
-        $pendingOrders = $pendingLimit > 0
-            ? Order::query()
+        $pendingPage = (int) ($validated['pending_page'] ?? 1);
+        $pendingPerPage = isset($validated['pending_per_page'])
+            ? (int) $validated['pending_per_page']
+            : (int) ($validated['pending_limit'] ?? 10);
+
+        if ($pendingPerPage <= 0) {
+            $pendingOrders = collect();
+            $pendingPagination = [
+                'page' => $pendingPage,
+                'per_page' => $pendingPerPage,
+                'total' => 0,
+                'total_pages' => 0,
+            ];
+        } else {
+            $pendingBase = Order::query()
                 ->with(['customer', 'documents'])
                 ->whereIn('status', ['pending', 'quotation'])
-                ->whereBetween('created_at', [$start, $end])
+                ->whereBetween('created_at', [$start, $end]);
+
+            $pendingTotal = (clone $pendingBase)->count();
+            $pendingTotalPages = (int) ceil($pendingTotal / $pendingPerPage);
+            $pendingPageClamped = max(1, min($pendingPage, max(1, $pendingTotalPages)));
+            $offset = ($pendingPageClamped - 1) * $pendingPerPage;
+
+            $pendingOrders = (clone $pendingBase)
                 ->orderByDesc('created_at')
-                ->limit($pendingLimit)
+                ->offset($offset)
+                ->limit($pendingPerPage)
                 ->get()
                 ->map(function ($o) {
                     $isBilling = (bool) ($o->billing_note_number && $o->billing_note_status === 'active');
@@ -217,8 +239,15 @@ class OrderController extends Controller
                         'document_number' => $doc?->number,
                     ];
                 })
-                ->values()
-            : collect();
+                ->values();
+
+            $pendingPagination = [
+                'page' => $pendingPageClamped,
+                'per_page' => $pendingPerPage,
+                'total' => $pendingTotal,
+                'total_pages' => $pendingTotalPages,
+            ];
+        }
 
         return response()->json([
             'preset' => $preset,
@@ -228,6 +257,7 @@ class OrderController extends Controller
             'series' => $series,
             'totals' => $totals,
             'pending_orders' => $pendingOrders,
+            'pending_pagination' => $pendingPagination,
         ]);
     }
 
