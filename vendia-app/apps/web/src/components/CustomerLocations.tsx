@@ -360,6 +360,7 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
                         className="form-control" 
                         value={formData.latitude}
                         onChange={e => setFormData({...formData, latitude: e.target.value})}
+                        disabled={!editingLocation}
                       />
                     </div>
                     <div className="col-md-6">
@@ -370,6 +371,7 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
                         className="form-control" 
                         value={formData.longitude}
                         onChange={e => setFormData({...formData, longitude: e.target.value})}
+                        disabled={!editingLocation}
                       />
                     </div>
 

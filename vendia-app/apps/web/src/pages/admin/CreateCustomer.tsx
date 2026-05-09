@@ -17,9 +17,68 @@ export const CreateCustomer = () => {
     company_name: '',
     tax_id: '',
     address: '',
+    google_maps_link: '',
   });
+  const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const extractLatLngFromGoogleMapsLink = (value: string) => {
+    try {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+
+      let url: URL | null = null;
+      if (trimmed.startsWith('http')) {
+        try {
+          url = new URL(trimmed);
+        } catch {
+          url = null;
+        }
+      }
+
+      if (url) {
+        const q = url.searchParams.get('q') || url.searchParams.get('query');
+        if (q) {
+          const match = q.match(/(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)/);
+          if (match) {
+            return {
+              lat: parseFloat(match[1]),
+              lng: parseFloat(match[3]),
+            };
+          }
+        }
+
+        const pathMatch = url.pathname.match(/@(-?\d+(\.\d+)?),(-?\d+(\.\d+)?)/);
+        if (pathMatch) {
+          return {
+            lat: parseFloat(pathMatch[1]),
+            lng: parseFloat(pathMatch[3]),
+          };
+        }
+      }
+
+      const exMatch = trimmed.match(/!3d(-?\d+(\.\d+)?)!4d(-?\d+(\.\d+)?)/);
+      if (exMatch) {
+        return {
+          lat: parseFloat(exMatch[1]),
+          lng: parseFloat(exMatch[3]),
+        };
+      }
+
+      const plainMatch = trimmed.match(/(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)/);
+      if (plainMatch) {
+        return {
+          lat: parseFloat(plainMatch[1]),
+          lng: parseFloat(plainMatch[3]),
+        };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -32,6 +91,8 @@ export const CreateCustomer = () => {
     setError('');
 
     try {
+      const address = formData.address.trim();
+      const googleMapsLink = formData.google_maps_link.trim();
       const dataToSubmit = {
         is_company: isCompany,
         company_name: formData.company_name.trim() || undefined,
@@ -42,10 +103,29 @@ export const CreateCustomer = () => {
         email: formData.email.trim() || undefined,
         phone: formData.phone.trim() || undefined,
         tax_id: formData.tax_id.trim() || undefined,
-        address: formData.address.trim() || undefined,
+        address: address || undefined,
       };
 
-      await api.post('/customers', dataToSubmit);
+      const createRes = await api.post('/customers', dataToSubmit);
+      const createdCustomer = createRes.data;
+
+      if (createdCustomer?.id && address) {
+        try {
+          await api.post('/customer-locations', {
+            customer_id: createdCustomer.id,
+            name: null,
+            address,
+            latitude: coords.lat,
+            longitude: coords.lng,
+            google_maps_link: googleMapsLink || null,
+            contact_person: isCompany ? (formData.contact_name.trim() || null) : null,
+            contact_phone: null,
+            is_default: true,
+          });
+        } catch (locationErr) {
+          console.error('Failed to create initial customer location', locationErr);
+        }
+      }
 
       navigate('/customers', { state: { success: t('customers.create_success') } });
     } catch (err: any) {
@@ -200,6 +280,38 @@ export const CreateCustomer = () => {
             value={formData.address} 
             onChange={handleChange} 
           />
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label fw-bold d-flex justify-content-between align-items-center">
+            <span>{t('customers.locations.google_maps_link', 'ลิงก์ Google Maps')}</span>
+            {formData.google_maps_link.trim() && (
+              <a
+                href={formData.google_maps_link.trim()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-sm btn-outline-info"
+              >
+                <i className="bi bi-geo-alt-fill"></i> Map
+              </a>
+            )}
+          </label>
+          <input
+            type="text"
+            name="google_maps_link"
+            className="form-control"
+            value={formData.google_maps_link}
+            onChange={(e) => {
+              const value = e.target.value;
+              setFormData(prev => ({ ...prev, google_maps_link: value }));
+              const extracted = extractLatLngFromGoogleMapsLink(value);
+              setCoords(extracted ? { lat: extracted.lat, lng: extracted.lng } : { lat: null, lng: null });
+            }}
+            placeholder="https://maps.google.com/..."
+          />
+          <div className="form-text">
+            {t('customers.locations.google_maps_hint', 'วางลิงก์ Google Maps ของที่อยู่นี้ (ไม่บังคับ)')}
+          </div>
         </div>
 
         <div className="d-flex justify-content-end gap-2">

@@ -32,6 +32,8 @@ export const Pos = () => {
   const [newCustomerEmail, setNewCustomerEmail] = useState('');
   const [newCustomerTaxId, setNewCustomerTaxId] = useState('');
   const [newCustomerAddress, setNewCustomerAddress] = useState('');
+  const [newCustomerGoogleMapsLink, setNewCustomerGoogleMapsLink] = useState('');
+  const [newCustomerCoords, setNewCustomerCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
   const [newCustomerCompany, setNewCustomerCompany] = useState('');
   const [applyVat, setApplyVat] = useState(false);
   const [withholdingRate, setWithholdingRate] = useState<0 | 3 | 7>(0);
@@ -69,6 +71,63 @@ export const Pos = () => {
         return `${origin}/storage${normalizedPath}`;
     }
     return `${origin}${normalizedPath}`;
+  };
+
+  const extractLatLngFromGoogleMapsLink = (value: string) => {
+    try {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+
+      let url: URL | null = null;
+      if (trimmed.startsWith('http')) {
+        try {
+          url = new URL(trimmed);
+        } catch {
+          url = null;
+        }
+      }
+
+      if (url) {
+        const q = url.searchParams.get('q') || url.searchParams.get('query');
+        if (q) {
+          const match = q.match(/(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)/);
+          if (match) {
+            return {
+              lat: parseFloat(match[1]),
+              lng: parseFloat(match[3]),
+            };
+          }
+        }
+
+        const pathMatch = url.pathname.match(/@(-?\d+(\.\d+)?),(-?\d+(\.\d+)?)/);
+        if (pathMatch) {
+          return {
+            lat: parseFloat(pathMatch[1]),
+            lng: parseFloat(pathMatch[3]),
+          };
+        }
+      }
+
+      const exMatch = trimmed.match(/!3d(-?\d+(\.\d+)?)!4d(-?\d+(\.\d+)?)/);
+      if (exMatch) {
+        return {
+          lat: parseFloat(exMatch[1]),
+          lng: parseFloat(exMatch[3]),
+        };
+      }
+
+      const plainMatch = trimmed.match(/(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)/);
+      if (plainMatch) {
+        return {
+          lat: parseFloat(plainMatch[1]),
+          lng: parseFloat(plainMatch[3]),
+        };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
   };
 
   const openCustomerSelect = () => {
@@ -1045,6 +1104,8 @@ export const Pos = () => {
                     e.preventDefault();
                     setCreateCustomerError(null);
                     try {
+                        const address = newCustomerAddress.trim();
+                        const googleMapsLink = newCustomerGoogleMapsLink.trim();
                         const newCustomer = await createCustomer({
                             is_company: newCustomerIsCompany,
                             first_name: newCustomerIsCompany ? '' : newCustomerFirstName,
@@ -1054,9 +1115,28 @@ export const Pos = () => {
                             phone: newCustomerPhone.trim() || undefined,
                             email: newCustomerEmail.trim() || undefined,
                             tax_id: newCustomerTaxId,
-                            address: newCustomerAddress,
+                            address,
                             company_name: newCustomerCompany.trim() || undefined,
                         });
+
+                        if (newCustomer?.id && address) {
+                            try {
+                                await api.post('/customer-locations', {
+                                    customer_id: newCustomer.id,
+                                    name: null,
+                                    address,
+                                    latitude: newCustomerCoords.lat,
+                                    longitude: newCustomerCoords.lng,
+                                    google_maps_link: googleMapsLink || null,
+                                    contact_person: newCustomerIsCompany ? (newCustomerContactName.trim() || null) : null,
+                                    contact_phone: null,
+                                    is_default: true,
+                                });
+                            } catch (locationErr) {
+                                console.error('Failed to create initial customer location', locationErr);
+                            }
+                        }
+
                         setSelectedCustomer(newCustomer);
                         setShowCreateCustomerModal(false);
                         setShowCustomerModal(false);
@@ -1070,6 +1150,8 @@ export const Pos = () => {
                         setNewCustomerEmail('');
                         setNewCustomerTaxId('');
                         setNewCustomerAddress('');
+                        setNewCustomerGoogleMapsLink('');
+                        setNewCustomerCoords({ lat: null, lng: null });
                         setNewCustomerCompany('');
                         setCreateCustomerError(null);
                         
@@ -1186,6 +1268,36 @@ export const Pos = () => {
                                 value={newCustomerAddress}
                                 onChange={(e) => setNewCustomerAddress(e.target.value)}
                             ></textarea>
+                        </div>
+                        <div className="col-12 mb-3">
+                            <label className="form-label d-flex justify-content-between align-items-center">
+                                <span>{t('customers.locations.google_maps_link', 'ลิงก์ Google Maps')}</span>
+                                {newCustomerGoogleMapsLink.trim() && (
+                                    <a
+                                        href={newCustomerGoogleMapsLink.trim()}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="btn btn-sm btn-outline-info"
+                                    >
+                                        <i className="bi bi-geo-alt-fill"></i> Map
+                                    </a>
+                                )}
+                            </label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={newCustomerGoogleMapsLink}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setNewCustomerGoogleMapsLink(value);
+                                  const extracted = extractLatLngFromGoogleMapsLink(value);
+                                  setNewCustomerCoords(extracted ? { lat: extracted.lat, lng: extracted.lng } : { lat: null, lng: null });
+                                }}
+                                placeholder="https://maps.google.com/..."
+                            />
+                            <div className="form-text">
+                                {t('customers.locations.google_maps_hint', 'วางลิงก์ Google Maps ของที่อยู่นี้ (ไม่บังคับ)')}
+                            </div>
                         </div>
                     </div>
                     <div className="d-grid">
