@@ -87,8 +87,22 @@ export const CustomerList = () => {
 
   if (loading) return <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>;
 
+  const getPageItems = () => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const items: Array<number | '...'> = [];
+    const start = Math.max(2, page - 1);
+    const end = Math.min(totalPages - 1, page + 1);
+
+    items.push(1);
+    if (start > 2) items.push('...');
+    for (let p = start; p <= end; p += 1) items.push(p);
+    if (end < totalPages - 1) items.push('...');
+    items.push(totalPages);
+    return items;
+  };
+
   return (
-    <div className="container-fluid p-4">
+    <div className="container-fluid p-2 p-md-4">
       <MessageModal
         open={alertMessage !== null}
         type={alertMessage?.type || 'danger'}
@@ -125,14 +139,16 @@ export const CustomerList = () => {
           }
         }}
       />
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="h3">{t('customers.management_title')}</h1>
-        <button
-          onClick={() => navigate('/customers/create')}
-          className="btn btn-success"
-        >
-          {t('customers.create_new')}
-        </button>
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-4">
+        <h1 className="h3 m-0">{t('customers.management_title')}</h1>
+        <div className="d-grid d-md-flex justify-content-md-end w-100 ms-md-auto">
+          <button
+            onClick={() => navigate('/customers/create')}
+            className="btn btn-success"
+          >
+            {t('customers.create_new')}
+          </button>
+        </div>
       </div>
 
       <div className="mb-4">
@@ -162,76 +178,151 @@ export const CustomerList = () => {
 
       <div className="card shadow-sm border-0">
         <div className="card-body p-0">
-          <table className="table table-hover mb-0">
-            <thead className="table-light">
-              <tr>
-                <th className="p-3 border-bottom-2">{t('customers.fields.id')}</th>
-                <th className="p-3 border-bottom-2">{t('customers.fields.name')}</th>
-                <th className="p-3 border-bottom-2">{t('customers.fields.type', 'ประเภท')}</th>
-                <th className="p-3 border-bottom-2">{t('customers.company')}</th>
-                <th className="p-3 border-bottom-2">{t('customers.phone')}</th>
-                <th className="p-3 border-bottom-2">{t('customers.email')}</th>
-                <th className="p-3 border-bottom-2">{t('customers.tax_id')}</th>
-                <th className="p-3 border-bottom-2 text-end">{t('customers.fields.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {customers.length > 0 ? (
-                customers.map((customer) => (
-                  <tr 
-                    key={customer.id} 
-                    onClick={() => navigate(`/customers/${customer.id}/edit`)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <td className="p-3">{customer.id}</td>
-                    <td className="p-3">
-                      <div className="fw-bold">{getDisplayName(customer)}</div>
-                    </td>
-                    <td className="p-3">
-                      <span className={`badge ${customer.is_company ? 'bg-info' : 'bg-secondary'}`}>
-                        {getTypeLabel(customer)}
-                      </span>
-                    </td>
-                    <td className="p-3">{customer.company_name || '-'}</td>
-                    <td className="p-3">{customer.phone || '-'}</td>
-                    <td className="p-3">{getDisplayEmail(customer)}</td>
-                    <td className="p-3">{customer.tax_id || '-'}</td>
-                    <td className="p-3 text-end">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/customers/${customer.id}/edit`);
-                        }}
-                        className="btn btn-sm btn-outline-primary me-2"
-                      >
-                        {t('actions.edit')}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(customer.id);
-                        }}
-                        className="btn btn-sm btn-outline-danger"
-                      >
-                        {t('actions.delete')}
-                      </button>
+          <div className="d-none d-md-block table-responsive">
+            <table className="table table-hover mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th className="p-3 border-bottom-2">{t('customers.fields.id')}</th>
+                  <th className="p-3 border-bottom-2">{t('customers.fields.name')}</th>
+                  <th className="p-3 border-bottom-2">{t('customers.fields.type', 'ประเภท')}</th>
+                  <th className="p-3 border-bottom-2">{t('customers.company')}</th>
+                  <th className="p-3 border-bottom-2">{t('customers.phone')}</th>
+                  <th className="p-3 border-bottom-2">{t('customers.email')}</th>
+                  <th className="p-3 border-bottom-2">{t('customers.tax_id')}</th>
+                  <th className="p-3 border-bottom-2 text-end">{t('customers.fields.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customers.length > 0 ? (
+                  customers.map((customer) => (
+                    <tr
+                      key={customer.id}
+                      onClick={() => navigate(`/customers/${customer.id}/edit`)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td className="p-3">{customer.id}</td>
+                      <td className="p-3">
+                        <div className="fw-bold">{getDisplayName(customer)}</div>
+                      </td>
+                      <td className="p-3">
+                        <span className={`badge ${customer.is_company ? 'bg-info' : 'bg-secondary'}`}>
+                          {getTypeLabel(customer)}
+                        </span>
+                      </td>
+                      <td className="p-3">{customer.company_name || '-'}</td>
+                      <td className="p-3">{customer.phone || '-'}</td>
+                      <td className="p-3">{getDisplayEmail(customer)}</td>
+                      <td className="p-3">{customer.tax_id || '-'}</td>
+                      <td className="p-3 text-end">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/customers/${customer.id}/edit`);
+                          }}
+                          className="btn btn-sm btn-outline-primary me-2"
+                        >
+                          {t('actions.edit')}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(customer.id);
+                          }}
+                          className="btn btn-sm btn-outline-danger"
+                        >
+                          {t('actions.delete')}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="text-center p-4 text-muted">
+                      {t('customers.no_customers')}
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={8} className="text-center p-4 text-muted">
-                    {t('customers.no_customers')}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="d-block d-md-none p-2">
+            {customers.length > 0 ? (
+              <div className="d-flex flex-column gap-2">
+                {customers.map((customer) => {
+                  const displayName = getDisplayName(customer);
+                  const displayEmail = getDisplayEmail(customer);
+                  const isCompany = customer.is_company === true;
+                  const typeLabel = getTypeLabel(customer);
+                  return (
+                    <button
+                      key={customer.id}
+                      type="button"
+                      className="card border-0 shadow-sm text-start w-100"
+                      onClick={() => navigate(`/customers/${customer.id}/edit`)}
+                    >
+                      <div className="card-body py-3">
+                        <div className="d-flex justify-content-between align-items-start gap-2">
+                          <div style={{ minWidth: 0 }}>
+                            <div className="fw-bold text-truncate">{displayName}</div>
+                            <div className="small text-muted">
+                              {t('customers.fields.id', 'ID')}: {customer.id}
+                            </div>
+                          </div>
+                          <div className="text-end">
+                            <span className={`badge ${isCompany ? 'bg-info' : 'bg-secondary'}`}>{typeLabel}</span>
+                          </div>
+                        </div>
+
+                        {(customer.company_name || customer.phone || displayEmail !== '-' || customer.tax_id) && (
+                          <div className="mt-2 small text-muted">
+                            {isCompany && customer.company_name && (
+                              <div className="text-truncate">{t('customers.company', 'บริษัท')}: {customer.company_name}</div>
+                            )}
+                            {customer.phone && <div className="text-truncate">{t('customers.phone', 'เบอร์โทร')}: {customer.phone}</div>}
+                            {displayEmail !== '-' && <div className="text-truncate">{t('customers.email', 'อีเมล')}: {displayEmail}</div>}
+                            {customer.tax_id && <div className="text-truncate">{t('customers.tax_id', 'เลขผู้เสียภาษี')}: {customer.tax_id}</div>}
+                          </div>
+                        )}
+
+                        <div className="d-flex justify-content-end gap-2 mt-3">
+                          <button
+                            type="button"
+                            className="btn btn-outline-primary btn-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/customers/${customer.id}/edit`);
+                            }}
+                          >
+                            {t('actions.edit')}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline-danger btn-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(customer.id);
+                            }}
+                          >
+                            {t('actions.delete')}
+                          </button>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center p-4 text-muted">
+                {t('customers.no_customers')}
+              </div>
+            )}
+          </div>
         </div>
         {totalPages > 1 && (
           <div className="card-footer bg-white py-3">
             <nav aria-label="Page navigation">
-              <ul className="pagination justify-content-center mb-0">
+              <ul className="pagination justify-content-center mb-0 flex-wrap">
                 <li className={`page-item ${page === 1 ? 'disabled' : ''}`}>
                   <button 
                     className="page-link" 
@@ -241,15 +332,16 @@ export const CustomerList = () => {
                     {t('common.previous')}
                   </button>
                 </li>
-                {[...Array(totalPages)].map((_, i) => (
-                  <li key={i + 1} className={`page-item ${page === i + 1 ? 'active' : ''}`}>
-                    <button 
-                      className="page-link" 
-                      onClick={() => setPage(i + 1)}
-                    >
-                      {i + 1}
-                    </button>
-                  </li>
+                {getPageItems().map((p, idx) => (
+                  p === '...' ? (
+                    <li key={`ellipsis-${idx}`} className="page-item disabled">
+                      <span className="page-link">…</span>
+                    </li>
+                  ) : (
+                    <li key={p} className={`page-item ${page === p ? 'active' : ''}`}>
+                      <button className="page-link" onClick={() => setPage(p)}>{p}</button>
+                    </li>
+                  )
                 ))}
                 <li className={`page-item ${page === totalPages ? 'disabled' : ''}`}>
                   <button 

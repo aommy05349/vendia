@@ -29,6 +29,32 @@ export const EditCustomer = () => {
   const [ordersPage, setOrdersPage] = useState(1);
   const [ordersTotalPages, setOrdersTotalPages] = useState(1);
 
+  const formatOrderDateTime = (iso: string) => {
+    const d = new Date(iso);
+    return new Intl.DateTimeFormat('th-TH', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(d);
+  };
+
+  const getOrdersPageItems = () => {
+    if (ordersTotalPages <= 7) return Array.from({ length: ordersTotalPages }, (_, i) => i + 1);
+    const items: Array<number | '...'> = [];
+    const start = Math.max(2, ordersPage - 1);
+    const end = Math.min(ordersTotalPages - 1, ordersPage + 1);
+
+    items.push(1);
+    if (start > 2) items.push('...');
+    for (let p = start; p <= end; p += 1) items.push(p);
+    if (end < ordersTotalPages - 1) items.push('...');
+    items.push(ordersTotalPages);
+    return items;
+  };
+
   useEffect(() => {
     fetchCustomer();
     fetchOrders(1);
@@ -121,7 +147,7 @@ export const EditCustomer = () => {
   if (loading) return <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>;
 
   return (
-    <div className="container mt-5" style={{ maxWidth: '90%' }}>
+    <div className="container-fluid p-2 p-md-4">
       <MessageModal
         open={error !== ''}
         type="danger"
@@ -130,9 +156,17 @@ export const EditCustomer = () => {
         okLabel={t('common.ok', 'ตกลง')}
         onClose={() => setError('')}
       />
-      <h1 className="mb-4">{t('customers.edit_title')}</h1>
+
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-3 mb-md-4">
+        <div className="d-flex align-items-center gap-2">
+          <button className="btn btn-outline-secondary" onClick={() => navigate('/customers')}>
+            <i className="bi bi-arrow-left"></i> {t('common.back', 'ย้อนกลับ')}
+          </button>
+          <h1 className="h3 m-0">{t('customers.edit_title')}</h1>
+        </div>
+      </div>
       
-      <form onSubmit={handleSubmit} className="card p-4 shadow-sm">
+      <form onSubmit={handleSubmit} className="card border-0 shadow-sm p-3 p-md-4">
         <div className="mb-3">
           <div className="form-check form-switch d-flex align-items-center gap-2">
             <input
@@ -261,32 +295,32 @@ export const EditCustomer = () => {
           />
         </div>
 
-        <div className="d-flex justify-content-end gap-2">
-          <button 
-            type="button" 
-            className="btn btn-secondary"
+        <div className="d-grid gap-2 d-md-flex justify-content-end">
+          <button
+            type="button"
+            className="btn btn-outline-secondary"
             onClick={() => navigate('/customers')}
           >
             {t('common.cancel')}
           </button>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="btn btn-primary"
             disabled={loading}
           >
-            {loading ? t('customers.update_btn') : t('customers.update_btn')}
+            {t('customers.update_btn')}
           </button>
         </div>
       </form>
 
-      <div className="mt-5">
+      <div className="mt-4 mt-md-5">
         <CustomerLocations customerId={id!} />
       </div>
 
-      <div className="mt-5 mb-5">
+      <div className="mt-4 mt-md-5 mb-4 mb-md-5">
         <h3 className="mb-3">{t('customers.order_history')}</h3>
         <div className="card shadow-sm">
-          <div className="table-responsive">
+          <div className="d-none d-md-block table-responsive">
             <table className="table table-hover mb-0 align-middle">
               <thead className="table-light">
                 <tr>
@@ -306,14 +340,9 @@ export const EditCustomer = () => {
                   </tr>
                 ) : orders.length > 0 ? (
                   orders.map((order) => (
-                    <tr key={order.id}>
-                      <td className="p-3">#{order.id}</td>
-                      <td className="p-3">
-                        {new Date(order.created_at).toLocaleDateString()}
-                        <div className="small text-muted">
-                          {new Date(order.created_at).toLocaleTimeString()}
-                        </div>
-                      </td>
+                    <tr key={order.id} onClick={() => navigate(`/orders/${order.id}`)} style={{ cursor: 'pointer' }}>
+                      <td className="p-3 fw-bold">#{order.id}</td>
+                      <td className="p-3">{formatOrderDateTime(order.created_at)}</td>
                       <td className="p-3">
                         <span className={`badge bg-${
                           order.status === 'completed' ? 'success' :
@@ -342,11 +371,63 @@ export const EditCustomer = () => {
               </tbody>
             </table>
           </div>
+
+          <div className="d-block d-md-none p-2">
+            {ordersLoading ? (
+              <div className="text-center p-4">
+                <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+              </div>
+            ) : orders.length > 0 ? (
+              <div className="d-flex flex-column gap-2">
+                {orders.map((order) => {
+                  const statusClass =
+                    order.status === 'completed'
+                      ? 'success'
+                      : order.status === 'pending'
+                        ? 'warning'
+                        : order.status === 'cancelled'
+                          ? 'danger'
+                          : 'secondary';
+                  return (
+                    <button
+                      key={order.id}
+                      type="button"
+                      className="card border-0 shadow-sm text-start w-100"
+                      onClick={() => navigate(`/orders/${order.id}`)}
+                    >
+                      <div className="card-body py-3">
+                        <div className="d-flex justify-content-between align-items-start gap-2">
+                          <div>
+                            <div className="fw-bold">#{order.id}</div>
+                            <div className="small text-muted">{formatOrderDateTime(order.created_at)}</div>
+                          </div>
+                          <div className="text-end">
+                            <span className={`badge bg-${statusClass}`}>{t(`status.${order.status}`) || order.status}</span>
+                            <div className="fw-bold mt-1">
+                              {Number(order.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="d-flex justify-content-between align-items-center mt-2 small text-muted">
+                          <span>{t('orders.items')}: {order.items?.length || 0}</span>
+                          <span>{t('orders.total')}</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center p-4 text-muted">
+                {t('customers.no_orders')}
+              </div>
+            )}
+          </div>
           
           {ordersTotalPages > 1 && (
             <div className="card-footer bg-white py-3">
               <nav aria-label="Order navigation">
-                <ul className="pagination justify-content-center mb-0">
+                <ul className="pagination justify-content-center mb-0 flex-wrap">
                   <li className={`page-item ${ordersPage === 1 ? 'disabled' : ''}`}>
                     <button 
                       className="page-link" 
@@ -356,15 +437,16 @@ export const EditCustomer = () => {
                       {t('common.previous')}
                     </button>
                   </li>
-                  {[...Array(ordersTotalPages)].map((_, i) => (
-                    <li key={i + 1} className={`page-item ${ordersPage === i + 1 ? 'active' : ''}`}>
-                      <button 
-                        className="page-link" 
-                        onClick={() => fetchOrders(i + 1)}
-                      >
-                        {i + 1}
-                      </button>
-                    </li>
+                  {getOrdersPageItems().map((p, idx) => (
+                    p === '...' ? (
+                      <li key={`ellipsis-${idx}`} className="page-item disabled">
+                        <span className="page-link">…</span>
+                      </li>
+                    ) : (
+                      <li key={p} className={`page-item ${ordersPage === p ? 'active' : ''}`}>
+                        <button className="page-link" onClick={() => fetchOrders(p)}>{p}</button>
+                      </li>
+                    )
                   ))}
                   <li className={`page-item ${ordersPage === ordersTotalPages ? 'disabled' : ''}`}>
                     <button 

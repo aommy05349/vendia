@@ -189,7 +189,7 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
   };
 
   return (
-    <div className="card shadow-sm mt-4">
+    <div className="card shadow-sm border-0 mt-4">
       <MessageModal
         open={uiMessage !== null}
         type={uiMessage?.type || 'danger'}
@@ -220,14 +220,16 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
           }
         }}
       />
-      <div className="card-header bg-white d-flex justify-content-between align-items-center py-3">
+      <div className="card-header bg-white d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 py-3">
         <h5 className="mb-0">{t('customers.locations.title')}</h5>
-        <button className="btn btn-sm btn-primary" onClick={() => handleOpenModal()}>
-          <i className="bi bi-plus-lg me-1"></i> {t('customers.locations.add_btn')}
-        </button>
+        <div className="d-grid d-md-flex justify-content-md-end w-100 ms-md-auto">
+          <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+            <i className="bi bi-plus-lg me-1"></i> {t('customers.locations.add_btn')}
+          </button>
+        </div>
       </div>
       <div className="card-body p-0">
-        <div className="table-responsive">
+        <div className="d-none d-md-block table-responsive">
           <table className="table table-hover mb-0">
             <thead className="table-light">
               <tr>
@@ -280,12 +282,82 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
             </tbody>
           </table>
         </div>
+
+        <div className="d-block d-md-none p-2">
+          {loading ? (
+            <div className="text-center p-4">
+              <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+            </div>
+          ) : locations.length > 0 ? (
+            <div className="d-flex flex-column gap-2">
+              {locations.map((loc) => (
+                <div key={loc.id} className="card border-0 shadow-sm">
+                  <div className="card-body py-3">
+                    <div className="d-flex justify-content-between align-items-start gap-2">
+                      <div style={{ minWidth: 0 }}>
+                        <div className="d-flex align-items-center gap-2">
+                          <div className="fw-bold text-truncate">{loc.name || '-'}</div>
+                          {loc.is_default && (
+                            <span className="badge bg-success rounded-pill">{t('customers.fields.default', 'ค่าเริ่มต้น')}</span>
+                          )}
+                        </div>
+                        <div className="small text-muted mt-1">{loc.address}</div>
+                      </div>
+                      <div className="btn-group">
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary btn-sm"
+                          onClick={() => handleOpenModal(loc)}
+                        >
+                          {t('actions.edit')}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger btn-sm"
+                          onClick={() => handleDelete(loc.id)}
+                        >
+                          {t('actions.delete')}
+                        </button>
+                      </div>
+                    </div>
+
+                    {(loc.contact_person || loc.contact_phone) && (
+                      <div className="mt-2 small text-muted">
+                        {loc.contact_person && <div>{t('customers.locations.contact_person', 'ผู้ติดต่อ')}: {loc.contact_person}</div>}
+                        {loc.contact_phone && <div>{t('customers.locations.contact_phone', 'เบอร์ผู้ติดต่อ')}: {loc.contact_phone}</div>}
+                      </div>
+                    )}
+
+                    <div className="mt-2">
+                      {loc.google_maps_link ? (
+                        <a
+                          href={loc.google_maps_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-sm btn-outline-info"
+                        >
+                          <i className="bi bi-geo-alt-fill me-1"></i> Map
+                        </a>
+                      ) : loc.latitude && loc.longitude ? (
+                        <span className="small text-muted">{Number(loc.latitude).toFixed(4)}, {Number(loc.longitude).toFixed(4)}</span>
+                      ) : (
+                        <span className="small text-muted">-</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center p-4 text-muted">{t('customers.locations.no_locations')}</div>
+          )}
+        </div>
       </div>
 
       {/* Location Modal */}
       {showModal && (
         <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex={-1}>
-          <div className="modal-dialog modal-lg">
+          <div className="modal-dialog modal-lg modal-fullscreen-sm-down">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">{editingLocation ? t('customers.locations.edit_title') : t('customers.locations.add_title')}</h5>
@@ -410,8 +482,8 @@ export const CustomerLocations: React.FC<CustomerLocationsProps> = ({ customerId
                     </div>
                   </div>
                 </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>{t('common.cancel')}</button>
+                <div className="modal-footer d-grid gap-2 d-md-flex justify-content-end">
+                  <button type="button" className="btn btn-outline-secondary" onClick={() => setShowModal(false)}>{t('common.cancel')}</button>
                   <button type="submit" className="btn btn-primary">{t('common.save')}</button>
                 </div>
               </form>

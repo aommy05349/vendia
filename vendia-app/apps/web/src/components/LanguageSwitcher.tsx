@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
-export const LanguageSwitcher = () => {
+export const LanguageSwitcher = ({ compact }: { compact?: boolean }) => {
   const { i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -28,14 +28,24 @@ export const LanguageSwitcher = () => {
   return (
     <div className="dropdown" ref={dropdownRef}>
       <button
-        className={`btn btn-outline-secondary dropdown-toggle ${isOpen ? 'show' : ''}`}
+        className={`btn btn-outline-secondary dropdown-toggle ${compact ? 'btn-sm' : ''} ${isOpen ? 'show' : ''}`}
         type="button"
         id="languageDropdown"
         aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
+        aria-label="Change language"
       >
-        <i className="bi bi-globe me-1"></i>
-        {i18n.language === 'th' ? 'ไทย' : 'English'}
+        {compact ? (
+          <>
+            <i className="bi bi-globe"></i>
+            <span className="ms-1">{i18n.language === 'th' ? 'TH' : 'EN'}</span>
+          </>
+        ) : (
+          <>
+            <i className="bi bi-globe me-1"></i>
+            {i18n.language === 'th' ? 'ไทย' : 'English'}
+          </>
+        )}
       </button>
       <ul 
         className={`dropdown-menu dropdown-menu-end ${isOpen ? 'show' : ''}`} 

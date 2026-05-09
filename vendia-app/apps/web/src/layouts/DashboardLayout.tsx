@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore, useShopStore } from '@vendia/shared';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,8 @@ export const DashboardLayout = () => {
   const location = useLocation();
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const mobileProfileDropdownRef = useRef<HTMLDivElement>(null);
+  const desktopProfileDropdownRef = useRef<HTMLDivElement>(null);
   const apiUrlRaw = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api';
   const apiUrl = typeof apiUrlRaw === 'string' ? apiUrlRaw : 'http://localhost:8000/api';
   const apiUrlNormalized = apiUrl.replace(/^https:\/(?!\/)/, 'https://').replace(/^http:\/(?!\/)/, 'http://');
@@ -36,7 +38,22 @@ export const DashboardLayout = () => {
   // Close sidebar on route change (mobile)
   useEffect(() => {
     setShowMobileSidebar(false);
+    setShowProfileMenu(false);
   }, [location]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const inMobile = mobileProfileDropdownRef.current?.contains(target) ?? false;
+      const inDesktop = desktopProfileDropdownRef.current?.contains(target) ?? false;
+      if (!inMobile && !inDesktop) setShowProfileMenu(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const getPageTitle = () => {
     const path = location.pathname;
@@ -73,7 +90,7 @@ export const DashboardLayout = () => {
     <div className="d-flex flex-column min-vh-100">
       {/* Mobile Header */}
       <header className="d-lg-none bg-white border-bottom p-3 d-flex justify-content-between align-items-center sticky-top shadow-sm">
-        <div className="d-flex align-items-center gap-2">
+        <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ minWidth: 0 }}>
           {shop?.logo_path && (
             <img 
               src={getStorageUrl(shop.logo_path)}
@@ -81,15 +98,76 @@ export const DashboardLayout = () => {
               style={{ height: '30px', marginRight: '10px' }} 
             />
           )}
-          <h1 className="h5 m-0 fw-bold">{shop?.name || 'Vendia POS'}</h1>
+          <div style={{ minWidth: 0 }}>
+            <div className="fw-bold text-truncate" style={{ maxWidth: '100%' }}>
+              {shop?.name || 'Vendia POS'}
+            </div>
+            <div className="small text-muted text-truncate" style={{ maxWidth: '100%' }}>
+              {getPageTitle()}
+            </div>
+          </div>
         </div>
-        <button 
-          className="btn btn-light border" 
-          onClick={() => setShowMobileSidebar(!showMobileSidebar)}
-          aria-label="Toggle menu"
-        >
-          <span className="fs-5">☰</span>
-        </button>
+
+        <div className="d-flex align-items-center gap-2 ms-2">
+          <LanguageSwitcher compact />
+          <div className="dropdown" ref={mobileProfileDropdownRef}>
+            <button
+              className="btn btn-light border-0 d-flex align-items-center justify-content-center"
+              type="button"
+              onClick={() => setShowProfileMenu(!showProfileMenu)}
+              aria-expanded={showProfileMenu}
+              aria-label="Profile menu"
+              style={{ width: '40px', height: '40px' }}
+            >
+              <div className="rounded-circle bg-secondary bg-opacity-25 d-flex align-items-center justify-content-center overflow-hidden" style={{ width: '32px', height: '32px', minWidth: '32px' }}>
+                <div className="fw-bold text-secondary">
+                  {user.name.charAt(0)}
+                </div>
+              </div>
+            </button>
+            <ul
+              className={`dropdown-menu dropdown-menu-end shadow ${showProfileMenu ? 'show' : ''}`}
+              style={{
+                zIndex: 1060,
+                right: 0,
+                left: 'auto',
+                marginTop: '8px',
+                maxWidth: 'calc(100vw - 24px)',
+                transform: 'none',
+              }}
+            >
+              <li>
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    navigate('/profile');
+                  }}
+                >
+                  {t('common.profile')}
+                </button>
+              </li>
+              <li>
+                <button
+                  className="dropdown-item text-danger"
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    handleLogout();
+                  }}
+                >
+                  {t('common.logout')}
+                </button>
+              </li>
+            </ul>
+          </div>
+          <button 
+            className="btn btn-light border" 
+            onClick={() => setShowMobileSidebar(!showMobileSidebar)}
+            aria-label="Toggle menu"
+          >
+            <span className="fs-5">☰</span>
+          </button>
+        </div>
       </header>
 
       <div className="d-flex flex-grow-1 position-relative">
@@ -196,7 +274,7 @@ export const DashboardLayout = () => {
             </div>
             <div className="d-flex align-items-center gap-3">
               <LanguageSwitcher />
-              <div className="dropdown">
+              <div className="dropdown" ref={desktopProfileDropdownRef}>
                 <button
                   className="btn btn-light border-0 d-flex align-items-center gap-2"
                   type="button"
@@ -216,7 +294,10 @@ export const DashboardLayout = () => {
                     <i className="bi bi-caret-down-fill"></i>
                   </span>
                 </button>
-                <ul className={`dropdown-menu dropdown-menu-end ${showProfileMenu ? 'show' : ''}`}>
+                <ul
+                  className={`dropdown-menu dropdown-menu-end shadow ${showProfileMenu ? 'show' : ''}`}
+                  style={{ marginTop: '8px' }}
+                >
                   <li>
                     <button
                       className="dropdown-item"
