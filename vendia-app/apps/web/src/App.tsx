@@ -26,6 +26,7 @@ import { CreateWarehouse } from './pages/admin/CreateWarehouse';
 import { EditWarehouse } from './pages/admin/EditWarehouse';
 import { DocumentList } from './pages/admin/DocumentList';
 import { OrderList } from './pages/admin/OrderList';
+import { OrderDetail } from './pages/admin/OrderDetail';
 import { Dashboard } from './pages/admin/Dashboard';
 import { CustomerList } from './pages/admin/CustomerList';
 import { CreateCustomer } from './pages/admin/CreateCustomer';
@@ -217,6 +218,7 @@ function App() {
             user.role === 'admin' ? <Dashboard /> : <Navigate to="/" />
           } />
           <Route path="orders" element={<OrderList />} />
+          <Route path="orders/:id" element={<OrderDetail />} />
           <Route path="documents" element={
             user.role === 'admin' ? <DocumentList /> : <Navigate to="/" />
           } />
