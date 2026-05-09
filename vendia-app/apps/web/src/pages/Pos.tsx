@@ -60,6 +60,7 @@ export const Pos = () => {
   const [receivedAmount, setReceivedAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
   const [change, setChange] = useState<number | null>(null);
+  const [showCartDrawer, setShowCartDrawer] = useState(false);
 
   const getImageUrl = (path: string) => {
     if (path.startsWith('http')) return path;
@@ -135,6 +136,8 @@ export const Pos = () => {
     setShowCustomerModal(true);
     fetchCustomers();
   };
+
+  const cartItemCount = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -386,11 +389,234 @@ export const Pos = () => {
     }
   }, [receivedAmount, paymentMethod, payableAmount]);
 
+  const CartPanel = ({ mode }: { mode: 'sidebar' | 'drawer' }) => {
+    return (
+      <div
+        className={
+          mode === 'sidebar'
+            ? 'd-flex flex-column p-3 p-lg-4 bg-light border-top overflow-hidden h-100'
+            : 'd-flex flex-column p-3 bg-light'
+        }
+        style={{ minHeight: 0 }}
+      >
+        <div className="mb-4">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <h6 className="text-muted text-uppercase small fw-bold m-0">{t('pos.select_customer')}</h6>
+            <button className="btn btn-sm btn-link text-decoration-none" onClick={openCustomerSelect}>
+              {selectedCustomer ? t('actions.change') : t('actions.select')}
+            </button>
+          </div>
+          <div className="card shadow-sm border-0" onClick={openCustomerSelect} style={{ cursor: 'pointer' }}>
+            <div className="card-body p-3">
+              {selectedCustomer ? (
+                <div>
+                  <div className="fw-bold">{selectedCustomer.name}</div>
+                  {selectedCustomer.phone && <div className="small text-muted">{selectedCustomer.phone}</div>}
+                </div>
+              ) : (
+                <div className="text-muted">{t('pos.walk_in')}</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <h2 className="h4 mt-0 mb-4">{t('pos.cart')}</h2>
+        {items.length === 0 ? (
+          <p className="text-muted text-center my-5">{t('pos.cart_empty')}</p>
+        ) : (
+          <div className="flex-grow-1 overflow-auto mb-3">
+            {items.some(item => item.product.product_type !== 'service') && (
+              <div className="mb-3">
+                <h6 className="text-muted text-uppercase small fw-bold mb-2">{t('pos.products')}</h6>
+                {items.filter(item => item.product.product_type !== 'service').map((item) => (
+                  <div key={item.product.id} className="card mb-2 border-0 shadow-sm">
+                    <div className="card-body p-4 d-flex justify-content-between align-items-center">
+                      <div className="flex-grow-1 me-3" style={{ minWidth: 0 }}>
+                        <div
+                          className="fw-bold"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                          title={item.product.name}
+                        >
+                          {item.product.name}
+                        </div>
+                        <div className="small text-muted">
+                          ฿{Number(item.price).toLocaleString()} x {item.quantity}
+                        </div>
+                      </div>
+                      <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                        <button
+                          className="btn btn-light border"
+                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
+                        >
+                          -
+                        </button>
+                        <span className="fw-bold fs-5" style={{ minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
+                        <button
+                          className="btn btn-light border"
+                          onClick={() => addToCart(item.product, 1)}
+                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => removeFromCart(item.product.id)}
+                          className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
+                          style={{ width: '40px', height: '40px' }}
+                          aria-label={t('actions.delete')}
+                          title={t('actions.delete')}
+                        >
+                          <i className="bi bi-trash3" style={{ fontSize: '1.05rem' }}></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {items.some(item => item.product.product_type === 'service' && item.price >= 0) && (
+              <div className="mb-3">
+                <h6 className="text-muted text-uppercase small fw-bold mb-2">{t('pos.services_fees')}</h6>
+                {items.filter(item => item.product.product_type === 'service' && item.price >= 0).map((item) => (
+                  <div key={item.product.id} className="card mb-2 border-0 shadow-sm border-start border-4 border-info">
+                    <div className="card-body p-4 d-flex justify-content-between align-items-center">
+                      <div className="flex-grow-1 me-3" style={{ minWidth: 0 }}>
+                        <div
+                          className="fw-bold"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                          title={item.product.name}
+                        >
+                          {item.product.name}
+                        </div>
+                        <div className="small text-muted">
+                          ฿{Number(item.price).toLocaleString()} {item.quantity > 1 && `x ${item.quantity}`}
+                        </div>
+                      </div>
+                      <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                        <button
+                          className="btn btn-light border"
+                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
+                        >
+                          -
+                        </button>
+                        <span className="fw-bold fs-5" style={{ minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
+                        <button
+                          className="btn btn-light border"
+                          onClick={() => addToCart(item.product, 1)}
+                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => removeFromCart(item.product.id)}
+                          className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
+                          style={{ width: '40px', height: '40px' }}
+                          aria-label={t('actions.delete')}
+                          title={t('actions.delete')}
+                        >
+                          <i className="bi bi-trash3" style={{ fontSize: '1.05rem' }}></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {items.some(item => item.product.product_type === 'service' && item.price < 0) && (
+              <div className="mb-3">
+                <h6 className="text-danger text-uppercase small fw-bold mb-2">{t('pos.discount')}</h6>
+                {items.filter(item => item.product.product_type === 'service' && item.price < 0).map((item) => (
+                  <div key={item.product.id} className="card mb-2 border-0 shadow-sm border-start border-4 border-danger bg-danger bg-opacity-10">
+                    <div className="card-body p-4 d-flex justify-content-between align-items-center">
+                      <div className="flex-grow-1 me-3" style={{ minWidth: 0 }}>
+                        <div
+                          className="fw-bold text-danger"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                          title={item.product.name}
+                        >
+                          {item.product.name}
+                        </div>
+                        <div className="small text-danger fw-bold">
+                          ฿{Number(item.price).toLocaleString()} {item.quantity > 1 && `x ${item.quantity}`}
+                        </div>
+                      </div>
+                      <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                        <button
+                          className="btn btn-light border"
+                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
+                        >
+                          -
+                        </button>
+                        <span className="fw-bold fs-5" style={{ minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
+                        <button
+                          className="btn btn-light border"
+                          onClick={() => addToCart(item.product, 1)}
+                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => removeFromCart(item.product.id)}
+                          className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
+                          style={{ width: '40px', height: '40px' }}
+                          aria-label={t('actions.delete')}
+                          title={t('actions.delete')}
+                        >
+                          <i className="bi bi-trash3" style={{ fontSize: '1.05rem' }}></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="pt-3 border-top mt-auto bg-light">
+          <div className="d-flex justify-content-between fs-4 fw-bold mb-3">
+            <span>{t('pos.total')}:</span>
+            <span>฿{total().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
+          <button
+            disabled={items.length === 0}
+            onClick={() => {
+              if (mode === 'drawer') setShowCartDrawer(false);
+              handleCheckoutClick();
+            }}
+            className={`btn w-100 btn-lg ${items.length === 0 ? 'btn-secondary' : 'btn-success'}`}
+          >
+            {editingOrderId ? t('actions.update') : t('pos.pay')}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="d-flex flex-column flex-lg-row h-100 overflow-hidden" style={{ minHeight: 0 }}>
       {/* Product Grid */}
       <div
-        className="flex-grow-1 p-3 p-lg-4 overflow-auto border-end-lg border-bottom border-bottom-lg-0"
+        className="flex-grow-1 p-3 pb-5 pb-lg-3 p-lg-4 overflow-auto border-end-lg border-bottom border-bottom-lg-0"
         style={{ flex: 4, minHeight: 0 }}
       >
         <div className="d-flex justify-content-between align-items-center mb-2 gap-3">
@@ -492,12 +718,12 @@ export const Pos = () => {
                 </div>
               </div>
               {hasChildren && (
-                <div className="mb-4 d-flex align-items-center gap-2 overflow-auto pb-2 ps-2 border-start">
+                <div className="mb-4 d-flex flex-nowrap align-items-center gap-2 overflow-auto pb-2 ps-2 border-start">
                   <span className="text-muted small flex-shrink-0" style={{ whiteSpace: 'nowrap' }}>
                     ↳ {t('categories.subcategory', 'หมวดย่อย')}
                   </span>
                   <button
-                    className={`btn btn-sm ${selectedCategory === null ? 'btn-secondary' : 'btn-outline-secondary'}`}
+                    className={`btn btn-sm text-nowrap flex-shrink-0 ${selectedCategory === null ? 'btn-secondary' : 'btn-outline-secondary'}`}
                     onClick={() => handleSubcategorySelect(activeParentId as number, null)}
                   >
                     {t('common.all')}
@@ -505,7 +731,7 @@ export const Pos = () => {
                   {children.map((c) => (
                     <button
                       key={c.id}
-                      className={`btn btn-sm ${selectedCategory === c.id ? 'btn-secondary' : 'btn-outline-secondary'}`}
+                      className={`btn btn-sm text-nowrap flex-shrink-0 ${selectedCategory === c.id ? 'btn-secondary' : 'btn-outline-secondary'}`}
                       onClick={() => handleSubcategorySelect(activeParentId as number, c.id)}
                     >
                       {c.name}
@@ -547,7 +773,7 @@ export const Pos = () => {
                 const isOutOfStock = product.product_type !== 'service' && product.stock === 0;
                 
                 return (
-                <div key={product.id} className="col-12 col-md-6 col-lg-4 col-xl-3 col-xxl-3">
+                <div key={product.id} className="col-6 col-md-6 col-lg-4 col-xl-3 col-xxl-3">
                   <div 
                     className={`card h-100 border-0 shadow-sm product-card ${isOutOfStock ? 'opacity-75' : ''}`}
                     style={{ 
@@ -651,221 +877,64 @@ export const Pos = () => {
 
       {/* Cart Sidebar */}
       <div
-        className="d-flex flex-column p-3 p-lg-4 bg-light border-top overflow-hidden"
+        className="d-none d-lg-flex flex-column"
         style={{ flex: 1, minWidth: '300px', maxWidth: '560px', minHeight: 0 }}
       >
-        
-        {/* Customer Section */}
-        <div className="mb-4">
-             <div className="d-flex justify-content-between align-items-center mb-2">
-                 <h6 className="text-muted text-uppercase small fw-bold m-0">{t('pos.select_customer')}</h6>
-                 <button className="btn btn-sm btn-link text-decoration-none" onClick={openCustomerSelect}>
-                     {selectedCustomer ? t('actions.change') : t('actions.select')}
-                 </button>
-             </div>
-             <div className="card shadow-sm border-0" onClick={openCustomerSelect} style={{ cursor: 'pointer' }}>
-                 <div className="card-body p-3">
-                     {selectedCustomer ? (
-                         <div>
-                             <div className="fw-bold">{selectedCustomer.name}</div>
-                             {selectedCustomer.phone && <div className="small text-muted">{selectedCustomer.phone}</div>}
-                         </div>
-                     ) : (
-                         <div className="text-muted">{t('pos.walk_in')}</div>
-                     )}
-                 </div>
-             </div>
-        </div>
+        <CartPanel mode="sidebar" />
+      </div>
 
-        <h2 className="h4 mt-0 mb-4">{t('pos.cart')}</h2>
-        {items.length === 0 ? (
-          <p className="text-muted text-center my-5">{t('pos.cart_empty')}</p>
-        ) : (
-          <div className="flex-grow-1 overflow-auto mb-3">
-            {/* Products Section */}
-            {items.some(item => item.product.product_type !== 'service') && (
-              <div className="mb-3">
-                <h6 className="text-muted text-uppercase small fw-bold mb-2">{t('pos.products')}</h6>
-                {items.filter(item => item.product.product_type !== 'service').map((item) => (
-                  <div key={item.product.id} className="card mb-2 border-0 shadow-sm">
-                    <div className="card-body p-4 d-flex justify-content-between align-items-center">
-                      <div className="flex-grow-1 me-3" style={{ minWidth: 0 }}>
-                        <div
-                          className="fw-bold"
-                          style={{
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                          }}
-                          title={item.product.name}
-                        >
-                          {item.product.name}
-                        </div>
-                        <div className="small text-muted">
-                          ฿{Number(item.price).toLocaleString()} x {item.quantity}
-                        </div>
-                      </div>
-                      <div className="d-flex align-items-center gap-2 flex-shrink-0">
-                        <button 
-                          className="btn btn-light border"
-                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
-                        >
-                          -
-                        </button>
-                        <span className="fw-bold fs-5" style={{ minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
-                        <button 
-                          className="btn btn-light border"
-                          onClick={() => addToCart(item.product, 1)}
-                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
-                        >
-                          +
-                        </button>
-                        <button
-                          onClick={() => removeFromCart(item.product.id)}
-                          className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
-                          style={{ width: '40px', height: '40px' }}
-                          aria-label={t('actions.delete')}
-                          title={t('actions.delete')}
-                        >
-                          <i className="bi bi-trash3" style={{ fontSize: '1.05rem' }}></i>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Services Section (Positive Price) */}
-            {items.some(item => item.product.product_type === 'service' && item.price >= 0) && (
-              <div className="mb-3">
-                <h6 className="text-muted text-uppercase small fw-bold mb-2">{t('pos.services_fees')}</h6>
-                {items.filter(item => item.product.product_type === 'service' && item.price >= 0).map((item) => (
-                  <div key={item.product.id} className="card mb-2 border-0 shadow-sm border-start border-4 border-info">
-                    <div className="card-body p-4 d-flex justify-content-between align-items-center">
-                      <div className="flex-grow-1 me-3" style={{ minWidth: 0 }}>
-                        <div
-                          className="fw-bold"
-                          style={{
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                          }}
-                          title={item.product.name}
-                        >
-                          {item.product.name}
-                        </div>
-                        <div className="small text-muted">
-                          ฿{Number(item.price).toLocaleString()} {item.quantity > 1 && `x ${item.quantity}`}
-                        </div>
-                      </div>
-                      <div className="d-flex align-items-center gap-2 flex-shrink-0">
-                        <button 
-                          className="btn btn-light border"
-                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
-                        >
-                          -
-                        </button>
-                        <span className="fw-bold fs-5" style={{ minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
-                        <button 
-                          className="btn btn-light border"
-                          onClick={() => addToCart(item.product, 1)}
-                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
-                        >
-                          +
-                        </button>
-                        <button
-                          onClick={() => removeFromCart(item.product.id)}
-                          className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
-                          style={{ width: '40px', height: '40px' }}
-                          aria-label={t('actions.delete')}
-                          title={t('actions.delete')}
-                        >
-                          <i className="bi bi-trash3" style={{ fontSize: '1.05rem' }}></i>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Deductions Section (Negative Price) */}
-            {items.some(item => item.product.product_type === 'service' && item.price < 0) && (
-              <div className="mb-3">
-                <h6 className="text-danger text-uppercase small fw-bold mb-2">{t('pos.discount')}</h6>
-                {items.filter(item => item.product.product_type === 'service' && item.price < 0).map((item) => (
-                  <div key={item.product.id} className="card mb-2 border-0 shadow-sm border-start border-4 border-danger bg-danger bg-opacity-10">
-                    <div className="card-body p-4 d-flex justify-content-between align-items-center">
-                      <div className="flex-grow-1 me-3" style={{ minWidth: 0 }}>
-                        <div
-                          className="fw-bold text-danger"
-                          style={{
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                          }}
-                          title={item.product.name}
-                        >
-                          {item.product.name}
-                        </div>
-                        <div className="small text-danger fw-bold">
-                          ฿{Number(item.price).toLocaleString()} {item.quantity > 1 && `x ${item.quantity}`}
-                        </div>
-                      </div>
-                      <div className="d-flex align-items-center gap-2 flex-shrink-0">
-                        <button 
-                          className="btn btn-light border"
-                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
-                        >
-                          -
-                        </button>
-                        <span className="fw-bold fs-5" style={{ minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
-                        <button 
-                          className="btn btn-light border"
-                          onClick={() => addToCart(item.product, 1)}
-                          style={{ width: '40px', height: '40px', fontSize: '1.15rem', lineHeight: 1 }}
-                        >
-                          +
-                        </button>
-                        <button
-                          onClick={() => removeFromCart(item.product.id)}
-                          className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
-                          style={{ width: '40px', height: '40px' }}
-                          aria-label={t('actions.delete')}
-                          title={t('actions.delete')}
-                        >
-                          <i className="bi bi-trash3" style={{ fontSize: '1.05rem' }}></i>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+      <div
+        className="d-lg-none position-fixed bottom-0 start-0 end-0 bg-white border-top"
+        style={{
+          zIndex: 1040,
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
+        }}
+      >
+        <div className="container-fluid px-3 pt-2">
+          <div className="d-flex align-items-center gap-2">
+            <button
+              type="button"
+              className={`btn flex-grow-1 ${items.length === 0 ? 'btn-outline-secondary' : 'btn-outline-primary'}`}
+              onClick={() => setShowCartDrawer(true)}
+            >
+              <span className="d-inline-flex align-items-center gap-2">
+                <i className="bi bi-cart3"></i>
+                <span>
+                  {t('pos.cart')} ({cartItemCount})
+                </span>
+                <span className="fw-bold">
+                  ฿{total().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-success"
+              disabled={items.length === 0}
+              onClick={handleCheckoutClick}
+              style={{ minWidth: '110px' }}
+            >
+              {editingOrderId ? t('actions.update') : t('pos.pay')}
+            </button>
           </div>
-        )}
-        
-        <div className="pt-3 border-top mt-auto bg-light">
-          <div className="d-flex justify-content-between fs-4 fw-bold mb-3">
-            <span>{t('pos.total')}:</span>
-            <span>฿{total().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-          </div>
-          <button
-            disabled={items.length === 0}
-            onClick={handleCheckoutClick}
-            className={`btn w-100 btn-lg ${items.length === 0 ? 'btn-secondary' : 'btn-success'}`}
-          >
-            {editingOrderId ? t('actions.update') : t('pos.pay')}
-          </button>
         </div>
       </div>
+
+      {showCartDrawer && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1065 }}>
+          <div className="modal-dialog modal-fullscreen-sm-down modal-dialog-scrollable m-0 m-sm-auto">
+            <div className="modal-content" style={{ minHeight: '100vh' }}>
+              <div className="modal-header">
+                <h5 className="modal-title">{t('pos.cart')}</h5>
+                <button type="button" className="btn-close" onClick={() => setShowCartDrawer(false)}></button>
+              </div>
+              <div className="modal-body p-0 d-flex flex-column" style={{ minHeight: 0 }}>
+                <CartPanel mode="drawer" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Payment Modal */}
       {showPaymentModal && (
