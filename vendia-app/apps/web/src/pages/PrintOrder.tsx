@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { api, Customer } from '@vendia/shared';
 import { thaiBahtText } from '../utils/thaiBaht';
@@ -91,7 +91,7 @@ export const PrintOrder = () => {
     const [searchParams] = useSearchParams();
     const type = searchParams.get('type') || 'receipt';
     const editMode = searchParams.get('edit') === '1';
-    const documentId = searchParams.get('doc_id');
+    const documentIdParam = searchParams.get('doc_id');
     const [order, setOrder] = useState<Order | null>(null);
     const [shop, setShop] = useState<Shop | null>(null);
     const printedRef = useRef(false);
@@ -109,9 +109,34 @@ export const PrintOrder = () => {
     const [updateOrderCreatedAt, setUpdateOrderCreatedAt] = useState(true);
     const [saveModal, setSaveModal] = useState<{ type: 'success' | 'danger'; message: string } | null>(null);
     const [saving, setSaving] = useState(false);
+    const [resolvedDocumentId, setResolvedDocumentId] = useState<number | null>(null);
 
     const isQuotation = type === 'quotation';
     const isBillingNote = type === 'billing_note';
+
+    const parsedDocumentId = useMemo(() => {
+        if (!documentIdParam) return null;
+        const n = Number(documentIdParam);
+        if (!Number.isFinite(n) || n <= 0) return null;
+        return Math.trunc(n);
+    }, [documentIdParam]);
+
+    const derivedDocumentId = useMemo(() => {
+        if (!order) return null;
+        const currentNumber =
+            type === 'quotation'
+                ? order.quotation_number
+                : type === 'billing_note'
+                    ? order.billing_note_number
+                    : order.receipt_number;
+        if (!currentNumber) return null;
+        const currentDocument = order.documents?.find((d) => d.type === type && d.number === currentNumber);
+        return currentDocument?.id ?? null;
+    }, [order, type]);
+
+    const effectiveDocumentId = useMemo(() => {
+        return parsedDocumentId ?? documentRecord?.id ?? derivedDocumentId ?? resolvedDocumentId ?? null;
+    }, [parsedDocumentId, documentRecord?.id, derivedDocumentId, resolvedDocumentId]);
 
     const parseDateInput = (value: string) => {
         const v = (value || '').trim();
@@ -200,8 +225,8 @@ export const PrintOrder = () => {
     useEffect(() => {
         if (!id) return;
 
-        if (documentId) {
-            api.get(`/documents/${documentId}`).then((res) => {
+        if (parsedDocumentId) {
+            api.get(`/documents/${parsedDocumentId}`).then((res) => {
                 setDocumentRecord(res.data);
                 if (res.data?.order) setOrder(res.data.order);
             });
@@ -211,7 +236,73 @@ export const PrintOrder = () => {
         api.get(`/orders/${id}`).then((res) => {
             setOrder(res.data);
         });
-    }, [id, documentId]);
+    }, [id, parsedDocumentId]);
+
+    useEffect(() => {
+        setResolvedDocumentId(null);
+    }, [order?.id, type]);
+
+    useEffect(() => {
+        if (!editMode) return;
+        if (!order) return;
+        if (parsedDocumentId || documentRecord?.id || derivedDocumentId || resolvedDocumentId) return;
+
+        const currentNumber =
+            type === 'quotation'
+                ? order.quotation_number
+                : type === 'billing_note'
+                    ? order.billing_note_number
+                    : order.receipt_number;
+        if (!currentNumber) return;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                let page = 1;
+                let lastPage = 5;
+                let foundId: number | null = null;
+
+                while (!foundId && page <= lastPage && page <= 5 && !cancelled) {
+                    const params = new URLSearchParams();
+                    params.set('page', String(page));
+                    params.set('per_page', '200');
+                    params.set('type', type);
+                    params.set('status', 'active');
+                    const res = await api.get(`/documents?${params.toString()}`);
+                    const apiData = (res as any)?.data;
+                    const rowsRaw = apiData?.data ?? apiData;
+                    const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
+                    const matched = rows.find((d: any) => {
+                        return d?.type === type && String(d?.number) === String(currentNumber) && Number(d?.order?.id) === Number(order.id);
+                    });
+                    foundId = matched?.id ? Number(matched.id) : null;
+                    if (typeof apiData?.last_page === 'number' && Number.isFinite(apiData.last_page)) {
+                        lastPage = apiData.last_page;
+                    }
+                    page += 1;
+                }
+
+                const docId = foundId;
+                if (!docId || cancelled) return;
+
+                setResolvedDocumentId(docId);
+                try {
+                    const full = await api.get(`/documents/${docId}`);
+                    if (cancelled) return;
+                    setDocumentRecord(full.data);
+                    if (full.data?.order) setOrder(full.data.order);
+                } catch {
+                    if (cancelled) return;
+                }
+            } catch {
+                if (cancelled) return;
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [editMode, order, type, parsedDocumentId, documentRecord?.id, derivedDocumentId, resolvedDocumentId]);
 
     useEffect(() => {
         if (!order) return;
@@ -856,12 +947,52 @@ export const PrintOrder = () => {
                         <button
                             type="button"
                             className="btn btn-primary"
-                            disabled={!documentId || saving}
+                            disabled={saving}
                             onClick={async () => {
-                                if (!documentId) return;
+                                if (!order) return;
+                                let docId = effectiveDocumentId;
                                 setSaving(true);
                                 try {
-                                    await api.put(`/documents/${documentId}`, {
+                                    if (!docId) {
+                                        const currentNumber =
+                                            type === 'quotation'
+                                                ? order.quotation_number
+                                                : type === 'billing_note'
+                                                    ? order.billing_note_number
+                                                    : order.receipt_number;
+
+                                        if (currentNumber) {
+                                            let page = 1;
+                                            let lastPage = 5;
+                                            while (!docId && page <= lastPage && page <= 5) {
+                                                const params = new URLSearchParams();
+                                                params.set('page', String(page));
+                                                params.set('per_page', '200');
+                                                params.set('type', type);
+                                                params.set('status', 'active');
+                                                const res = await api.get(`/documents?${params.toString()}`);
+                                                const apiData = (res as any)?.data;
+                                                const rowsRaw = apiData?.data ?? apiData;
+                                                const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
+                                                const matched = rows.find((d: any) => {
+                                                    return d?.type === type && String(d?.number) === String(currentNumber) && Number(d?.order?.id) === Number(order.id);
+                                                });
+                                                docId = matched?.id ? Number(matched.id) : docId;
+                                                if (typeof apiData?.last_page === 'number' && Number.isFinite(apiData.last_page)) {
+                                                    lastPage = apiData.last_page;
+                                                }
+                                                page += 1;
+                                            }
+                                        }
+                                    }
+
+                                    if (!docId) {
+                                        setSaveModal({ type: 'danger', message: t('common.save_failed', 'บันทึกไม่สำเร็จ') });
+                                        return;
+                                    }
+
+                                    if (resolvedDocumentId !== docId) setResolvedDocumentId(docId);
+                                    await api.put(`/documents/${docId}`, {
                                         issued_date: issueDate.trim() === '' ? null : issueDate.trim(),
                                         show_issued_date: showIssueDate,
                                         expires_date: expiryDate.trim() === '' ? null : expiryDate.trim(),
@@ -874,8 +1005,8 @@ export const PrintOrder = () => {
                                         remarks: remarksOverride.trim() === '' ? null : remarksOverride,
                                         update_order_created_at: updateOrderCreatedAt,
                                     });
-                                    if (documentId) {
-                                        const refreshed = await api.get(`/documents/${documentId}`);
+                                    if (docId) {
+                                        const refreshed = await api.get(`/documents/${docId}`);
                                         setDocumentRecord(refreshed.data);
                                         if (refreshed.data?.order) setOrder(refreshed.data.order);
                                     }

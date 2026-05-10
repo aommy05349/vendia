@@ -209,7 +209,7 @@ export const OrderDetail = () => {
     ];
   };
 
-  const handlePrint = (o: Order, type: 'receipt' | 'quotation' | 'billing_note') => {
+  const handlePrint = async (o: Order, type: 'receipt' | 'quotation' | 'billing_note') => {
     const currentNumber =
       type === 'quotation'
         ? o.quotation_number
@@ -217,7 +217,33 @@ export const OrderDetail = () => {
           ? o.billing_note_number
           : o.receipt_number;
 
-    const docId = o.documents?.find((d) => d.type === type && d.number === currentNumber)?.id;
+    let docId = o.documents?.find((d) => d.type === type && d.number === currentNumber)?.id;
+    if (!docId && currentNumber) {
+      try {
+        let page = 1;
+        let lastPage = 3;
+        while (!docId && page <= lastPage && page <= 3) {
+          const params = new URLSearchParams();
+          params.set('page', String(page));
+          params.set('per_page', '200');
+          params.set('type', type);
+          params.set('status', 'active');
+          const res = await api.get(`/documents?${params.toString()}`);
+          const apiData = (res as any)?.data;
+          const rowsRaw = apiData?.data ?? apiData;
+          const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
+          const matched = rows.find((d: any) => {
+            return d?.type === type && String(d?.number) === String(currentNumber) && Number(d?.order?.id) === Number(o.id);
+          });
+          docId = matched?.id ? Number(matched.id) : docId;
+          if (typeof apiData?.last_page === 'number' && Number.isFinite(apiData.last_page)) {
+            lastPage = apiData.last_page;
+          }
+          page += 1;
+        }
+      } catch {
+      }
+    }
     const params = new URLSearchParams();
     params.set('type', type);
     params.set('edit', '1');
