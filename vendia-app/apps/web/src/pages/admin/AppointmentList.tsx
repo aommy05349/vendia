@@ -178,9 +178,6 @@ export const AppointmentList = () => {
                     <i className="bi bi-map me-2"></i>{t('appointments.view_map', 'Map')}
                 </button>
             </div>
-            <Link to="/appointments/create" className="btn btn-primary">
-              <i className="bi bi-plus-lg me-2"></i>{t('appointments.create_btn')}
-            </Link>
         </div>
       </div>
 

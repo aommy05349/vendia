@@ -63,4 +63,14 @@ class Order extends Model
     {
         return $this->hasMany(Document::class);
     }
+
+    public function paymentPlan()
+    {
+        return $this->hasOne(OrderPaymentPlan::class);
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(OrderPayment::class);
+    }
 }

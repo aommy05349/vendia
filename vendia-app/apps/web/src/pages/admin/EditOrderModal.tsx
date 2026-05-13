@@ -36,11 +36,31 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
     address: '',
     line_id: '',
   });
+  const [customerContactChannel, setCustomerContactChannel] = useState<'line' | 'facebook'>('line');
+  const [customerContactHandle, setCustomerContactHandle] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const parseStoredLineId = (value: string) => {
+    const raw = (value || '').trim();
+    const upper = raw.toUpperCase();
+    if (upper.startsWith('FB:') || upper.startsWith('FACEBOOK:')) {
+      return { channel: 'facebook' as const, handle: raw.replace(/^facebook:/i, '').replace(/^fb:/i, '').trim() };
+    }
+    return { channel: 'line' as const, handle: raw };
+  };
+
+  const buildStoredLineId = (channel: 'line' | 'facebook', handle: string) => {
+    const v = (handle || '').trim();
+    if (v === '') return '';
+    const upper = v.toUpperCase();
+    if (upper.startsWith('FB:') || upper.startsWith('FACEBOOK:')) return v;
+    if (channel === 'facebook') return `FB:${v}`;
+    return v;
+  };
 
   // Load order details
   useEffect(() => {
@@ -176,6 +196,8 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
       address: '',
       line_id: '',
     });
+    setCustomerContactChannel('line');
+    setCustomerContactHandle('');
     setShowCustomerFormModal(true);
   };
 
@@ -200,6 +222,9 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
         address: res.data.address || '',
         line_id: res.data.line_id || '',
       });
+      const parsed = parseStoredLineId(res.data.line_id || '');
+      setCustomerContactChannel(parsed.channel);
+      setCustomerContactHandle(parsed.handle);
       setCustomerFormIsCompany(Boolean(res.data.is_company) || (Boolean(res.data.company_name) && (!res.data.first_name && !res.data.last_name)));
     } catch (err) {
       setCustomerFormError(t('customers.fetch_failed', 'โหลดข้อมูลลูกค้าไม่สำเร็จ'));
@@ -221,7 +246,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
         const phone = customerForm.phone.trim();
         const taxId = customerForm.tax_id.trim();
         const address = customerForm.address.trim();
-        const lineId = customerForm.line_id.trim();
+        const lineId = buildStoredLineId(customerContactChannel, customerContactHandle);
         const payload = {
           is_company: customerFormIsCompany,
           company_name: companyName === '' ? null : companyName,
@@ -250,7 +275,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
         const phone = customerForm.phone.trim();
         const taxId = customerForm.tax_id.trim();
         const address = customerForm.address.trim();
-        const lineId = customerForm.line_id.trim();
+        const lineId = buildStoredLineId(customerContactChannel, customerContactHandle);
         const payload = {
           is_company: customerFormIsCompany,
           company_name: companyName === '' ? null : companyName,
@@ -453,14 +478,27 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({ orderId, mode = 
                             disabled={customerFormSaving}
                           />
                         </div>
-                        <div className="col-md-12">
-                          <label className="form-label fw-bold">{t('customers.line_id', 'Line ID')}</label>
+                        <div className="col-md-4">
+                          <label className="form-label fw-bold">{t('customers.contact_channel', 'ช่องทางติดต่อ')}</label>
+                          <select
+                            className="form-select"
+                            value={customerContactChannel}
+                            onChange={(e) => setCustomerContactChannel(e.target.value as 'line' | 'facebook')}
+                            disabled={customerFormSaving}
+                          >
+                            <option value="line">LINE</option>
+                            <option value="facebook">Facebook</option>
+                          </select>
+                        </div>
+                        <div className="col-md-8">
+                          <label className="form-label fw-bold">{t('customers.contact_handle', 'ไอดี/ลิงก์')}</label>
                           <input
                             type="text"
                             className="form-control"
-                            value={customerForm.line_id}
-                            onChange={(e) => setCustomerForm((p) => ({ ...p, line_id: e.target.value }))}
+                            value={customerContactHandle}
+                            onChange={(e) => setCustomerContactHandle(e.target.value)}
                             disabled={customerFormSaving}
+                            placeholder={customerContactChannel === 'facebook' ? t('customers.facebook_placeholder', 'เช่น ชื่อโปรไฟล์ หรือ ลิงก์') : t('customers.line_placeholder', 'เช่น Line ID')}
                           />
                         </div>
                       </div>

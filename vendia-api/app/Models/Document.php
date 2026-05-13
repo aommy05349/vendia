@@ -11,6 +11,7 @@ class Document extends Model
 
     protected $fillable = [
         'order_id',
+        'order_payment_id',
         'type',
         'number',
         'status',
@@ -39,5 +40,10 @@ class Document extends Model
     public function order()
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function orderPayment()
+    {
+        return $this->belongsTo(OrderPayment::class, 'order_payment_id');
     }
 }

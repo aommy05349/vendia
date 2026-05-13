@@ -13,6 +13,7 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\CustomerLocationController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\OrderPaymentController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\TeamController;
 use Illuminate\Support\Facades\Route;
@@ -38,6 +39,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders/summary', [OrderController::class, 'summary']);
     Route::post('/orders/{id}/cancel-document', [OrderController::class, 'cancelDocument']);
     Route::post('/orders/{id}/issue-document', [OrderController::class, 'issueDocument']);
+    Route::post('/orders/{order}/installment-plan', [OrderPaymentController::class, 'upsertPlan']);
+    Route::post('/orders/{order}/installment-payments', [OrderPaymentController::class, 'storePayment']);
+    Route::post('/order-payments/{payment}/issue-receipt', [OrderPaymentController::class, 'issueReceipt']);
+    Route::post('/order-payments/{payment}/delete-receipt', [OrderPaymentController::class, 'deleteReceipt']);
     Route::post('/orders/{order}/purge', [OrderController::class, 'purge']);
     Route::apiResource('orders', OrderController::class);
 

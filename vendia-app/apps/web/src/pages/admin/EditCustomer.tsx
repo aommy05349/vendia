@@ -10,6 +10,8 @@ export const EditCustomer = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [isCompany, setIsCompany] = useState(false);
+  const [contactChannel, setContactChannel] = useState<'line' | 'facebook'>('line');
+  const [contactHandle, setContactHandle] = useState('');
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -81,6 +83,15 @@ export const EditCustomer = () => {
       setIsCompany(Boolean(user.is_company) || (Boolean(user.company_name) && (!user.first_name && !user.last_name)));
       const email = typeof user.email === 'string' ? user.email.trim() : '';
       const emailForForm = email && (email.startsWith('cust_') || email.endsWith('@vendia.local') || email.endsWith('@example.com')) ? '' : email;
+      const rawLineId = typeof user.line_id === 'string' ? user.line_id.trim() : '';
+      const upperLineId = rawLineId.toUpperCase();
+      if (upperLineId.startsWith('FB:') || upperLineId.startsWith('FACEBOOK:')) {
+        setContactChannel('facebook');
+        setContactHandle(rawLineId.replace(/^facebook:/i, '').replace(/^fb:/i, '').trim());
+      } else {
+        setContactChannel('line');
+        setContactHandle(rawLineId);
+      }
       setFormData({
         first_name: user.first_name,
         last_name: user.last_name,
@@ -116,6 +127,8 @@ export const EditCustomer = () => {
       const phone = formData.phone.trim();
       const taxId = formData.tax_id.trim();
       const address = formData.address.trim();
+      const handle = contactHandle.trim();
+      const storedLineId = handle === '' ? '' : contactChannel === 'facebook' ? (handle.toUpperCase().startsWith('FB:') || handle.toUpperCase().startsWith('FACEBOOK:') ? handle : `FB:${handle}`) : handle;
 
       const payload = {
         is_company: isCompany,
@@ -128,6 +141,7 @@ export const EditCustomer = () => {
         phone: phone === '' ? null : phone,
         tax_id: taxId === '' ? null : taxId,
         address: address === '' ? null : address,
+        line_id: storedLineId === '' ? null : storedLineId,
       };
       await api.put(`/customers/${id}`, payload);
       navigate('/customers', { state: { success: t('customers.update_success') } });
@@ -256,6 +270,30 @@ export const EditCustomer = () => {
               className="form-control"
               value={formData.phone} 
               onChange={handleChange} 
+            />
+          </div>
+        </div>
+
+        <div className="row g-3 mb-3">
+          <div className="col-md-4">
+            <label className="form-label fw-bold">{t('customers.contact_channel', 'ช่องทางติดต่อ')}</label>
+            <select
+              className="form-select"
+              value={contactChannel}
+              onChange={(e) => setContactChannel(e.target.value as 'line' | 'facebook')}
+            >
+              <option value="line">LINE</option>
+              <option value="facebook">Facebook</option>
+            </select>
+          </div>
+          <div className="col-md-8">
+            <label className="form-label fw-bold">{t('customers.contact_handle', 'ไอดี/ลิงก์')}</label>
+            <input
+              type="text"
+              className="form-control"
+              value={contactHandle}
+              onChange={(e) => setContactHandle(e.target.value)}
+              placeholder={contactChannel === 'facebook' ? t('customers.facebook_placeholder', 'เช่น ชื่อโปรไฟล์ หรือ ลิงก์') : t('customers.line_placeholder', 'เช่น Line ID')}
             />
           </div>
         </div>

@@ -38,6 +38,27 @@ interface Document {
   created_at: string;
 }
 
+interface OrderPaymentPlan {
+  id: number;
+  order_id: number;
+  total: string;
+  down_payment?: string | null;
+  installment_count: number;
+  installment_amount: string;
+  start_date?: string | null;
+  due_day?: number | null;
+  status: string;
+}
+
+interface OrderPayment {
+  id: number;
+  order_id: number;
+  installment_no?: number | null;
+  amount: string;
+  method: string;
+  paid_at: string;
+}
+
 interface Order {
   id: number;
   parent_id?: number;
@@ -68,6 +89,10 @@ interface Order {
   customer?: User;
   items: OrderItem[];
   documents?: Document[];
+  payment_plan?: OrderPaymentPlan | null;
+  paymentPlan?: OrderPaymentPlan | null;
+  order_payments?: OrderPayment[];
+  payments?: OrderPayment[];
 }
 
 interface DailySales {
@@ -96,7 +121,13 @@ export const OrderList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState<'all' | 'installment'>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [searchText, setSearchText] = useState('');
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchKind, setSearchKind] = useState<null | 'document' | 'order-id' | 'keyword'>(null);
+  const [searchBusy, setSearchBusy] = useState(false);
+  const [searchResultCount, setSearchResultCount] = useState<number | null>(null);
   const [dailySales, setDailySales] = useState<DailySales | null>(null);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'danger', text: string } | null>(null);
   const [confirmAction, setConfirmAction] = useState<
@@ -135,6 +166,84 @@ export const OrderList = () => {
     return { date, time };
   };
 
+  const getInstallmentSummary = (order: Order) => {
+    const plan = order.paymentPlan ?? order.payment_plan ?? null;
+    if (!plan) return null;
+
+    const total = Number(plan.total || order.total || 0);
+    const payments = order.payments ?? order.order_payments ?? [];
+    const paidSum = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const remaining = round2(total - paidSum);
+
+    const count = Number(plan.installment_count || 0);
+    const down = Number(plan.down_payment || 0);
+    const base = Number(plan.installment_amount || 0);
+    const installmentTotal = round2(Math.max(0, total - down));
+    const lastAmount = round2(Math.max(0, installmentTotal - base * Math.max(0, count - 1)));
+
+    const start = plan.start_date ? new Date(plan.start_date) : new Date(order.created_at);
+    const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const dueDay = plan.due_day ?? startDate.getDate();
+    const toDueDate = (monthOffset: number) => {
+      const y = startDate.getFullYear();
+      const m = startDate.getMonth() + monthOffset;
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      const d = Math.min(Math.max(1, dueDay), lastDay);
+      return new Date(y, m, d);
+    };
+    const expectedForNo = (no: number) => {
+      if (no === 0) return round2(down);
+      if (no === count) return lastAmount;
+      return round2(base);
+    };
+
+    const schedule: Array<{ installment_no: number; due_date: Date | null; expected_amount: number }> = [];
+    if (down > 0) {
+      schedule.push({
+        installment_no: 0,
+        due_date: startDate,
+        expected_amount: expectedForNo(0),
+      });
+    }
+    for (let i = 1; i <= count; i += 1) {
+      schedule.push({
+        installment_no: i,
+        due_date: toDueDate(i - 1),
+        expected_amount: expectedForNo(i),
+      });
+    }
+
+    const paidNos = new Set<number>(
+      payments
+        .filter((p) => p.installment_no !== null && p.installment_no !== undefined)
+        .map((p) => Number(p.installment_no))
+    );
+    const paidCount = schedule.filter((s) => paidNos.has(s.installment_no)).length;
+    const nextRow = schedule.find((s) => !paidNos.has(s.installment_no)) || null;
+
+    const today = new Date();
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const overdueRows = schedule.filter((s) => {
+      if (paidNos.has(s.installment_no)) return false;
+      if (!s.due_date) return false;
+      return s.due_date < todayDate;
+    });
+    const overdueCount = overdueRows.length;
+    const overdueAmount = round2(overdueRows.reduce((sum, r) => sum + Number(r.expected_amount || 0), 0));
+
+    const isCompleted = (plan.status || 'active') === 'completed' || remaining <= 0;
+    return {
+      planStatus: plan.status || 'active',
+      isCompleted,
+      totalCount: schedule.length,
+      paidCount,
+      remaining,
+      nextRow,
+      overdueCount,
+      overdueAmount,
+    };
+  };
+
   const renderIssuedDocBadges = (order: Order) => {
     const docs: Array<{ key: 'quotation' | 'billing_note' | 'receipt'; label: string; number?: string; status?: string; activeClass: string }> = [
       {
@@ -164,17 +273,25 @@ export const OrderList = () => {
     if (issued.length === 0) return null;
 
     return (
-      <div className="d-flex flex-wrap gap-1 mt-1">
+      <div className="d-flex flex-column gap-1 mt-1">
         {issued.map(d => {
           const isCancelled = d.status === 'cancelled';
           return (
-            <span
-              key={d.key}
-              className={`badge ${isCancelled ? 'bg-secondary text-decoration-line-through' : d.activeClass}`}
-              title={d.number || ''}
-              style={{ fontSize: '0.7em' }}
-            >
-              {d.label}
+            <span key={d.key} className="d-inline-flex align-items-center gap-1" title={d.number || ''}>
+              <span
+                className={`badge ${isCancelled ? 'bg-secondary text-decoration-line-through' : d.activeClass}`}
+                style={{ fontSize: '0.7em' }}
+              >
+                {d.label}
+              </span>
+              {d.number && (
+                <span
+                  className={`badge bg-light text-dark border font-monospace ${isCancelled ? 'text-decoration-line-through' : ''}`}
+                  style={{ fontSize: '0.68em' }}
+                >
+                  {d.number}
+                </span>
+              )}
             </span>
           );
         })}
@@ -211,17 +328,25 @@ export const OrderList = () => {
     if (issued.length === 0) return '-';
 
     return (
-      <div className="d-flex flex-wrap gap-1">
+      <div className="d-flex flex-column gap-1">
         {issued.map(d => {
           const isCancelled = d.status === 'cancelled';
           return (
-            <span
-              key={d.key}
-              className={`badge ${isCancelled ? 'bg-secondary text-decoration-line-through' : d.activeClass}`}
-              title={d.number || ''}
-              style={{ fontSize: '0.75em' }}
-            >
-              {d.label}
+            <span key={d.key} className="d-inline-flex align-items-center gap-1" title={d.number || ''}>
+              <span
+                className={`badge ${isCancelled ? 'bg-secondary text-decoration-line-through' : d.activeClass}`}
+                style={{ fontSize: '0.75em' }}
+              >
+                {d.label}
+              </span>
+              {d.number && (
+                <span
+                  className={`badge bg-light text-dark border font-monospace ${isCancelled ? 'text-decoration-line-through' : ''}`}
+                  style={{ fontSize: '0.7em' }}
+                >
+                  {d.number}
+                </span>
+              )}
             </span>
           );
         })}
@@ -230,8 +355,9 @@ export const OrderList = () => {
   };
 
   useEffect(() => {
-    fetchOrders(currentPage);
-  }, [currentPage, filterStatus]);
+    if (searchActive && searchKind !== 'keyword') return;
+    fetchOrders(currentPage, false, searchActive && searchKind === 'keyword' ? searchText.trim() : undefined);
+  }, [currentPage, filterStatus, filterPaymentMethod, searchActive, searchKind, searchText]);
 
   useEffect(() => {
     fetchDailySales();
@@ -246,15 +372,166 @@ export const OrderList = () => {
     }
   };
 
-  const fetchOrders = async (page: number, background = false) => {
+  const looksLikeOrderId = (q: string) => /^#?\d+$/.test(q.trim());
+  const parseOrderId = (q: string) => {
+    const raw = q.trim().replace(/^#/, '');
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return Math.trunc(n);
+  };
+  const looksLikeDocumentNumber = (q: string) => {
+    const v = q.trim();
+    if (v === '') return false;
+    if (looksLikeOrderId(v)) return false;
+    return /[A-Za-z]/.test(v) && v.includes('-');
+  };
+
+  const searchOrdersByDocumentNumber = async (query: string) => {
+    const q = query.trim();
+    if (q === '') {
+      setAlertMessage({ type: 'danger', text: t('common.required', 'กรุณากรอกข้อมูล') });
+      return;
+    }
+    setSearchActive(true);
+    setSearchKind('document');
+    setSearchBusy(true);
+    setSearchResultCount(null);
+    setLoading(true);
+    try {
+      const qLower = q.toLowerCase();
+      let page = 1;
+      let last = 1;
+      const orderIds: number[] = [];
+      while (page <= last && page <= 10) {
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('per_page', '200');
+        const res = await api.get(`/documents?${params.toString()}`);
+        const apiData = (res as any)?.data;
+        const rowsRaw = apiData?.data ?? apiData;
+        const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
+        for (const d of rows) {
+          const number = String((d as any)?.number ?? '');
+          if (number === '') continue;
+          if (!number.toLowerCase().includes(qLower)) continue;
+          const oid = Number((d as any)?.order?.id ?? (d as any)?.order_id);
+          if (Number.isFinite(oid) && oid > 0) orderIds.push(oid);
+        }
+        if (typeof apiData?.last_page === 'number' && Number.isFinite(apiData.last_page)) {
+          last = apiData.last_page;
+        } else {
+          last = 1;
+        }
+        page += 1;
+      }
+
+      const uniqueIds = Array.from(new Set(orderIds)).slice(0, 50);
+      if (uniqueIds.length === 0) {
+        setOrders([]);
+        setCurrentPage(1);
+        setLastPage(1);
+        setSearchResultCount(0);
+        return;
+      }
+
+      const results = await Promise.allSettled(uniqueIds.map((oid) => api.get(`/orders/${oid}`)));
+      const loaded = results
+        .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+        .map((r) => r.value?.data)
+        .filter(Boolean) as Order[];
+
+      setOrders(loaded);
+      setCurrentPage(1);
+      setLastPage(1);
+      setSearchResultCount(loaded.length);
+    } catch (err) {
+      setAlertMessage({ type: 'danger', text: t('common.fetch_failed', 'โหลดข้อมูลไม่สำเร็จ') });
+    } finally {
+      setLoading(false);
+      setSearchBusy(false);
+    }
+  };
+
+  const searchOrdersByOrderId = async (orderId: number) => {
+    setSearchActive(true);
+    setSearchKind('order-id');
+    setSearchBusy(true);
+    setSearchResultCount(null);
+    setLoading(true);
+    try {
+      const res = await api.get(`/orders/${orderId}`);
+      setOrders([res.data]);
+      setCurrentPage(1);
+      setLastPage(1);
+      setSearchResultCount(1);
+    } catch {
+      setOrders([]);
+      setCurrentPage(1);
+      setLastPage(1);
+      setSearchResultCount(0);
+      setAlertMessage({ type: 'danger', text: t('common.not_found', 'ไม่พบข้อมูล') });
+    } finally {
+      setLoading(false);
+      setSearchBusy(false);
+    }
+  };
+
+  const runSearch = async () => {
+    const q = searchText.trim();
+    if (q === '') return;
+    if (looksLikeOrderId(q)) {
+      const oid = parseOrderId(q);
+      if (!oid) {
+        setAlertMessage({ type: 'danger', text: t('common.invalid', 'ข้อมูลไม่ถูกต้อง') });
+        return;
+      }
+      await searchOrdersByOrderId(oid);
+      return;
+    }
+    if (looksLikeDocumentNumber(q)) {
+      await searchOrdersByDocumentNumber(q);
+      return;
+    }
+    setSearchActive(true);
+    setSearchKind('keyword');
+    setSearchResultCount(null);
+    setCurrentPage(1);
+    await fetchOrders(1, false, q);
+  };
+
+  const clearSearch = () => {
+    setSearchText('');
+    setSearchActive(false);
+    setSearchKind(null);
+    setSearchBusy(false);
+    setSearchResultCount(null);
+    setCurrentPage(1);
+    fetchOrders(1);
+  };
+
+  const fetchOrders = async (page: number, background = false, keyword?: string) => {
+    if (searchActive && searchKind && searchKind !== 'keyword') return;
     if (!background) setLoading(true);
     try {
-      const response = await api.get<PaginatedResponse<Order>>(`/orders?page=${page}&status=${filterStatus}`);
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('status', String(filterStatus));
+      if (filterPaymentMethod !== 'all') params.set('payment_method', filterPaymentMethod);
+      const q = keyword?.trim() || '';
+      if (q !== '') params.set('search', q);
+      const response = await api.get<PaginatedResponse<Order>>(`/orders?${params.toString()}`);
       setOrders(response.data.data);
       setCurrentPage(response.data.current_page);
       setLastPage(response.data.last_page);
+      if (q !== '') setSearchResultCount(response.data.total ?? response.data.data.length);
     } catch (error) {
       console.error('Failed to fetch orders:', error);
+      if (keyword && keyword.trim() !== '') {
+        setAlertMessage({ type: 'danger', text: t('orders.search_not_supported', 'ระบบยังไม่รองรับค้นหาแบบคำ') });
+        setSearchActive(false);
+        setSearchKind(null);
+        setSearchResultCount(null);
+      }
     } finally {
       if (!background) setLoading(false);
     }
@@ -464,7 +741,13 @@ export const OrderList = () => {
 
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>{t('orders.title_bills')}</h2>
-        <button className="btn btn-primary" onClick={() => fetchOrders(1)}>{t('orders.refresh')}</button>
+        <button
+          className="btn btn-primary"
+          onClick={() => (searchActive ? runSearch() : fetchOrders(1))}
+          disabled={searchBusy}
+        >
+          {t('orders.refresh')}
+        </button>
       </div>
 
       {editingOrder && (
@@ -479,25 +762,80 @@ export const OrderList = () => {
         />
       )}
 
-      <div className="mb-3">
-        <div
-          className="nav nav-pills flex-nowrap overflow-auto gap-2 p-1 bg-light rounded"
-          style={{ WebkitOverflowScrolling: 'touch' }}
-          role="tablist"
-          aria-label={t('orders.status', 'สถานะ')}
-        >
-          {['all', 'completed', 'pending', 'quotation', 'cancelled'].map(status => (
-            <button
-              key={status}
-              type="button"
-              className={`nav-link text-nowrap px-3 py-2 ${filterStatus === status ? 'active fw-bold' : 'text-dark'}`}
-              onClick={() => { setFilterStatus(status); setCurrentPage(1); }}
-              role="tab"
-              aria-selected={filterStatus === status}
+      <div className="card shadow-sm mb-3">
+        <div className="card-body py-2">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
+            <div
+              className="nav nav-pills flex-nowrap overflow-auto gap-2 p-1 bg-light rounded"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+              role="tablist"
+              aria-label={t('orders.status', 'สถานะ')}
             >
-              {t(`status.${status}`)}
-            </button>
-          ))}
+              {['all', 'completed', 'pending', 'quotation', 'cancelled'].map(status => (
+                <button
+                  key={status}
+                  type="button"
+                  className={`nav-link text-nowrap px-3 py-2 ${filterStatus === status ? 'active fw-bold' : 'text-dark'}`}
+                  onClick={() => { setFilterStatus(status); setCurrentPage(1); }}
+                  disabled={searchActive && searchKind !== 'keyword'}
+                  role="tab"
+                  aria-selected={filterStatus === status}
+                >
+                  {t(`status.${status}`)}
+                </button>
+              ))}
+            </div>
+
+            <div className="form-check form-switch m-0">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                id="filterInstallmentOnly"
+                checked={filterPaymentMethod === 'installment'}
+                disabled={searchActive && searchKind !== 'keyword'}
+                onChange={(e) => {
+                  setFilterPaymentMethod(e.target.checked ? 'installment' : 'all');
+                  setCurrentPage(1);
+                }}
+              />
+              <label className="form-check-label fw-semibold" htmlFor="filterInstallmentOnly">
+                {t('orders.installment_list', 'รายการผ่อนชำระ')}
+              </label>
+            </div>
+          </div>
+
+          <div className="mt-2 d-flex flex-column flex-md-row gap-2">
+            <input
+              className="form-control"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder={t('orders.search_placeholder', 'ค้นหา: เลขออเดอร์ / ชื่อลูกค้า / เลขที่เอกสาร / SKU')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') runSearch();
+              }}
+              disabled={searchBusy}
+            />
+            <div className="d-flex gap-2">
+              <button
+                type="button"
+                className="btn btn-outline-primary"
+                onClick={runSearch}
+                disabled={searchBusy || searchText.trim() === ''}
+              >
+                {t('common.search', 'ค้นหา')}
+              </button>
+              {searchActive && (
+                <button type="button" className="btn btn-outline-secondary" onClick={clearSearch} disabled={searchBusy}>
+                  {t('common.clear', 'ล้าง')}
+                </button>
+              )}
+            </div>
+          </div>
+          {searchActive && searchResultCount !== null && (
+            <div className="small text-muted mt-2">
+              {t('common.found', 'พบ')}: {searchResultCount}
+            </div>
+          )}
         </div>
       </div>
 
@@ -546,13 +884,46 @@ export const OrderList = () => {
                         <div className="small text-muted">{t('orders.staff')}: {order.user?.name || t('orders.unknown')}</div>
                       </td>
                       <td className="p-3">
-                        <span className={`badge bg-${
-                            order.status === 'completed' ? 'success' : 
-                            order.status === 'pending' ? 'warning' : 
-                            order.status === 'quotation' ? 'info' : 'danger'
-                        }`}>
-                          {t(`status.${order.status}`)}
-                        </span>
+                        {(() => {
+                          const s = getInstallmentSummary(order);
+                          const orderBadgeClass =
+                            order.status === 'completed'
+                              ? 'success'
+                              : order.status === 'pending'
+                                ? 'warning'
+                                : order.status === 'quotation'
+                                  ? 'info'
+                                  : 'danger';
+                          if (!s) {
+                            return <span className={`badge bg-${orderBadgeClass}`}>{t(`status.${order.status}`)}</span>;
+                          }
+
+                          const badgeClass = s.isCompleted ? 'success' : s.overdueCount > 0 ? 'danger' : 'primary';
+                          const badgeText = s.isCompleted
+                            ? t('orders.completed', 'ปิดบัญชี')
+                            : s.overdueCount > 0
+                              ? t('orders.overdue', 'ค้างชำระ')
+                              : t('orders.active', 'ผ่อนอยู่');
+                          return (
+                            <div>
+                              <div className="d-flex flex-wrap gap-1">
+                                <span className={`badge bg-${orderBadgeClass}`}>{t(`status.${order.status}`)}</span>
+                                <span className={`badge bg-${badgeClass}`}>{badgeText}</span>
+                              </div>
+                              <div className="small text-muted mt-1">
+                                {s.paidCount}/{s.totalCount}
+                                {s.remaining > 0 && (
+                                  <span> · ฿{s.remaining.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                )}
+                              </div>
+                              {s.overdueCount > 0 && (
+                                <div className="small text-danger">
+                                  {t('orders.overdue_amount', 'ยอดค้าง')}: ฿{s.overdueAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="p-3">
                         {renderIssuedDocBadgesInline(order)}
@@ -574,6 +945,7 @@ export const OrderList = () => {
                 {orders.map((order) => {
                   const dt = formatDateTime(order.created_at);
                   const customerName = order.customer?.company_name || order.customer?.name || t('pos.walk_in');
+                  const installment = getInstallmentSummary(order);
                   const statusClass =
                     order.status === 'completed'
                       ? 'success'
@@ -598,7 +970,14 @@ export const OrderList = () => {
                             </div>
                           </div>
                           <div className="text-end">
-                            <span className={`badge bg-${statusClass}`}>{t(`status.${order.status}`)}</span>
+                            <div className="d-flex flex-column align-items-end gap-1">
+                              <span className={`badge bg-${statusClass}`}>{t(`status.${order.status}`)}</span>
+                              {installment && (
+                                <span className={`badge bg-${installment.isCompleted ? 'success' : installment.overdueCount > 0 ? 'danger' : 'primary'}`}>
+                                  {installment.isCompleted ? t('orders.completed', 'ปิดบัญชี') : installment.overdueCount > 0 ? t('orders.overdue', 'ค้างชำระ') : t('orders.active', 'ผ่อนอยู่')}
+                                </span>
+                              )}
+                            </div>
                             <div className="fw-bold mt-1">
                               ฿{parseFloat(order.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
@@ -618,6 +997,15 @@ export const OrderList = () => {
                             {renderIssuedDocBadgesInline(order)}
                           </div>
                         </div>
+
+                        {installment && (
+                          <div className="mt-2 small text-muted">
+                            {installment.paidCount}/{installment.totalCount}
+                            {installment.remaining > 0 && (
+                              <span> · ฿{installment.remaining.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </button>
                   );

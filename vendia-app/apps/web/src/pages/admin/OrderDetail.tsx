@@ -35,6 +35,30 @@ interface Document {
   number: string;
   status: string;
   created_at: string;
+  order_payment_id?: number | null;
+  header_subtitle?: string | null;
+}
+
+interface OrderPaymentPlan {
+  id: number;
+  order_id: number;
+  total: string;
+  down_payment?: string | null;
+  installment_count: number;
+  installment_amount: string;
+  start_date?: string | null;
+  due_day?: number | null;
+  status: string;
+}
+
+interface OrderPayment {
+  id: number;
+  installment_no?: number | null;
+  amount: string;
+  method: 'cash' | 'transfer' | string;
+  paid_at: string;
+  note?: string | null;
+  documents?: Document[];
 }
 
 interface Order {
@@ -72,6 +96,8 @@ interface Order {
   };
   items: OrderItem[];
   documents?: Document[];
+  paymentPlan?: OrderPaymentPlan | null;
+  payments?: OrderPayment[];
 }
 
 export const OrderDetail = () => {
@@ -85,8 +111,10 @@ export const OrderDetail = () => {
   const [confirmAction, setConfirmAction] = useState<
     | null
     | { kind: 'cancel-document'; docType: 'quotation' | 'billing_note' | 'receipt'; number: string }
+    | { kind: 'delete-installment-receipt'; paymentId: number; number: string }
     | { kind: 'convert-quotation' }
     | { kind: 'cancel-order' }
+    | { kind: 'cancel-order-migration' }
     | { kind: 'mark-unpaid' }
     | { kind: 'purge-order' }
     | { kind: 'delete-order' }
@@ -103,7 +131,54 @@ export const OrderDetail = () => {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
 
+  const [showInstallmentPlanModal, setShowInstallmentPlanModal] = useState(false);
+  const [showInstallmentPaymentModal, setShowInstallmentPaymentModal] = useState(false);
+  const [planInstallmentCount, setPlanInstallmentCount] = useState('12');
+  const [planDownPayment, setPlanDownPayment] = useState('');
+  const [planInstallmentAmount, setPlanInstallmentAmount] = useState('');
+  const [planStartDate, setPlanStartDate] = useState('');
+  const [planDueDay, setPlanDueDay] = useState('');
+  const [installmentPayAmount, setInstallmentPayAmount] = useState('');
+  const [installmentPayMethod, setInstallmentPayMethod] = useState<'cash' | 'transfer'>('cash');
+  const [installmentPayDate, setInstallmentPayDate] = useState('');
+  const [installmentPayNote, setInstallmentPayNote] = useState('');
+  const [installmentUseExistingReceipt, setInstallmentUseExistingReceipt] = useState(false);
+  const [installmentExistingReceiptNo, setInstallmentExistingReceiptNo] = useState('');
+  const [installmentIssueReceipt, setInstallmentIssueReceipt] = useState(true);
+  const [selectedInstallmentNo, setSelectedInstallmentNo] = useState<number | null>(null);
+  const [installmentPaymentMode, setInstallmentPaymentMode] = useState<'next' | 'specific' | 'close'>('next');
+  const [showBackpayModal, setShowBackpayModal] = useState(false);
+  const [backpayInstallmentNo, setBackpayInstallmentNo] = useState('');
+  const installmentScheduleRef = useRef<HTMLDivElement | null>(null);
+
   const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+  const formatMoney = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const isLegacyInstallmentOrder = (o: Order) => {
+    if (!o) return false;
+    if (o.payment_method === 'installment' || !!o.paymentPlan) return false;
+    const items = o.items || [];
+    return items.some((it) => {
+      const name = String(it?.product?.name || '');
+      const sku = String(it?.product?.sku || '');
+      return /INSTALLMENT/i.test(sku) || name.includes('ผ่อน') || name.includes('งวด');
+    });
+  };
+
+  const normalizeOrder = (raw: any): Order => {
+    const paymentPlan = raw?.paymentPlan ?? raw?.payment_plan ?? null;
+    const payments = raw?.payments ?? raw?.order_payments ?? [];
+    const items = raw?.items ?? [];
+    const documents = raw?.documents ?? [];
+    return {
+      ...raw,
+      paymentPlan,
+      payments,
+      items,
+      documents,
+    } as Order;
+  };
 
   const formatDateTime = (iso: string) => {
     const d = new Date(iso);
@@ -137,13 +212,283 @@ export const OrderDetail = () => {
     setLoading(true);
     try {
       const res = await api.get(`/orders/${id}`);
-      setOrder(res.data);
+      setOrder(normalizeOrder(res.data));
     } catch (error) {
       console.error('Failed to fetch order:', error);
       setUiMessage({ type: 'danger', text: t('orders.fetch_failed', 'ไม่สามารถดึงข้อมูลออเดอร์ได้') });
     } finally {
       setLoading(false);
     }
+  };
+
+  const getInstallmentPaidSum = (o: Order) => {
+    const payments = o.payments || [];
+    return payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  };
+
+  const installmentData = useMemo(() => {
+    if (!order) return null;
+    const plan = order.paymentPlan || null;
+    if (!plan) return null;
+
+    const total = Number(plan.total || 0);
+    const paid = getInstallmentPaidSum(order);
+    const remaining = round2(total - paid);
+    const count = plan.installment_count;
+    const down = Number(plan.down_payment || 0);
+    const base = Number(plan.installment_amount || 0);
+    const installmentTotal = round2(Math.max(0, total - down));
+    const lastAmount = round2(Math.max(0, installmentTotal - base * Math.max(0, count - 1)));
+    const start = plan.start_date ? new Date(plan.start_date) : new Date(order.created_at);
+    const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const dueDay = plan.due_day ?? startDate.getDate();
+    const toDueDate = (monthOffset: number) => {
+      const y = startDate.getFullYear();
+      const m = startDate.getMonth() + monthOffset;
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      const d = Math.min(Math.max(1, dueDay), lastDay);
+      return new Date(y, m, d);
+    };
+    const expectedForNo = (no: number) => {
+      if (no === 0) return round2(down);
+      if (no === count) return lastAmount;
+      return round2(base);
+    };
+
+    const allPayments = (order.payments || []).slice().sort((a, b) => {
+      const da = new Date(a.paid_at).getTime();
+      const db = new Date(b.paid_at).getTime();
+      if (da !== db) return da - db;
+      return a.id - b.id;
+    });
+    const paymentsByNo = new Map<number, OrderPayment>();
+    const unassigned: OrderPayment[] = [];
+    for (const p of allPayments) {
+      if (p.installment_no === null || p.installment_no === undefined) {
+        unassigned.push(p);
+      } else {
+        paymentsByNo.set(Number(p.installment_no), p);
+      }
+    }
+
+    const schedule: Array<{
+      installment_no: number;
+      label: string;
+      due_date: Date | null;
+      expected_amount: number;
+    }> = [];
+    if (down > 0) {
+      schedule.push({
+        installment_no: 0,
+        label: t('orders.down_payment', 'เงินดาวน์'),
+        due_date: startDate,
+        expected_amount: expectedForNo(0),
+      });
+    }
+    for (let i = 1; i <= count; i += 1) {
+      schedule.push({
+        installment_no: i,
+        label: `${t('orders.installment_no', 'งวดที่')} ${i}/${count}`,
+        due_date: toDueDate(i - 1),
+        expected_amount: expectedForNo(i),
+      });
+    }
+
+    const paidCount = schedule.filter((s) => paymentsByNo.has(s.installment_no)).length;
+    const nextRow = schedule.find((s) => !paymentsByNo.has(s.installment_no)) || null;
+    const today = new Date();
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const overdueRows = schedule.filter((s) => {
+      const isPaid = paymentsByNo.has(s.installment_no);
+      if (isPaid) return false;
+      if (!s.due_date) return false;
+      return s.due_date < todayDate;
+    });
+    const overdueNos = new Set<number>(overdueRows.map((r) => r.installment_no));
+    const overdueCount = overdueRows.length;
+    const overdueAmount = round2(overdueRows.reduce((sum, r) => sum + Number(r.expected_amount || 0), 0));
+
+    return {
+      plan,
+      total,
+      paid,
+      remaining,
+      schedule,
+      paymentsByNo,
+      unassigned,
+      paidCount,
+      nextRow,
+      overdueRows,
+      overdueNos,
+      overdueCount,
+      overdueAmount,
+    };
+  }, [order, t]);
+
+  const openInstallmentPlan = () => {
+    if (!order) return;
+    const existing = order.paymentPlan || null;
+    setPlanInstallmentCount(String(existing?.installment_count || 12));
+    setPlanDownPayment(existing?.down_payment ? String(existing.down_payment) : '');
+    setPlanInstallmentAmount(existing?.installment_amount ? String(existing.installment_amount) : '');
+    const start = existing?.start_date ? new Date(existing.start_date) : new Date(order.created_at);
+    const startStr = new Date(start.getFullYear(), start.getMonth(), start.getDate()).toISOString().slice(0, 10);
+    setPlanStartDate(existing?.start_date ? String(existing.start_date).slice(0, 10) : startStr);
+    const due = existing?.due_day ?? start.getDate();
+    setPlanDueDay(String(due));
+    setShowInstallmentPlanModal(true);
+  };
+
+  const saveInstallmentPlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!order) return;
+
+    const count = Math.max(1, Math.min(120, Number(planInstallmentCount || 1)));
+    const down = Math.max(0, Number(planDownPayment || 0));
+    const total = Number(order.total || 0);
+    const computedAmount = round2(Math.max(0, total - down) / count);
+    const amount = planInstallmentAmount.trim() !== '' ? Number(planInstallmentAmount) : computedAmount;
+    const dueDayValue =
+      planDueDay.trim() !== '' ? Math.max(1, Math.min(31, Number(planDueDay))) : null;
+
+    try {
+      const res = await api.post(`/orders/${order.id}/installment-plan`, {
+        total,
+        down_payment: down,
+        installment_count: count,
+        installment_amount: amount,
+        start_date: planStartDate.trim() !== '' ? planStartDate : null,
+        due_day: dueDayValue,
+      });
+      setOrder(normalizeOrder(res.data));
+      setShowInstallmentPlanModal(false);
+      setUiMessage({ type: 'success', text: t('common.success', 'สำเร็จ') });
+    } catch (err) {
+      console.error(err);
+      setUiMessage({ type: 'danger', text: t('common.error', 'ไม่สำเร็จ') });
+    }
+  };
+
+  const openInstallmentPayment = (installmentNo?: number | null) => {
+    if (!order) return;
+    const plan = order.paymentPlan;
+    if (!plan) return;
+
+    const count = plan.installment_count;
+    const total = Number(plan.total || 0);
+    const down = Number(plan.down_payment || 0);
+    const base = Number(plan.installment_amount || 0);
+    const installmentTotal = round2(Math.max(0, total - down));
+    const lastAmount = round2(Math.max(0, installmentTotal - base * Math.max(0, count - 1)));
+    const expectedForNo = (no: number) => {
+      if (no === 0) return round2(down);
+      if (no === count) return lastAmount;
+      return round2(base);
+    };
+    const payments = order.payments || [];
+    const paidNos = new Set<number>(payments.filter((p) => p.installment_no !== null && p.installment_no !== undefined).map((p) => Number(p.installment_no)));
+    const nextNo = (() => {
+      if (down > 0 && !paidNos.has(0)) return 0;
+      for (let i = 1; i <= count; i += 1) {
+        if (!paidNos.has(i)) return i;
+      }
+      return null;
+    })();
+    const targetNo = installmentNo !== undefined ? installmentNo : nextNo;
+    setSelectedInstallmentNo(targetNo);
+    setInstallmentPaymentMode(installmentNo === null ? 'close' : installmentNo === undefined ? 'next' : 'specific');
+
+    const paidSum = getInstallmentPaidSum(order);
+    const remaining = round2(total - paidSum);
+    const suggested = installmentNo === null
+      ? Math.max(0, remaining)
+      : targetNo === null
+        ? Math.min(Math.max(0, remaining), base || Math.max(0, remaining))
+        : Math.min(expectedForNo(targetNo), Math.max(0, remaining));
+    setInstallmentPayAmount(String(round2(suggested || 0)));
+    setInstallmentPayMethod('cash');
+    setInstallmentPayDate(new Date().toISOString().slice(0, 10));
+    setInstallmentPayNote('');
+    setInstallmentUseExistingReceipt(false);
+    setInstallmentExistingReceiptNo('');
+    setInstallmentIssueReceipt(true);
+    setShowInstallmentPaymentModal(true);
+  };
+
+  const openBackpay = () => {
+    if (!installmentData) return;
+    if (installmentData.overdueRows.length === 0) return;
+    setBackpayInstallmentNo(String(installmentData.overdueRows[0].installment_no));
+    setShowBackpayModal(true);
+  };
+
+  const submitBackpaySelection = (e: React.FormEvent) => {
+    e.preventDefault();
+    const no = Number(backpayInstallmentNo);
+    if (!Number.isFinite(no)) return;
+    setShowBackpayModal(false);
+    openInstallmentPayment(no);
+  };
+
+  const submitInstallmentPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!order) return;
+    try {
+      const noteParts: string[] = [];
+      if (installmentUseExistingReceipt && installmentExistingReceiptNo.trim() !== '') {
+        noteParts.push(`${t('orders.existing_receipt', 'ใบเสร็จเดิม')}: ${installmentExistingReceiptNo.trim()}`);
+      }
+      if (installmentPayNote.trim() !== '') noteParts.push(installmentPayNote.trim());
+      const note = noteParts.join(' · ');
+
+      const res = await api.post(`/orders/${order.id}/installment-payments`, {
+        amount: Number(installmentPayAmount || 0),
+        method: installmentPayMethod,
+        paid_at: installmentPayDate || null,
+        installment_no: selectedInstallmentNo,
+        issue_receipt: installmentIssueReceipt,
+        issued_date: installmentPayDate || null,
+        note: note === '' ? null : note,
+      });
+      setOrder(normalizeOrder(res.data));
+      setShowInstallmentPaymentModal(false);
+      setUiMessage({ type: 'success', text: t('orders.payment_success', 'รับชำระสำเร็จ') });
+    } catch (err) {
+      console.error(err);
+      setUiMessage({ type: 'danger', text: t('orders.payment_failed', 'รับชำระไม่สำเร็จ') });
+    }
+  };
+
+  const issueReceiptForPayment = async (paymentId: number) => {
+    if (!order) return;
+    try {
+      const res = await api.post(`/order-payments/${paymentId}/issue-receipt`, {});
+      const docId = res.data?.id;
+      await fetchOrder();
+      if (docId) {
+        window.open(`/print/order/${order.id}?type=receipt&doc_id=${docId}&edit=1`, '_blank');
+      }
+    } catch (err) {
+      console.error(err);
+      setUiMessage({ type: 'danger', text: t('common.error', 'ไม่สำเร็จ') });
+    }
+  };
+
+  const deleteReceiptForPayment = async (paymentId: number) => {
+    if (!order) return;
+    try {
+      await api.post(`/order-payments/${paymentId}/delete-receipt`, {});
+      await fetchOrder();
+      setUiMessage({ type: 'success', text: t('common.success', 'สำเร็จ') });
+    } catch (err) {
+      console.error(err);
+      setUiMessage({ type: 'danger', text: t('common.error', 'ไม่สำเร็จ') });
+    }
+  };
+
+  const getPaymentReceiptDoc = (p: OrderPayment) => {
+    const docs = p.documents || [];
+    return docs.find((d) => d.type === 'receipt' && d.status !== 'cancelled') || docs.find((d) => d.type === 'receipt') || null;
   };
 
   useEffect(() => {
@@ -181,7 +526,8 @@ export const OrderDetail = () => {
   }, [moreMenuOpen]);
 
   const getDocumentHistory = (o: Order, type: 'quotation' | 'billing_note' | 'receipt') => {
-    const docs = (o.documents || []).filter(d => d.type === type);
+    const docsAll = (o.documents || []).filter(d => d.type === type);
+    const docs = type === 'receipt' ? docsAll.filter((d) => !d.order_payment_id) : docsAll;
     const currentNumber =
       type === 'quotation'
         ? o.quotation_number
@@ -368,6 +714,276 @@ export const OrderDetail = () => {
   if (loading) return <div className="p-4 text-center">{t('common.loading')}</div>;
   if (!order) return <div className="p-4 text-center text-muted">{t('orders.not_found', 'ไม่พบออเดอร์')}</div>;
 
+  const installmentReceiptCount = (order.documents || []).filter((d) => d.type === 'receipt' && d.order_payment_id).length;
+  const isInstallmentOrder = order.payment_method === 'installment' || !!order.paymentPlan;
+  const issuedDocumentsBody = (
+    <>
+      <div className="d-none d-md-block">
+        <ul className="list-group list-group-flush">
+          <li className="list-group-item px-0">
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <span className="fw-bold">{t('orders.quotation')}</span>
+              {(!order.quotation_number || order.quotation_status === 'cancelled') && (
+                <button
+                  className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
+                  onClick={() => handleIssueDocument(order.id, 'quotation')}
+                  title={t('orders.create')}
+                  style={{ width: '40px', height: '40px' }}
+                >
+                  <i className="bi bi-plus-lg" style={{ fontSize: '1.1rem' }}></i>
+                </button>
+              )}
+            </div>
+
+            {getDocumentHistory(order, 'quotation').map(doc => (
+              <div key={doc.id} className="d-flex justify-content-between align-items-center mb-1 ps-2 border-start border-3">
+                <div>
+                  <span className={`font-monospace d-block small ${doc.status === 'cancelled' ? 'text-decoration-line-through text-danger' : 'text-success'}`}>
+                    {doc.number}
+                  </span>
+                  <span className="text-muted" style={{ fontSize: '0.7em' }}>
+                    {new Date(doc.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="btn-group">
+                  {doc.status !== 'cancelled' ? (
+                    <>
+                      <button
+                        className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center"
+                        onClick={() => handlePrint(order, 'quotation')}
+                        title={t('orders.print')}
+                        style={{ width: '40px', height: '40px' }}
+                      >
+                        <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
+                      </button>
+                      <button
+                        className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
+                        onClick={() => setConfirmAction({ kind: 'cancel-document', docType: 'quotation', number: doc.number })}
+                        title={t('common.cancel')}
+                        style={{ width: '40px', height: '40px' }}
+                      >
+                        <i className="bi bi-x-lg" style={{ fontSize: '1.05rem' }}></i>
+                      </button>
+                    </>
+                  ) : (
+                    <span className="badge bg-danger" style={{ fontSize: '0.6em' }}>{t('orders.document_cancelled')}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+            {getDocumentHistory(order, 'quotation').length === 0 && (
+              <div className="text-muted small ps-2">{t('orders.not_issued')}</div>
+            )}
+          </li>
+
+          <li className="list-group-item px-0">
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <span className="fw-bold">{t('orders.billing_note')}</span>
+              {(!order.billing_note_number || order.billing_note_status === 'cancelled') && (
+                <button
+                  className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
+                  onClick={() => handleIssueDocument(order.id, 'billing_note')}
+                  title={t('orders.create')}
+                  style={{ width: '40px', height: '40px' }}
+                >
+                  <i className="bi bi-plus-lg" style={{ fontSize: '1.1rem' }}></i>
+                </button>
+              )}
+            </div>
+
+            {getDocumentHistory(order, 'billing_note').map(doc => (
+              <div key={doc.id} className="d-flex justify-content-between align-items-center mb-1 ps-2 border-start border-3">
+                <div>
+                  <span className={`font-monospace d-block small ${doc.status === 'cancelled' ? 'text-decoration-line-through text-danger' : 'text-success'}`}>
+                    {doc.number}
+                  </span>
+                  <span className="text-muted" style={{ fontSize: '0.7em' }}>
+                    {new Date(doc.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="btn-group">
+                  {doc.status !== 'cancelled' ? (
+                    <>
+                      <button
+                        className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center"
+                        onClick={() => handlePrint(order, 'billing_note')}
+                        title={t('orders.print')}
+                        style={{ width: '40px', height: '40px' }}
+                      >
+                        <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
+                      </button>
+                      <button
+                        className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
+                        onClick={() => setConfirmAction({ kind: 'cancel-document', docType: 'billing_note', number: doc.number })}
+                        title={t('common.cancel')}
+                        style={{ width: '40px', height: '40px' }}
+                      >
+                        <i className="bi bi-x-lg" style={{ fontSize: '1.05rem' }}></i>
+                      </button>
+                    </>
+                  ) : (
+                    <span className="badge bg-danger" style={{ fontSize: '0.6em' }}>{t('orders.document_cancelled')}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+            {getDocumentHistory(order, 'billing_note').length === 0 && (
+              <div className="text-muted small ps-2">{t('orders.not_issued')}</div>
+            )}
+          </li>
+
+          <li className="list-group-item px-0">
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <span className="fw-bold">{t('orders.receipt')}</span>
+              {(!order.receipt_number || order.receipt_status === 'cancelled') && (
+                <button
+                  className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
+                  onClick={() => handleIssueDocument(order.id, 'receipt')}
+                  title={t('orders.create')}
+                  style={{ width: '40px', height: '40px' }}
+                >
+                  <i className="bi bi-plus-lg" style={{ fontSize: '1.1rem' }}></i>
+                </button>
+              )}
+            </div>
+
+            {getDocumentHistory(order, 'receipt').map(doc => (
+              <div key={doc.id} className="d-flex justify-content-between align-items-center mb-1 ps-2 border-start border-3">
+                <div>
+                  <span className={`font-monospace d-block small ${doc.status === 'cancelled' ? 'text-decoration-line-through text-danger' : 'text-success'}`}>
+                    {doc.number}
+                  </span>
+                  <span className="text-muted" style={{ fontSize: '0.7em' }}>
+                    {new Date(doc.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="btn-group">
+                  {doc.status !== 'cancelled' ? (
+                    <>
+                      <button
+                        className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center"
+                        onClick={() => handlePrint(order, 'receipt')}
+                        title={t('orders.print')}
+                        style={{ width: '40px', height: '40px' }}
+                      >
+                        <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
+                      </button>
+                      <button
+                        className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
+                        onClick={() => setConfirmAction({ kind: 'cancel-document', docType: 'receipt', number: doc.number })}
+                        title={t('common.cancel')}
+                        style={{ width: '40px', height: '40px' }}
+                      >
+                        <i className="bi bi-x-lg" style={{ fontSize: '1.05rem' }}></i>
+                      </button>
+                    </>
+                  ) : (
+                    <span className="badge bg-danger" style={{ fontSize: '0.6em' }}>{t('orders.document_cancelled')}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+            {getDocumentHistory(order, 'receipt').length === 0 && (
+              <div className="text-muted small ps-2">{t('orders.not_issued')}</div>
+            )}
+            {installmentReceiptCount > 0 && (
+              <div className="small text-muted ps-2 mt-2">
+                {t('orders.installment_receipts', 'ใบเสร็จรายงวด')}: {installmentReceiptCount}
+              </div>
+            )}
+          </li>
+        </ul>
+      </div>
+
+      <div className="d-block d-md-none">
+        <div className="d-flex flex-column gap-2">
+          {(['quotation', 'billing_note', 'receipt'] as const).map((docType) => {
+            const title =
+              docType === 'quotation'
+                ? t('orders.quotation')
+                : docType === 'billing_note'
+                  ? t('orders.billing_note')
+                  : t('orders.receipt');
+            const canCreate =
+              docType === 'quotation'
+                ? !order.quotation_number || order.quotation_status === 'cancelled'
+                : docType === 'billing_note'
+                  ? !order.billing_note_number || order.billing_note_status === 'cancelled'
+                  : !order.receipt_number || order.receipt_status === 'cancelled';
+            const history = getDocumentHistory(order, docType);
+            return (
+              <div key={docType} className="card border-0 shadow-sm">
+                <div className="card-header bg-white d-flex justify-content-between align-items-center">
+                  <span className="fw-bold">{title}</span>
+                  {canCreate && (
+                    <button
+                      className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
+                      onClick={() => handleIssueDocument(order.id, docType)}
+                      title={t('orders.create', 'สร้างเอกสาร')}
+                      type="button"
+                      style={{ width: '44px', height: '44px' }}
+                    >
+                      <i className="bi bi-plus-lg" style={{ fontSize: '1.1rem' }}></i>
+                    </button>
+                  )}
+                </div>
+                <div className="card-body">
+                  {history.length > 0 ? (
+                    <div className="d-flex flex-column gap-2">
+                      {history.map((doc) => (
+                        <div key={doc.id} className="border rounded p-2">
+                          <div className="d-flex justify-content-between align-items-start gap-2">
+                            <div style={{ minWidth: 0 }}>
+                              <div className={`font-monospace small ${doc.status === 'cancelled' ? 'text-danger text-decoration-line-through' : 'text-success'}`}>
+                                {doc.number}
+                              </div>
+                              <div className="small text-muted">
+                                {new Date(doc.created_at).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <div className="d-flex gap-2">
+                              {doc.status !== 'cancelled' ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-secondary btn-sm"
+                                    onClick={() => handlePrint(order, docType)}
+                                  >
+                                    {t('orders.print', 'พิมพ์')}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-danger btn-sm"
+                                    onClick={() => setConfirmAction({ kind: 'cancel-document', docType, number: doc.number })}
+                                  >
+                                    {t('common.cancel', 'ยกเลิก')}
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="badge bg-danger" style={{ fontSize: '0.7em' }}>{t('orders.document_cancelled')}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-muted small">{t('orders.not_issued')}</div>
+                  )}
+                  {docType === 'receipt' && installmentReceiptCount > 0 && (
+                    <div className="small text-muted mt-2">
+                      {t('orders.installment_receipts', 'ใบเสร็จรายงวด')}: {installmentReceiptCount}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div className="container-fluid p-2 p-md-4">
       <MessageModal
@@ -386,6 +1002,10 @@ export const OrderDetail = () => {
             ? ''
             : confirmAction.kind === 'cancel-document'
               ? t('orders.confirm_cancel_document', { number: confirmAction.number })
+              : confirmAction.kind === 'delete-installment-receipt'
+                ? t('orders.confirm_delete_document', { number: confirmAction.number, defaultValue: `ต้องการลบเอกสาร ${confirmAction.number} ถาวรใช่ไหม?` })
+              : confirmAction.kind === 'cancel-order-migration'
+                ? t('orders.confirm_cancel_order_migration', 'ต้องการยกเลิกออเดอร์นี้เพื่อไม่ให้นับยอดซ้ำ (ใช้สำหรับย้ายข้อมูล) ใช่ไหม?')
               : confirmAction.kind === 'convert-quotation'
                 ? t('orders.confirm_convert_quotation')
                 : confirmAction.kind === 'mark-unpaid'
@@ -407,6 +1027,8 @@ export const OrderDetail = () => {
           try {
             if (confirmAction.kind === 'cancel-document') {
               await handleCancelDocument(order.id, confirmAction.docType);
+            } else if (confirmAction.kind === 'delete-installment-receipt') {
+              await deleteReceiptForPayment(confirmAction.paymentId);
             } else if (confirmAction.kind === 'convert-quotation') {
               await handleConvertQuotation();
             } else if (confirmAction.kind === 'mark-unpaid') {
@@ -483,14 +1105,6 @@ export const OrderDetail = () => {
               {t('orders.to_order')}
             </button>
           )}
-          {(order.appointments_count || 0) === 0 && (
-            <button
-              className="btn btn-primary"
-              onClick={() => navigate(`/appointments/create?order_id=${order.id}&customer_id=${order.customer?.id}`)}
-            >
-              {t('orders.create_appt')}
-            </button>
-          )}
         </div>
         <div className="d-flex justify-content-end mt-2">
           <div className="dropdown" ref={moreMenuRef}>
@@ -517,6 +1131,20 @@ export const OrderDetail = () => {
                   </button>
                 </li>
               )}
+              {user?.role === 'admin' && order.status === 'completed' && isLegacyInstallmentOrder(order) && (
+                <li>
+                  <button
+                    className="dropdown-item text-danger"
+                    type="button"
+                    onClick={() => {
+                      setMoreMenuOpen(false);
+                      setConfirmAction({ kind: 'cancel-order-migration' });
+                    }}
+                  >
+                    {t('orders.cancel_for_migration', 'ยกเลิกเพื่อไม่ให้นับยอด (ย้ายข้อมูล)')}
+                  </button>
+                </li>
+              )}
               {user?.role === 'admin' && order.status === 'completed' && (!order.receipt_number || order.receipt_status === 'cancelled') && (
                 <li>
                   <button
@@ -534,9 +1162,11 @@ export const OrderDetail = () => {
               {user?.role === 'admin' && (order.appointments_count || 0) === 0 && (
                 <li>
                   <button
-                    className="dropdown-item text-danger"
+                    className={`dropdown-item text-danger${isLegacyInstallmentOrder(order) ? ' disabled' : ''}`}
                     type="button"
+                    disabled={isLegacyInstallmentOrder(order)}
                     onClick={() => {
+                      if (isLegacyInstallmentOrder(order)) return;
                       setMoreMenuOpen(false);
                       setConfirmAction({ kind: 'purge-order' });
                     }}
@@ -575,14 +1205,6 @@ export const OrderDetail = () => {
             {t('orders.to_order')}
           </button>
         )}
-        {(order.appointments_count || 0) === 0 && (
-          <button
-            className="btn btn-primary"
-            onClick={() => navigate(`/appointments/create?order_id=${order.id}&customer_id=${order.customer?.id}`)}
-          >
-            {t('orders.create_appt')}
-          </button>
-        )}
         <div className="dropdown" ref={moreMenuRef}>
           <button
             className="btn btn-outline-secondary dropdown-toggle"
@@ -607,6 +1229,20 @@ export const OrderDetail = () => {
                 </button>
               </li>
             )}
+            {user?.role === 'admin' && order.status === 'completed' && isLegacyInstallmentOrder(order) && (
+              <li>
+                <button
+                  className="dropdown-item text-danger"
+                  type="button"
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    setConfirmAction({ kind: 'cancel-order-migration' });
+                  }}
+                >
+                  {t('orders.cancel_for_migration', 'ยกเลิกเพื่อไม่ให้นับยอด (ย้ายข้อมูล)')}
+                </button>
+              </li>
+            )}
             {user?.role === 'admin' && order.status === 'completed' && (!order.receipt_number || order.receipt_status === 'cancelled') && (
               <li>
                 <button
@@ -624,9 +1260,11 @@ export const OrderDetail = () => {
             {user?.role === 'admin' && (order.appointments_count || 0) === 0 && (
               <li>
                 <button
-                  className="dropdown-item text-danger"
+                  className={`dropdown-item text-danger${isLegacyInstallmentOrder(order) ? ' disabled' : ''}`}
                   type="button"
+                  disabled={isLegacyInstallmentOrder(order)}
                   onClick={() => {
+                    if (isLegacyInstallmentOrder(order)) return;
                     setMoreMenuOpen(false);
                     setConfirmAction({ kind: 'purge-order' });
                   }}
@@ -772,6 +1410,291 @@ export const OrderDetail = () => {
         </div>
       )}
 
+      {showInstallmentPlanModal && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+          <div className="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">{t('orders.setup_installment', 'ตั้งผ่อนชำระ')}</h5>
+                <button type="button" className="btn-close" onClick={() => setShowInstallmentPlanModal(false)}></button>
+              </div>
+              <form onSubmit={saveInstallmentPlan}>
+                <div className="modal-body">
+                  <div className="alert alert-light border small mb-3">
+                    <div className="d-flex justify-content-between">
+                      <span className="text-muted">{t('orders.total', 'ยอดรวม')}</span>
+                      <span className="fw-bold">฿{formatMoney(Number(order.total || 0))}</span>
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">{t('orders.installment_count', 'จำนวนงวด')}</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={120}
+                      className="form-control"
+                      value={planInstallmentCount}
+                      onChange={(e) => setPlanInstallmentCount(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">{t('orders.down_payment', 'เงินดาวน์')}</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className="form-control"
+                      value={planDownPayment}
+                      onChange={(e) => setPlanDownPayment(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">{t('orders.installment_amount', 'ยอดต่องวด')}</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className="form-control"
+                      value={planInstallmentAmount}
+                      onChange={(e) => setPlanInstallmentAmount(e.target.value)}
+                      placeholder={(() => {
+                        const count = Math.max(1, Math.min(120, Number(planInstallmentCount || 1)));
+                        const down = Math.max(0, Number(planDownPayment || 0));
+                        const total = Number(order.total || 0);
+                        return String(round2(Math.max(0, total - down) / count));
+                      })()}
+                    />
+                    <div className="form-text">
+                      {t('orders.installment_amount_hint', 'เว้นว่างเพื่อให้ระบบคำนวณให้')}
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">{t('orders.start_date', 'วันที่เริ่มผ่อน')}</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={planStartDate}
+                      onChange={(e) => setPlanStartDate(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">{t('orders.due_day', 'วันครบกำหนด (ของทุกเดือน)')}</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      className="form-control"
+                      value={planDueDay}
+                      onChange={(e) => setPlanDueDay(e.target.value)}
+                      placeholder={t('orders.due_day_hint', 'เช่น 10')}
+                    />
+                    <div className="form-text">
+                      {t('orders.due_day_note', 'ถ้าเดือนไหนไม่มีวันนั้น ระบบจะเลื่อนไปวันสุดท้ายของเดือน')}
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-footer d-grid gap-2 d-md-flex justify-content-end">
+                  <button type="button" className="btn btn-outline-secondary" onClick={() => setShowInstallmentPlanModal(false)}>
+                    {t('common.cancel')}
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    {t('common.save', 'บันทึก')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBackpayModal && installmentData && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+          <div className="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">{t('orders.backpay', 'ชำระย้อนหลัง')}</h5>
+                <button type="button" className="btn-close" onClick={() => setShowBackpayModal(false)}></button>
+              </div>
+              <form onSubmit={submitBackpaySelection}>
+                <div className="modal-body">
+                  <div className="small text-muted mb-2">{t('orders.backpay_hint', 'เลือกงวดที่ค้างชำระ')}</div>
+                  <select
+                    className="form-select"
+                    value={backpayInstallmentNo}
+                    onChange={(e) => setBackpayInstallmentNo(e.target.value)}
+                    required
+                  >
+                    {installmentData.overdueRows.map((row) => {
+                      const dueText = row.due_date
+                        ? row.due_date.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : '-';
+                      return (
+                        <option key={row.installment_no} value={row.installment_no}>
+                          {row.label} · {dueText} · ฿{formatMoney(Number(row.expected_amount || 0))}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+                <div className="modal-footer d-grid gap-2 d-md-flex justify-content-end">
+                  <button type="button" className="btn btn-outline-secondary" onClick={() => setShowBackpayModal(false)}>
+                    {t('common.cancel')}
+                  </button>
+                  <button type="submit" className="btn btn-danger">
+                    {t('orders.receive_payment', 'รับชำระ')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showInstallmentPaymentModal && order.paymentPlan && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+          <div className="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  {selectedInstallmentNo === 0
+                    ? t('orders.down_payment', 'เงินดาวน์')
+                    : selectedInstallmentNo
+                      ? `${t('orders.installment', 'ผ่อนชำระ')} · ${t('orders.installment_no', 'งวดที่')} ${selectedInstallmentNo}/${order.paymentPlan.installment_count}`
+                      : installmentPaymentMode === 'close'
+                        ? t('orders.close_account', 'ปิดบัญชี')
+                        : t('orders.receive_payment', 'รับชำระงวด')}
+                </h5>
+                <button type="button" className="btn-close" onClick={() => { setShowInstallmentPaymentModal(false); setInstallmentPaymentMode('next'); }}></button>
+              </div>
+              <form onSubmit={submitInstallmentPayment}>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">{t('pos.payment_method')}</label>
+                    <div className="btn-group w-100" role="group">
+                      <input
+                        type="radio"
+                        className="btn-check"
+                        name="installmentPayMethod"
+                        id="installmentPayCash"
+                        autoComplete="off"
+                        checked={installmentPayMethod === 'cash'}
+                        onChange={() => setInstallmentPayMethod('cash')}
+                      />
+                      <label className="btn btn-outline-primary" htmlFor="installmentPayCash">{t('pos.cash')}</label>
+                      <input
+                        type="radio"
+                        className="btn-check"
+                        name="installmentPayMethod"
+                        id="installmentPayTransfer"
+                        autoComplete="off"
+                        checked={installmentPayMethod === 'transfer'}
+                        onChange={() => setInstallmentPayMethod('transfer')}
+                      />
+                      <label className="btn btn-outline-primary" htmlFor="installmentPayTransfer">{t('pos.transfer')}</label>
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">{t('orders.payment_date', 'วันที่ชำระ')}</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={installmentPayDate}
+                      onChange={(e) => setInstallmentPayDate(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">{t('orders.amount', 'จำนวนเงิน')}</label>
+                    <input
+                      type="number"
+                      min={0.01}
+                      step="0.01"
+                      className="form-control form-control-lg"
+                      value={installmentPayAmount}
+                      onChange={(e) => setInstallmentPayAmount(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">{t('common.note', 'หมายเหตุ')}</label>
+                    <textarea
+                      className="form-control"
+                      rows={2}
+                      value={installmentPayNote}
+                      onChange={(e) => setInstallmentPayNote(e.target.value)}
+                      placeholder={t('orders.payment_note_placeholder', 'เช่น ย้ายข้อมูลจากออเดอร์เดิม #123 (งวด 2)')}
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <div className="form-check">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="installmentUseExistingReceipt"
+                        checked={installmentUseExistingReceipt}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setInstallmentUseExistingReceipt(checked);
+                          if (checked) setInstallmentIssueReceipt(false);
+                        }}
+                      />
+                      <label className="form-check-label fw-bold" htmlFor="installmentUseExistingReceipt">
+                        {t('orders.use_existing_receipt', 'มีใบเสร็จเดิม (ไม่ออกใหม่)')}
+                      </label>
+                    </div>
+                    {installmentUseExistingReceipt && (
+                      <input
+                        className="form-control mt-2"
+                        value={installmentExistingReceiptNo}
+                        onChange={(e) => setInstallmentExistingReceiptNo(e.target.value)}
+                        placeholder={t('orders.existing_receipt_placeholder', 'เลขที่ใบเสร็จเดิม เช่น RC-2024-000123')}
+                      />
+                    )}
+                  </div>
+
+                  <div className="form-check">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="installmentIssueReceipt"
+                      checked={installmentIssueReceipt}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setInstallmentIssueReceipt(checked);
+                        if (checked) setInstallmentUseExistingReceipt(false);
+                      }}
+                    />
+                    <label className="form-check-label fw-bold" htmlFor="installmentIssueReceipt">
+                      {t('orders.issue_receipt', 'ออกใบเสร็จงวดนี้')}
+                    </label>
+                  </div>
+                </div>
+                <div className="modal-footer d-grid gap-2 d-md-flex justify-content-end">
+                  <button type="button" className="btn btn-outline-secondary" onClick={() => { setShowInstallmentPaymentModal(false); setInstallmentPaymentMode('next'); }}>
+                    {t('common.cancel')}
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    {t('orders.confirm_payment', 'ยืนยันการชำระเงิน')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card border-0 shadow-sm mb-4">
         <div className="card-header bg-white d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
           <div className="fw-bold">{t('orders.customer', 'ลูกค้า')}</div>
@@ -832,7 +1755,8 @@ export const OrderDetail = () => {
 
       <div className="row g-3">
         <div className="col-12 col-lg-8">
-          <div className="card border-0 shadow-sm h-100">
+          <div className="d-flex flex-column gap-3">
+          <div className="card border-0 shadow-sm">
             <div className="card-header bg-white d-flex justify-content-between align-items-center">
               <div className="fw-bold">{t('orders.order_items_breakdown')}</div>
               {(order.status === 'pending' || order.status === 'quotation') && (
@@ -855,7 +1779,7 @@ export const OrderDetail = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {order.items.map((item) => (
+                    {(order.items || []).map((item) => (
                       <tr key={item.id}>
                         <td>{item.product?.name || t('orders.unknown_product')}</td>
                         <td>{item.product?.sku}</td>
@@ -883,7 +1807,7 @@ export const OrderDetail = () => {
               </div>
               <div className="d-block d-md-none p-2">
                 <div className="d-flex flex-column gap-2">
-                  {order.items.map((item) => {
+                  {(order.items || []).map((item) => {
                     const lineTotal = Number(item.price) * item.quantity;
                     const bundleItems = item.metadata?.bundle_items || [];
                     return (
@@ -924,267 +1848,336 @@ export const OrderDetail = () => {
               </div>
             </div>
           </div>
-        </div>
-        <div className="col-12 col-lg-4">
-          <div className="card border-0 shadow-sm h-100">
-            <div className="card-header bg-white fw-bold">{t('orders.issued_documents')}</div>
-            <div className="card-body">
-              <div className="d-none d-md-block">
-                <ul className="list-group list-group-flush">
-                <li className="list-group-item px-0">
-                  <div className="d-flex justify-content-between align-items-center mb-1">
-                    <span className="fw-bold">{t('orders.quotation')}</span>
-                    {(!order.quotation_number || order.quotation_status === 'cancelled') && (
-                      <button
-                        className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
-                        onClick={() => handleIssueDocument(order.id, 'quotation')}
-                        title={t('orders.create')}
-                        style={{ width: '40px', height: '40px' }}
-                      >
-                        <i className="bi bi-plus-lg" style={{ fontSize: '1.1rem' }}></i>
-                      </button>
-                    )}
-                  </div>
 
-                  {getDocumentHistory(order, 'quotation').map(doc => (
-                    <div key={doc.id} className="d-flex justify-content-between align-items-center mb-1 ps-2 border-start border-3">
-                      <div>
-                        <span className={`font-monospace d-block small ${doc.status === 'cancelled' ? 'text-decoration-line-through text-danger' : 'text-success'}`}>
-                          {doc.number}
-                        </span>
-                        <span className="text-muted" style={{ fontSize: '0.7em' }}>
-                          {new Date(doc.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="btn-group">
-                        {doc.status !== 'cancelled' ? (
-                          <>
-                            <button
-                              className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center"
-                              onClick={() => handlePrint(order, 'quotation')}
-                              title={t('orders.print')}
-                              style={{ width: '40px', height: '40px' }}
-                            >
-                              <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
-                            </button>
-                            <button
-                              className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
-                              onClick={() => setConfirmAction({ kind: 'cancel-document', docType: 'quotation', number: doc.number })}
-                              title={t('common.cancel')}
-                              style={{ width: '40px', height: '40px' }}
-                            >
-                              <i className="bi bi-x-lg" style={{ fontSize: '1.05rem' }}></i>
-                            </button>
-                          </>
-                        ) : (
-                          <span className="badge bg-danger" style={{ fontSize: '0.6em' }}>{t('orders.document_cancelled')}</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {getDocumentHistory(order, 'quotation').length === 0 && (
-                    <div className="text-muted small ps-2">{t('orders.not_issued')}</div>
-                  )}
-                </li>
-
-                <li className="list-group-item px-0">
-                  <div className="d-flex justify-content-between align-items-center mb-1">
-                    <span className="fw-bold">{t('orders.billing_note')}</span>
-                    {(!order.billing_note_number || order.billing_note_status === 'cancelled') && (
-                      <button
-                        className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
-                        onClick={() => handleIssueDocument(order.id, 'billing_note')}
-                        title={t('orders.create')}
-                        style={{ width: '40px', height: '40px' }}
-                      >
-                        <i className="bi bi-plus-lg" style={{ fontSize: '1.1rem' }}></i>
-                      </button>
-                    )}
-                  </div>
-
-                  {getDocumentHistory(order, 'billing_note').map(doc => (
-                    <div key={doc.id} className="d-flex justify-content-between align-items-center mb-1 ps-2 border-start border-3">
-                      <div>
-                        <span className={`font-monospace d-block small ${doc.status === 'cancelled' ? 'text-decoration-line-through text-danger' : 'text-success'}`}>
-                          {doc.number}
-                        </span>
-                        <span className="text-muted" style={{ fontSize: '0.7em' }}>
-                          {new Date(doc.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="btn-group">
-                        {doc.status !== 'cancelled' ? (
-                          <>
-                            <button
-                              className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center"
-                              onClick={() => handlePrint(order, 'billing_note')}
-                              title={t('orders.print')}
-                              style={{ width: '40px', height: '40px' }}
-                            >
-                              <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
-                            </button>
-                            <button
-                              className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
-                              onClick={() => setConfirmAction({ kind: 'cancel-document', docType: 'billing_note', number: doc.number })}
-                              title={t('common.cancel')}
-                              style={{ width: '40px', height: '40px' }}
-                            >
-                              <i className="bi bi-x-lg" style={{ fontSize: '1.05rem' }}></i>
-                            </button>
-                          </>
-                        ) : (
-                          <span className="badge bg-danger" style={{ fontSize: '0.6em' }}>{t('orders.document_cancelled')}</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {getDocumentHistory(order, 'billing_note').length === 0 && (
-                    <div className="text-muted small ps-2">{t('orders.not_issued')}</div>
-                  )}
-                </li>
-
-                <li className="list-group-item px-0">
-                  <div className="d-flex justify-content-between align-items-center mb-1">
-                    <span className="fw-bold">{t('orders.receipt')}</span>
-                    {(!order.receipt_number || order.receipt_status === 'cancelled') && (
-                      <button
-                        className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
-                        onClick={() => handleIssueDocument(order.id, 'receipt')}
-                        title={t('orders.create')}
-                        style={{ width: '40px', height: '40px' }}
-                      >
-                        <i className="bi bi-plus-lg" style={{ fontSize: '1.1rem' }}></i>
-                      </button>
-                    )}
-                  </div>
-
-                  {getDocumentHistory(order, 'receipt').map(doc => (
-                    <div key={doc.id} className="d-flex justify-content-between align-items-center mb-1 ps-2 border-start border-3">
-                      <div>
-                        <span className={`font-monospace d-block small ${doc.status === 'cancelled' ? 'text-decoration-line-through text-danger' : 'text-success'}`}>
-                          {doc.number}
-                        </span>
-                        <span className="text-muted" style={{ fontSize: '0.7em' }}>
-                          {new Date(doc.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="btn-group">
-                        {doc.status !== 'cancelled' ? (
-                          <>
-                            <button
-                              className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center"
-                              onClick={() => handlePrint(order, 'receipt')}
-                              title={t('orders.print')}
-                              style={{ width: '40px', height: '40px' }}
-                            >
-                              <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
-                            </button>
-                            <button
-                              className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
-                              onClick={() => setConfirmAction({ kind: 'cancel-document', docType: 'receipt', number: doc.number })}
-                              title={t('common.cancel')}
-                              style={{ width: '40px', height: '40px' }}
-                            >
-                              <i className="bi bi-x-lg" style={{ fontSize: '1.05rem' }}></i>
-                            </button>
-                          </>
-                        ) : (
-                          <span className="badge bg-danger" style={{ fontSize: '0.6em' }}>{t('orders.document_cancelled')}</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {getDocumentHistory(order, 'receipt').length === 0 && (
-                    <div className="text-muted small ps-2">{t('orders.not_issued')}</div>
-                  )}
-                </li>
-                </ul>
+          {installmentData ? (
+            <div ref={installmentScheduleRef} className="card border-0 shadow-sm">
+              <div className="card-header bg-white d-flex justify-content-between align-items-center">
+                <div className="fw-bold">{t('orders.installment_table', 'ตารางผ่อนชำระ')}</div>
+                <span className="badge bg-light text-dark border">
+                  {installmentData.paidCount}/{installmentData.schedule.length}
+                </span>
               </div>
-
-              <div className="d-block d-md-none">
-                <div className="d-flex flex-column gap-2">
-                  {(['quotation', 'billing_note', 'receipt'] as const).map((docType) => {
-                    const title =
-                      docType === 'quotation'
-                        ? t('orders.quotation')
-                        : docType === 'billing_note'
-                          ? t('orders.billing_note')
-                          : t('orders.receipt');
-                    const canCreate =
-                      docType === 'quotation'
-                        ? !order.quotation_number || order.quotation_status === 'cancelled'
-                        : docType === 'billing_note'
-                          ? !order.billing_note_number || order.billing_note_status === 'cancelled'
-                          : !order.receipt_number || order.receipt_status === 'cancelled';
-                    const history = getDocumentHistory(order, docType);
-                    return (
-                      <div key={docType} className="card border-0 shadow-sm">
-                        <div className="card-header bg-white d-flex justify-content-between align-items-center">
-                          <span className="fw-bold">{title}</span>
-                          {canCreate && (
-                            <button
-                              className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
-                              onClick={() => handleIssueDocument(order.id, docType)}
-                              title={t('orders.create', 'สร้างเอกสาร')}
-                              type="button"
-                              style={{ width: '44px', height: '44px' }}
-                            >
-                              <i className="bi bi-plus-lg" style={{ fontSize: '1.1rem' }}></i>
-                            </button>
-                          )}
-                        </div>
-                        <div className="card-body">
-                          {history.length === 0 ? (
-                            <div className="text-muted small">{t('orders.not_issued')}</div>
-                          ) : (
-                            <div className="d-flex flex-column gap-2">
-                              {history.map((doc) => (
-                                <div key={doc.id} className="d-flex justify-content-between align-items-center ps-2 border-start border-3">
-                                  <div style={{ minWidth: 0 }}>
-                                    <span className={`font-monospace d-block small ${doc.status === 'cancelled' ? 'text-decoration-line-through text-danger' : 'text-success'}`}>
-                                      {doc.number}
-                                    </span>
-                                    <span className="text-muted" style={{ fontSize: '0.75em' }}>
-                                      {new Date(doc.created_at).toLocaleDateString()}
-                                    </span>
+              <div className="card-body">
+                <div className="d-none d-md-block table-responsive">
+                  <table className="table table-sm align-middle mb-2">
+                    <thead className="table-light">
+                      <tr>
+                        <th style={{ width: '22%' }}>{t('orders.installment', 'งวด')}</th>
+                        <th style={{ width: '16%' }}>{t('orders.due_date', 'ครบกำหนด')}</th>
+                        <th className="text-end" style={{ width: '14%' }}>{t('orders.amount', 'จำนวนเงิน')}</th>
+                        <th style={{ width: '20%' }}>{t('orders.status', 'สถานะ')}</th>
+                        <th style={{ width: '20%' }}>{t('orders.receipt', 'ใบเสร็จ')}</th>
+                        <th style={{ width: '8%' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {installmentData.schedule.map((row) => {
+                        const p = installmentData.paymentsByNo.get(row.installment_no) || null;
+                        const doc = p ? getPaymentReceiptDoc(p) : null;
+                        const isPaid = !!p;
+                        const isOverdue = !isPaid && installmentData.overdueNos.has(row.installment_no);
+                        const dueText = row.due_date
+                          ? row.due_date.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })
+                          : '-';
+                        return (
+                          <tr key={row.installment_no}>
+                            <td className="fw-semibold">{row.label}</td>
+                            <td>{dueText}</td>
+                            <td className="text-end">฿{formatMoney(Number(row.expected_amount || 0))}</td>
+                            <td>
+                              {isPaid ? (
+                                <span className="badge bg-success">{t('orders.paid', 'ชำระแล้ว')}</span>
+                              ) : isOverdue ? (
+                                <span className="badge bg-danger">{t('orders.overdue', 'ค้างชำระ')}</span>
+                              ) : (
+                                <span className="badge bg-secondary">{t('orders.unpaid', 'ยังไม่ชำระ')}</span>
+                              )}
+                              {p?.paid_at && <div className="small text-muted mt-1">{formatOrderDateTime(p.paid_at)}</div>}
+                              {p?.method && <div className="small text-muted">{p.method === 'cash' ? t('pos.cash', 'เงินสด') : t('pos.transfer', 'โอนเงิน')}</div>}
+                              {p?.note && String(p.note).trim() !== '' && <div className="small text-muted">{String(p.note).trim()}</div>}
+                            </td>
+                            <td>
+                              {doc?.number ? (
+                                <div>
+                                  <div className={`font-monospace small ${doc.status === 'cancelled' ? 'text-danger text-decoration-line-through' : 'text-success'}`}>
+                                    {doc.number}
                                   </div>
-                                  <div className="btn-group">
-                                    {doc.status !== 'cancelled' ? (
-                                      <>
-                                        <button
-                                          className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center"
-                                          onClick={() => handlePrint(order, docType)}
-                                          title={t('orders.print', 'พิมพ์')}
-                                          type="button"
-                                          style={{ width: '44px', height: '44px' }}
-                                        >
-                                          <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
-                                        </button>
-                                        <button
-                                          className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
-                                          onClick={() => setConfirmAction({ kind: 'cancel-document', docType, number: doc.number })}
-                                          title={t('common.cancel')}
-                                          type="button"
-                                          style={{ width: '44px', height: '44px' }}
-                                        >
-                                          <i className="bi bi-x-lg" style={{ fontSize: '1.05rem' }}></i>
-                                        </button>
-                                      </>
-                                    ) : (
-                                      <span className="badge bg-danger" style={{ fontSize: '0.7em' }}>{t('orders.document_cancelled')}</span>
-                                    )}
+                                  <div className="text-muted" style={{ fontSize: '0.7em' }}>
+                                    {new Date(doc.created_at).toLocaleDateString('th-TH')}
                                   </div>
                                 </div>
-                              ))}
+                              ) : (
+                                <span className="text-muted small">-</span>
+                              )}
+                            </td>
+                            <td className="text-end">
+                              {isPaid ? (
+                                doc?.id ? (
+                                  <div className="btn-group">
+                                    <button
+                                      type="button"
+                                      className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center"
+                                      onClick={() => window.open(`/print/order/${order.id}?type=receipt&doc_id=${doc.id}&edit=1`, '_blank')}
+                                      title={t('orders.print', 'พิมพ์')}
+                                      style={{ width: '40px', height: '40px' }}
+                                    >
+                                      <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
+                                      onClick={() => setConfirmAction({ kind: 'delete-installment-receipt', paymentId: p!.id, number: doc.number })}
+                                      title={t('common.delete', 'ลบ')}
+                                      style={{ width: '40px', height: '40px' }}
+                                    >
+                                      <i className="bi bi-x-lg" style={{ fontSize: '1.05rem' }}></i>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
+                                    onClick={() => issueReceiptForPayment(p!.id)}
+                                    title={t('orders.create_receipt', 'ออกใบเสร็จ')}
+                                    style={{ width: '40px', height: '40px' }}
+                                  >
+                                    <i className="bi bi-plus-lg" style={{ fontSize: '1.05rem' }}></i>
+                                  </button>
+                                )
+                              ) : (
+                                <span className="text-muted small">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="d-block d-md-none d-flex flex-column gap-2">
+                  {installmentData.schedule.map((row) => {
+                    const p = installmentData.paymentsByNo.get(row.installment_no) || null;
+                    const doc = p ? getPaymentReceiptDoc(p) : null;
+                    const isPaid = !!p;
+                    const isOverdue = !isPaid && installmentData.overdueNos.has(row.installment_no);
+                    const dueText = row.due_date
+                      ? row.due_date.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })
+                      : '-';
+                    return (
+                      <div key={row.installment_no} className="border rounded p-2">
+                        <div className="d-flex justify-content-between align-items-start gap-2">
+                          <div style={{ minWidth: 0 }}>
+                            <div className="fw-bold text-truncate">{row.label}</div>
+                            <div className="small text-muted">{t('orders.due_date', 'ครบกำหนด')}: {dueText}</div>
+                            <div className="fw-bold mt-1">฿{formatMoney(Number(row.expected_amount || 0))}</div>
+                            <div className="mt-1">
+                              {isPaid ? (
+                                <span className="badge bg-success">{t('orders.paid', 'ชำระแล้ว')}</span>
+                              ) : isOverdue ? (
+                                <span className="badge bg-danger">{t('orders.overdue', 'ค้างชำระ')}</span>
+                              ) : (
+                                <span className="badge bg-secondary">{t('orders.unpaid', 'ยังไม่ชำระ')}</span>
+                              )}
                             </div>
-                          )}
+                            {p?.paid_at && <div className="small text-muted mt-1">{formatOrderDateTime(p.paid_at)}</div>}
+                            {p?.note && String(p.note).trim() !== '' && <div className="small text-muted">{String(p.note).trim()}</div>}
+                            {doc?.number && (
+                              <div>
+                                <div className={`small font-monospace ${doc.status === 'cancelled' ? 'text-danger text-decoration-line-through' : 'text-success'}`}>
+                                  {doc.number}
+                                </div>
+                                <div className="text-muted" style={{ fontSize: '0.7em' }}>
+                                  {new Date(doc.created_at).toLocaleDateString('th-TH')}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-end">
+                            {isPaid ? (
+                              doc?.id ? (
+                                <div className="btn-group">
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center"
+                                    onClick={() => window.open(`/print/order/${order.id}?type=receipt&doc_id=${doc.id}&edit=1`, '_blank')}
+                                    title={t('orders.print', 'พิมพ์')}
+                                    style={{ width: '44px', height: '44px' }}
+                                  >
+                                    <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
+                                    onClick={() => setConfirmAction({ kind: 'delete-installment-receipt', paymentId: p!.id, number: doc.number })}
+                                    title={t('common.delete', 'ลบ')}
+                                    style={{ width: '44px', height: '44px' }}
+                                  >
+                                    <i className="bi bi-x-lg" style={{ fontSize: '1.05rem' }}></i>
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
+                                  onClick={() => issueReceiptForPayment(p!.id)}
+                                  title={t('orders.create_receipt', 'ออกใบเสร็จ')}
+                                  style={{ width: '44px', height: '44px' }}
+                                >
+                                  <i className="bi bi-plus-lg" style={{ fontSize: '1.05rem' }}></i>
+                                </button>
+                              )
+                            ) : (
+                              <span className="text-muted small">-</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
+
+                {installmentData.unassigned.length > 0 && (
+                  <details className="mt-3">
+                    <summary className="small text-muted">{t('orders.unassigned_payments', 'รายการชำระที่ยังไม่ผูกงวด')}</summary>
+                    <div className="d-flex flex-column gap-2 mt-2">
+                      {installmentData.unassigned.map((p) => {
+                        const doc = getPaymentReceiptDoc(p);
+                        return (
+                          <div key={p.id} className="border rounded p-2">
+                            <div className="d-flex justify-content-between align-items-start gap-2">
+                              <div style={{ minWidth: 0 }}>
+                                <div className="fw-bold text-truncate">{t('orders.unassigned', 'ไม่ระบุงวด')}</div>
+                                <div className="small text-muted">{formatOrderDateTime(p.paid_at)} · {p.method === 'cash' ? t('pos.cash', 'เงินสด') : t('pos.transfer', 'โอนเงิน')}</div>
+                                {doc?.number && (
+                                  <div className={`small font-monospace ${doc.status === 'cancelled' ? 'text-danger text-decoration-line-through' : 'text-success'}`}>
+                                    {doc.number}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-end">
+                                <div className="fw-bold">฿{formatMoney(Number(p.amount || 0))}</div>
+                                <div className="d-flex justify-content-end gap-2 mt-1">
+                                  {doc?.id ? (
+                                    <button
+                                      type="button"
+                                      className="btn btn-outline-secondary btn-sm"
+                                      onClick={() => window.open(`/print/order/${order.id}?type=receipt&doc_id=${doc.id}&edit=1`, '_blank')}
+                                    >
+                                      {t('orders.print', 'พิมพ์')}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="btn btn-outline-primary btn-sm"
+                                      onClick={() => issueReceiptForPayment(p.id)}
+                                    >
+                                      {t('orders.create_receipt', 'ออกใบเสร็จ')}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
+                )}
               </div>
             </div>
+          ) : null}
+
+          </div>
+        </div>
+        <div className="col-12 col-lg-4">
+          <div className="d-flex flex-column gap-3">
+            {(order.payment_method === 'installment' || order.paymentPlan) ? (
+              <div className="card border-0 shadow-sm">
+                <div className="card-header bg-white d-flex justify-content-between align-items-center">
+                  <span className="fw-bold">{t('orders.installment', 'ผ่อนชำระ')}</span>
+                  <div className="d-flex gap-2">
+                    <button type="button" className="btn btn-outline-secondary btn-sm" onClick={openInstallmentPlan}>
+                      {t('common.settings', 'ตั้งค่า')}
+                    </button>
+                  </div>
+                </div>
+                <div className="card-body">
+                  {installmentData ? (
+                    <>
+                      <div className="d-flex justify-content-between align-items-start gap-2">
+                        <div style={{ minWidth: 0 }}>
+                          <div className="small text-muted">{t('orders.paid', 'ชำระแล้ว')}</div>
+                          <div className="fw-bold">฿{formatMoney(installmentData.paid)}</div>
+                        </div>
+                        <div className="text-end">
+                          <div className="small text-muted">{t('orders.remaining', 'คงเหลือ')}</div>
+                          <div className={`fw-bold ${installmentData.remaining <= 0 ? 'text-success' : ''}`}>฿{formatMoney(Math.max(0, installmentData.remaining))}</div>
+                        </div>
+                      </div>
+
+                      {installmentData.overdueCount > 0 && (
+                        <div className="alert alert-danger py-2 px-3 mt-3 mb-0">
+                          <div className="fw-bold">
+                            {t('orders.overdue', 'ค้างชำระ')} {installmentData.overdueCount} {t('orders.installment_unit', 'งวด')}
+                          </div>
+                          <div className="small">
+                            {t('orders.overdue_amount', 'ยอดค้าง')}: ฿{formatMoney(installmentData.overdueAmount)}
+                          </div>
+                        </div>
+                      )}
+
+                      {installmentData.nextRow && (
+                        <div className="border rounded p-2 mt-3">
+                          <div className="small text-muted">{t('orders.next_installment', 'งวดถัดไป')}</div>
+                          <div className="fw-bold">{installmentData.nextRow.label}</div>
+                          <div className="small text-muted">
+                            {installmentData.nextRow.due_date
+                              ? installmentData.nextRow.due_date.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })
+                              : '-'}
+                            {' · '}
+                            ฿{formatMoney(Number(installmentData.nextRow.expected_amount || 0))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="d-grid gap-2 mt-3">
+                        {(installmentData.plan.status || 'active') !== 'completed' && order.status !== 'cancelled' && (
+                          <button type="button" className="btn btn-primary" onClick={() => openInstallmentPayment()}>
+                            {t('orders.receive_next_payment', 'รับชำระงวดถัดไป')}
+                          </button>
+                        )}
+                        {(installmentData.plan.status || 'active') !== 'completed' && order.status !== 'cancelled' && installmentData.overdueCount > 0 && (
+                          <button type="button" className="btn btn-outline-danger" onClick={openBackpay}>
+                            {t('orders.backpay', 'ชำระย้อนหลัง')}
+                          </button>
+                        )}
+                        {(installmentData.plan.status || 'active') !== 'completed' && order.status !== 'cancelled' && installmentData.remaining > 0 && (
+                          <button type="button" className="btn btn-outline-success" onClick={() => openInstallmentPayment(null)}>
+                            {t('orders.close_account', 'ปิดบัญชี')}
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="d-grid">
+                      <button type="button" className="btn btn-primary" onClick={openInstallmentPlan}>
+                        {t('orders.setup_installment', 'ตั้งผ่อนชำระ')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {!isInstallmentOrder && (
+              <div className="card border-0 shadow-sm">
+                <div className="card-header bg-white fw-bold">{t('orders.issued_documents')}</div>
+                <div className="card-body">
+                  {issuedDocumentsBody}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

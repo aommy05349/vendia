@@ -8,6 +8,8 @@ export const CreateCustomer = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [isCompany, setIsCompany] = useState(false);
+  const [contactChannel, setContactChannel] = useState<'line' | 'facebook'>('line');
+  const [contactHandle, setContactHandle] = useState('');
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -85,6 +87,15 @@ export const CreateCustomer = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const buildStoredLineId = (channel: 'line' | 'facebook', handle: string) => {
+    const v = (handle || '').trim();
+    if (v === '') return '';
+    const upper = v.toUpperCase();
+    if (upper.startsWith('FB:') || upper.startsWith('FACEBOOK:')) return v;
+    if (channel === 'facebook') return `FB:${v}`;
+    return v;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -93,6 +104,7 @@ export const CreateCustomer = () => {
     try {
       const address = formData.address.trim();
       const googleMapsLink = formData.google_maps_link.trim();
+      const storedLineId = buildStoredLineId(contactChannel, contactHandle);
       const dataToSubmit = {
         is_company: isCompany,
         company_name: formData.company_name.trim() || undefined,
@@ -104,6 +116,7 @@ export const CreateCustomer = () => {
         phone: formData.phone.trim() || undefined,
         tax_id: formData.tax_id.trim() || undefined,
         address: address || undefined,
+        line_id: storedLineId === '' ? undefined : storedLineId,
       };
 
       const createRes = await api.post('/customers', dataToSubmit);
@@ -243,6 +256,30 @@ export const CreateCustomer = () => {
               className="form-control"
               value={formData.phone} 
               onChange={handleChange} 
+            />
+          </div>
+        </div>
+
+        <div className="row g-3 mb-3">
+          <div className="col-md-4">
+            <label className="form-label fw-bold">{t('customers.contact_channel', 'ช่องทางติดต่อ')}</label>
+            <select
+              className="form-select"
+              value={contactChannel}
+              onChange={(e) => setContactChannel(e.target.value as 'line' | 'facebook')}
+            >
+              <option value="line">LINE</option>
+              <option value="facebook">Facebook</option>
+            </select>
+          </div>
+          <div className="col-md-8">
+            <label className="form-label fw-bold">{t('customers.contact_handle', 'ไอดี/ลิงก์')}</label>
+            <input
+              type="text"
+              className="form-control"
+              value={contactHandle}
+              onChange={(e) => setContactHandle(e.target.value)}
+              placeholder={contactChannel === 'facebook' ? t('customers.facebook_placeholder', 'เช่น ชื่อโปรไฟล์ หรือ ลิงก์') : t('customers.line_placeholder', 'เช่น Line ID')}
             />
           </div>
         </div>

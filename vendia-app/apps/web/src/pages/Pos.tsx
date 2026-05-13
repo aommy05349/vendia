@@ -35,6 +35,8 @@ export const Pos = () => {
   const [newCustomerGoogleMapsLink, setNewCustomerGoogleMapsLink] = useState('');
   const [newCustomerCoords, setNewCustomerCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
   const [newCustomerCompany, setNewCustomerCompany] = useState('');
+  const [newCustomerContactChannel, setNewCustomerContactChannel] = useState<'line' | 'facebook'>('line');
+  const [newCustomerContactHandle, setNewCustomerContactHandle] = useState('');
   const [applyVat, setApplyVat] = useState(false);
   const [withholdingRate, setWithholdingRate] = useState<0 | 3 | 7>(0);
 
@@ -61,6 +63,10 @@ export const Pos = () => {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
   const [change, setChange] = useState<number | null>(null);
   const [showCartDrawer, setShowCartDrawer] = useState(false);
+  const [isInstallment, setIsInstallment] = useState(false);
+  const [installmentCount, setInstallmentCount] = useState('6');
+  const [downPayment, setDownPayment] = useState('');
+  const [installmentAmount, setInstallmentAmount] = useState('');
 
   const getImageUrl = (path: string) => {
     if (path.startsWith('http')) return path;
@@ -129,6 +135,15 @@ export const Pos = () => {
     } catch {
       return null;
     }
+  };
+
+  const buildStoredLineId = (channel: 'line' | 'facebook', handle: string) => {
+    const v = (handle || '').trim();
+    if (v === '') return undefined;
+    const upper = v.toUpperCase();
+    if (upper.startsWith('FB:') || upper.startsWith('FACEBOOK:')) return v;
+    if (channel === 'facebook') return `FB:${v}`;
+    return v;
   };
 
   const openCustomerSelect = () => {
@@ -319,13 +334,27 @@ export const Pos = () => {
     setReceivedAmount('');
     setChange(null);
     setPaymentMethod('cash');
+    setIsInstallment(false);
+    setInstallmentCount('6');
+    setDownPayment('');
+    setInstallmentAmount('');
     if (!editingOrderId) {
       setApplyVat(false);
       setWithholdingRate(0);
     }
   };
 
-  const submitOrder = async (status: 'completed' | 'pending' | 'quotation', method: string) => {
+  type SubmitOrderOptions = {
+    skipCleanup?: boolean;
+    skipNavigation?: boolean;
+    skipAlertAutoClear?: boolean;
+  };
+
+  const submitOrder = async (
+    status: 'completed' | 'pending' | 'quotation',
+    method: string,
+    options?: SubmitOrderOptions
+  ) => {
     try {
       const payload = {
         items: items.map((item) => ({
@@ -341,26 +370,86 @@ export const Pos = () => {
         withholding_rate: withholdingRate,
       };
 
+      let orderData: any;
       if (editingOrderId) {
-        await api.put(`/orders/${editingOrderId}`, payload);
+        const res = await api.put(`/orders/${editingOrderId}`, payload);
         setAlertMessage({ type: 'success', text: t('pos.order_updated') });
+        orderData = res.data;
       } else {
-        await api.post('/orders', payload);
+        const res = await api.post('/orders', payload);
         let msg = t('pos.order_placed');
         if (status === 'pending') msg = t('pos.order_saved_unpaid');
         if (status === 'quotation') msg = t('pos.quotation_created');
         setAlertMessage({ type: 'success', text: msg });
+        orderData = res.data;
+      }
+
+      if (!options?.skipCleanup) {
+        setShowPaymentModal(false);
+        clearCart();
+        fetchProducts();
+      }
+
+      if (editingOrderId && !options?.skipNavigation) {
+        setTimeout(() => navigate('/orders'), 1000);
+      }
+      if (!editingOrderId && !options?.skipAlertAutoClear) {
+        setTimeout(() => setAlertMessage(null), 3000);
+      }
+
+      return orderData;
+    } catch (error) {
+      setAlertMessage({ type: 'danger', text: t('pos.checkout_failed') });
+      console.error(error);
+    }
+  };
+
+  const submitInstallmentOrder = async () => {
+    if (!selectedCustomer?.id) {
+      setAlertMessage({ type: 'danger', text: t('pos.select_customer', 'กรุณาเลือกลูกค้า') });
+      return;
+    }
+
+    try {
+      const fallbackTotal = payableAmount;
+      const created = await submitOrder('pending', 'installment', {
+        skipCleanup: true,
+        skipNavigation: true,
+        skipAlertAutoClear: true,
+      });
+      if (!created?.id) return;
+
+      const orderId = created.id as number;
+      const totalAmount = Number(created.total ?? fallbackTotal);
+      const count = Math.max(1, Math.min(120, Number(installmentCount || 1)));
+      const down = Math.max(0, Number(downPayment || 0));
+      const computedInstallment = round2(Math.max(0, totalAmount - down) / count);
+      const perInstallment = installmentAmount.trim() !== '' ? Number(installmentAmount) : computedInstallment;
+
+      await api.post(`/orders/${orderId}/installment-plan`, {
+        total: totalAmount,
+        down_payment: down,
+        installment_count: count,
+        installment_amount: perInstallment,
+      });
+
+      if (down > 0) {
+        const today = new Date().toISOString().slice(0, 10);
+        await api.post(`/orders/${orderId}/installment-payments`, {
+          amount: down,
+          method: paymentMethod,
+          paid_at: today,
+          installment_no: 0,
+          issue_receipt: true,
+          issued_date: today,
+        });
       }
 
       setShowPaymentModal(false);
       clearCart();
-      fetchProducts(); // Refresh stock
-      
-      if (editingOrderId) {
-        setTimeout(() => navigate('/orders'), 1000);
-      } else {
-        setTimeout(() => setAlertMessage(null), 3000);
-      }
+      fetchProducts();
+      setAlertMessage({ type: 'success', text: t('pos.installment_created', 'สร้างออเดอร์ผ่อนชำระแล้ว') });
+      setTimeout(() => setAlertMessage(null), 3000);
     } catch (error) {
       setAlertMessage({ type: 'danger', text: t('pos.checkout_failed') });
       console.error(error);
@@ -369,7 +458,11 @@ export const Pos = () => {
 
   const processPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    submitOrder('completed', paymentMethod);
+    if (isInstallment) {
+      await submitInstallmentOrder();
+      return;
+    }
+    await submitOrder('completed', paymentMethod);
   };
 
   const handlePayLater = () => {
@@ -381,13 +474,14 @@ export const Pos = () => {
   };
 
   useEffect(() => {
-    if (paymentMethod === 'cash' && receivedAmount) {
+    const targetAmount = isInstallment ? Number(downPayment || 0) : payableAmount;
+    if (paymentMethod === 'cash' && receivedAmount && targetAmount > 0) {
       const received = parseFloat(receivedAmount);
-      setChange(received - payableAmount);
+      setChange(received - targetAmount);
     } else {
       setChange(null);
     }
-  }, [receivedAmount, paymentMethod, payableAmount]);
+  }, [receivedAmount, paymentMethod, payableAmount, isInstallment, downPayment]);
 
   const CartPanel = ({ mode }: { mode: 'sidebar' | 'drawer' }) => {
     return (
@@ -996,9 +1090,81 @@ export const Pos = () => {
                         </div>
                     </div>
 
-                    {paymentMethod === 'cash' && (
+                    <div className="mb-3">
+                      <div className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id="posInstallment"
+                          checked={isInstallment}
+                          onChange={(e) => setIsInstallment(e.target.checked)}
+                          disabled={!!editingOrderId}
+                        />
+                        <label className="form-check-label fw-bold" htmlFor="posInstallment">
+                          {t('pos.installment', 'ผ่อนชำระ')}
+                        </label>
+                      </div>
+                      {isInstallment && (
+                        <div className="small text-muted mt-1">
+                          {t('pos.installment_hint', 'ระบบจะสร้างออเดอร์เป็นค้างชำระ และออกใบเสร็จให้ทุกครั้งที่รับชำระงวด')}
+                        </div>
+                      )}
+                    </div>
+
+                    {isInstallment && (
+                      <div className="card border-0 shadow-sm mb-3">
+                        <div className="card-body">
+                          <div className="row g-2">
+                            <div className="col-6">
+                              <label className="form-label fw-bold">{t('orders.installment_count', 'จำนวนงวด')}</label>
+                              <input
+                                type="number"
+                                min={1}
+                                max={120}
+                                className="form-control"
+                                value={installmentCount}
+                                onChange={(e) => setInstallmentCount(e.target.value)}
+                              />
+                            </div>
+                            <div className="col-6">
+                              <label className="form-label fw-bold">{t('orders.down_payment', 'เงินดาวน์')}</label>
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                className="form-control"
+                                value={downPayment}
+                                onChange={(e) => setDownPayment(e.target.value)}
+                                placeholder="0"
+                              />
+                            </div>
+                            <div className="col-12">
+                              <label className="form-label fw-bold">{t('orders.installment_amount', 'ยอดต่องวด')}</label>
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                className="form-control"
+                                value={installmentAmount}
+                                onChange={(e) => setInstallmentAmount(e.target.value)}
+                                placeholder={(() => {
+                                  const count = Math.max(1, Math.min(120, Number(installmentCount || 1)));
+                                  const down = Math.max(0, Number(downPayment || 0));
+                                  return String(round2(Math.max(0, payableAmount - down) / count));
+                                })()}
+                              />
+                              <div className="form-text">
+                                {t('orders.installment_amount_hint', 'เว้นว่างเพื่อให้ระบบคำนวณให้')}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {paymentMethod === 'cash' && (!isInstallment || Number(downPayment || 0) > 0) && (
                         <div className="mb-3">
-                            <label className="form-label">{t('pos.received_amount')}</label>
+                            <label className="form-label">{isInstallment ? t('pos.down_payment_received', 'รับเงินดาวน์') : t('pos.received_amount')}</label>
                             <input
                                 type="number"
                                 className="form-control form-control-lg"
@@ -1006,7 +1172,7 @@ export const Pos = () => {
                                 onChange={(e) => setReceivedAmount(e.target.value)}
                                 placeholder={t('pos.enter_amount')}
                                 autoFocus
-                                required
+                                required={!isInstallment || Number(downPayment || 0) > 0}
                             />
                         </div>
                     )}
@@ -1077,11 +1243,13 @@ export const Pos = () => {
 
                     <div className="d-flex gap-2 mt-4">
                         <button type="submit" className="btn btn-success flex-grow-1 py-3 fw-bold" disabled={change !== null && change < 0}>
-                            {editingOrderId ? t('pos.update_pay') : t('pos.pay')}
+                            {isInstallment ? t('pos.create_installment_order', 'สร้างออเดอร์ผ่อนชำระ') : (editingOrderId ? t('pos.update_pay') : t('pos.pay'))}
                         </button>
-                        <button type="button" className="btn btn-outline-warning" onClick={handlePayLater}>
-                             {editingOrderId ? t('pos.update_pay_later') : t('pos.pay_later')}
-                        </button>
+                        {!isInstallment && (
+                          <button type="button" className="btn btn-outline-warning" onClick={handlePayLater}>
+                               {editingOrderId ? t('pos.update_pay_later') : t('pos.pay_later')}
+                          </button>
+                        )}
                     </div>
                 </form>
               </div>
@@ -1175,6 +1343,7 @@ export const Pos = () => {
                     try {
                         const address = newCustomerAddress.trim();
                         const googleMapsLink = newCustomerGoogleMapsLink.trim();
+                        const storedLineId = buildStoredLineId(newCustomerContactChannel, newCustomerContactHandle);
                         const newCustomer = await createCustomer({
                             is_company: newCustomerIsCompany,
                             first_name: newCustomerIsCompany ? '' : newCustomerFirstName,
@@ -1186,6 +1355,7 @@ export const Pos = () => {
                             tax_id: newCustomerTaxId,
                             address,
                             company_name: newCustomerCompany.trim() || undefined,
+                            line_id: storedLineId,
                         });
 
                         if (newCustomer?.id && address) {
@@ -1222,6 +1392,8 @@ export const Pos = () => {
                         setNewCustomerGoogleMapsLink('');
                         setNewCustomerCoords({ lat: null, lng: null });
                         setNewCustomerCompany('');
+                        setNewCustomerContactChannel('line');
+                        setNewCustomerContactHandle('');
                         setCreateCustomerError(null);
                         
                         fetchCustomers();
@@ -1307,6 +1479,27 @@ export const Pos = () => {
                                 className="form-control" 
                                 value={newCustomerPhone}
                                 onChange={(e) => setNewCustomerPhone(e.target.value)}
+                            />
+                        </div>
+                        <div className="col-md-4 mb-3">
+                            <label className="form-label">{t('customers.contact_channel', 'ช่องทางติดต่อ')}</label>
+                            <select
+                                className="form-select"
+                                value={newCustomerContactChannel}
+                                onChange={(e) => setNewCustomerContactChannel(e.target.value as 'line' | 'facebook')}
+                            >
+                                <option value="line">LINE</option>
+                                <option value="facebook">Facebook</option>
+                            </select>
+                        </div>
+                        <div className="col-md-8 mb-3">
+                            <label className="form-label">{t('customers.contact_handle', 'ไอดี/ลิงก์')}</label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={newCustomerContactHandle}
+                                onChange={(e) => setNewCustomerContactHandle(e.target.value)}
+                                placeholder={newCustomerContactChannel === 'facebook' ? t('customers.facebook_placeholder', 'เช่น ชื่อโปรไฟล์ หรือ ลิงก์') : t('customers.line_placeholder', 'เช่น Line ID')}
                             />
                         </div>
                         {!newCustomerIsCompany && (

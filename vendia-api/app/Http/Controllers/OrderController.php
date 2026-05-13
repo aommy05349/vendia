@@ -263,10 +263,30 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
-        $query = Order::with('items.product', 'user', 'customer', 'parent', 'documents')
+        $query = Order::with([
+                'items.product',
+                'user',
+                'customer',
+                'parent',
+                'documents',
+                'paymentPlan:id,order_id,total,down_payment,installment_count,installment_amount,start_date,due_day,status',
+                'payments:id,order_id,installment_no,amount,method,paid_at',
+            ])
             ->withCount('appointments')
             ->orderByDesc('created_at')
             ->orderByDesc('id');
+
+        if ($request->has('payment_method') && $request->input('payment_method') !== 'all') {
+            $method = $request->input('payment_method');
+            if ($method === 'installment') {
+                $query->where(function ($q) {
+                    $q->where('payment_method', 'installment')
+                        ->orWhereHas('paymentPlan');
+                });
+            } else {
+                $query->where('payment_method', $method);
+            }
+        }
 
         if ($request->has('status') && $request->input('status') !== 'all') {
             $status = $request->input('status');
@@ -453,7 +473,15 @@ class OrderController extends Controller
 
     public function show($id)
     {
-        $order = Order::with(['items.product', 'user', 'customer', 'parent'])->findOrFail($id);
+        $order = Order::with([
+            'items.product',
+            'user',
+            'customer',
+            'parent',
+            'documents',
+            'paymentPlan',
+            'payments.documents',
+        ])->findOrFail($id);
         
         // No automatic/lazy generation anymore
         

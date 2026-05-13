@@ -30,6 +30,26 @@ interface OrderItem {
     price: number;
 }
 
+type OrderPaymentPlan = {
+    id: number;
+    total: string;
+    down_payment?: string | null;
+    installment_count: number;
+    installment_amount: string;
+    start_date?: string | null;
+    due_day?: number | null;
+    status: string;
+};
+
+type OrderPayment = {
+    id: number;
+    installment_no?: number | null;
+    amount: string;
+    method: string;
+    paid_at: string;
+    plan?: OrderPaymentPlan | null;
+};
+
 interface Order {
     id: number;
     subtotal?: string;
@@ -49,6 +69,8 @@ interface Order {
     };
     customer?: Customer;
     items: OrderItem[];
+    paymentPlan?: OrderPaymentPlan | null;
+    payments?: OrderPayment[];
     documents?: {
         id: number;
         type: string;
@@ -72,6 +94,8 @@ type DocumentRecord = {
     type: string;
     number: string;
     status: string;
+    order_payment_id?: number | null;
+    order_payment?: OrderPayment | null;
     issued_date?: string | null;
     show_issued_date?: boolean;
     expires_date?: string | null;
@@ -402,22 +426,65 @@ export const PrintOrder = () => {
     const expiryDateValue = parseDateInput(expiryDate);
 
     const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-    const subtotal = Number(order.subtotal ?? order.total);
-    const vatRate = Number(order.vat_rate ?? 0);
+    const isInstallmentReceipt =
+        !isQuotation &&
+        !isBillingNote &&
+        type === 'receipt' &&
+        !!(documentRecord?.order_payment_id || documentRecord?.order_payment);
+    const installmentPayment = (documentRecord?.order_payment || null) as OrderPayment | null;
+    const installmentPaidAmount = round2(Number(installmentPayment?.amount || 0));
+    const planTotal = Number(installmentPayment?.plan?.total || order.total || 0);
+    const paidSum = round2(((order.payments || []) as OrderPayment[]).reduce((sum, p) => sum + Number(p.amount || 0), 0));
+    const remainingAfter = round2(Math.max(0, planTotal - paidSum));
+
+    const subtotal = isInstallmentReceipt ? installmentPaidAmount : Number(order.subtotal ?? order.total);
+    const vatRate = isInstallmentReceipt ? 0 : Number(order.vat_rate ?? 0);
     const vatAmount =
-        order.vat_amount !== undefined
-            ? Number(order.vat_amount)
-            : round2((subtotal * vatRate) / 100);
+        isInstallmentReceipt
+            ? 0
+            : (order.vat_amount !== undefined
+                ? Number(order.vat_amount)
+                : round2((subtotal * vatRate) / 100));
     const totalWithVat = round2(subtotal + vatAmount);
-    const withholdingRate = Number(order.withholding_rate ?? 0);
+    const withholdingRate = isInstallmentReceipt ? 0 : Number(order.withholding_rate ?? 0);
     const withholdingAmount =
-        order.withholding_amount !== undefined
-            ? Number(order.withholding_amount)
-            : round2((subtotal * withholdingRate) / 100);
+        isInstallmentReceipt
+            ? 0
+            : (order.withholding_amount !== undefined
+                ? Number(order.withholding_amount)
+                : round2((subtotal * withholdingRate) / 100));
     const payable = round2(totalWithVat - withholdingAmount);
-    const showWithholding = withholdingRate > 0 && !isQuotation;
+    const showWithholding = !isInstallmentReceipt && withholdingRate > 0 && !isQuotation;
     const payableForDocument = showWithholding ? payable : totalWithVat;
-    const summaryRowCount = 2 + (vatRate > 0 ? 1 : 0) + (showWithholding ? 2 : 0);
+    const summaryRowCount = isInstallmentReceipt ? 2 : (2 + (vatRate > 0 ? 1 : 0) + (showWithholding ? 2 : 0));
+
+    const displayItems: Array<{ description: string; quantity: number; unitPrice: number }> = isInstallmentReceipt
+        ? [
+            {
+                description: (() => {
+                    const subtitleRaw = typeof documentRecord?.header_subtitle === 'string' ? documentRecord.header_subtitle.trim() : '';
+                    const label = subtitleRaw !== '' ? subtitleRaw : t('orders.installment', 'ผ่อนชำระ');
+                    const names = (order.items || [])
+                        .map((i) => i.product?.name)
+                        .filter((n): n is string => typeof n === 'string' && n.trim() !== '')
+                        .map((n) => n.trim());
+                    const nameSummary =
+                        names.length === 0
+                            ? t('print.installment.items', 'รายการสินค้า')
+                            : names.length === 1
+                                ? names[0]
+                                : `${names[0]} ${t('print.installment.and_more', 'และอีก')} ${names.length - 1} ${t('print.installment.items', 'รายการ')}`;
+                    return `${nameSummary} (${label})`;
+                })(),
+                quantity: 1,
+                unitPrice: installmentPaidAmount,
+            },
+        ]
+        : (order.items || []).map((item) => ({
+            description: item.product?.name,
+            quantity: item.quantity,
+            unitPrice: Number(item.price),
+        }));
 
     const currentNumberForRemarks =
         type === 'quotation'
@@ -632,16 +699,16 @@ export const PrintOrder = () => {
                     </tr>
                 </thead>
                 <tbody>
-                    {order.items.map((item, idx) => (
+                    {displayItems.map((item, idx) => (
                         <tr key={idx}>
                             <td className="text-center border-bottom-0">{idx + 1}</td>
                             <td className="border-bottom-0">
-                                <div>{item.product?.name}</div>
+                                <div>{item.description}</div>
                             </td>
                             <td className="text-center border-bottom-0">{item.quantity}</td>
-                            <td className="text-end border-bottom-0">{Number(item.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                            <td className="text-end border-bottom-0">{Number(item.unitPrice).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                             <td className="text-end bg-success bg-opacity-10 fw-bold border-bottom-0">
-                                {(Number(item.price) * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                {(Number(item.unitPrice) * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </td>
                         </tr>
                     ))}
@@ -663,7 +730,10 @@ export const PrintOrder = () => {
                                 {displayRemarks}
                             </div>
                         </td>
-                        <td className="text-end fw-bold">{t('print.footer.subtotal')}<small>{t('print.footer.subtotal_en')}</small></td>
+                        <td className="text-end fw-bold">
+                            {isInstallmentReceipt ? t('print.footer.installment_paid', 'ยอดชำระงวดนี้') : t('print.footer.subtotal')}
+                            {!isInstallmentReceipt && <small>{t('print.footer.subtotal_en')}</small>}
+                        </td>
                         <td className="text-end fw-bold align-middle">
                             {Number(subtotal).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                         </td>
@@ -677,9 +747,12 @@ export const PrintOrder = () => {
                         </tr>
                     )}
                     <tr>
-                        <td className="text-end fw-bold">{t('print.footer.net_total')}<small>{t('print.footer.net_total_en')}</small></td>
+                        <td className="text-end fw-bold">
+                            {isInstallmentReceipt ? t('print.footer.remaining', 'ยอดคงเหลือ') : t('print.footer.net_total')}
+                            {!isInstallmentReceipt && <small>{t('print.footer.net_total_en')}</small>}
+                        </td>
                         <td className="text-end fw-bold fs-5 align-middle">
-                            {Number(totalWithVat).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            {Number(isInstallmentReceipt ? remainingAfter : totalWithVat).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                         </td>
                     </tr>
                     {showWithholding && (

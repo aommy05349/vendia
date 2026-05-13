@@ -60,6 +60,9 @@ class DocumentController extends Controller
             'order.customer',
             'order.parent',
             'order.documents',
+            'order.paymentPlan',
+            'order.payments.documents',
+            'orderPayment.plan',
         ]);
     }
 
