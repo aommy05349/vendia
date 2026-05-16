@@ -49,10 +49,12 @@ function App() {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
+  const [loginBgOk, setLoginBgOk] = React.useState(true);
   const apiUrlRaw = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api';
   const apiUrl = typeof apiUrlRaw === 'string' ? apiUrlRaw : 'http://localhost:8000/api';
   const apiUrlNormalized = apiUrl.replace(/^https:\/(?!\/)/, 'https://').replace(/^http:\/(?!\/)/, 'http://');
   const apiOrigin = apiUrlNormalized.replace(/\/api\/?$/, '');
+  const loginBgUrl = '/avatars/coverprofile.png';
 
   const getStorageUrl = (path?: string | null) => {
     if (!path) return '';
@@ -98,45 +100,123 @@ function App() {
 
   if (!user) {
     return (
-      <div className="d-flex justify-content-center align-items-center vh-100 bg-light p-3 position-relative">
-        <div className="position-absolute top-0 end-0 m-3">
-          <LanguageSwitcher />
-        </div>
-        <div className="card shadow-sm w-100" style={{ maxWidth: '400px' }}>
-          <div className="card-body p-4">
-            <div className="text-center mb-4">
-              {shop?.logo_path && (
-                <img 
-                  src={getStorageUrl(shop.logo_path)}
-                  alt="Shop Logo" 
-                  className="mb-3"
-                  style={{ maxHeight: '80px' }} 
+      <div className="min-vh-100 d-flex align-items-center bg-light py-4">
+        <div className="container">
+          <div className="card border-0 shadow-lg overflow-hidden" style={{ borderRadius: '18px' }}>
+            <div className="row g-0">
+              <div className="d-none d-lg-block col-lg-6 position-relative">
+                {loginBgOk ? (
+                  <img
+                    src={loginBgUrl}
+                    alt="Login Background"
+                    className="w-100 h-100"
+                    style={{ objectFit: 'cover', minHeight: '640px' }}
+                    onError={() => setLoginBgOk(false)}
+                  />
+                ) : (
+                  <div
+                    className="w-100 h-100"
+                    style={{
+                      minHeight: '640px',
+                      background:
+                        'linear-gradient(135deg, rgba(15, 23, 42, 1) 0%, rgba(30, 58, 138, 1) 50%, rgba(15, 23, 42, 1) 100%)',
+                    }}
+                  />
+                )}
+                <div
+                  className="position-absolute top-0 start-0 w-100 h-100"
+                  style={{
+                    background:
+                      'linear-gradient(180deg, rgba(2, 6, 23, 0.25) 0%, rgba(2, 6, 23, 0.65) 70%, rgba(2, 6, 23, 0.92) 100%)',
+                  }}
                 />
-              )}
-              <h1 className="h3">{shop?.name || t('login.title')}</h1>
+                <div className="position-absolute bottom-0 start-0 p-4 p-xl-5 text-white" style={{ maxWidth: '540px' }}>
+                  <div className="fw-bold" style={{ letterSpacing: '0.02em' }}>
+                    {shop?.name || t('login.title', 'Login')}
+                  </div>
+                  <div className="opacity-75 mt-2">
+                    {t('login.subtitle', 'เข้าสู่ระบบเพื่อจัดการงานขาย เอกสาร และงานติดตั้ง')}
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-12 col-lg-6 position-relative bg-white">
+                <div className="position-absolute top-0 end-0 p-3">
+                  <LanguageSwitcher />
+                </div>
+
+                <div className="p-4 p-md-5 d-flex flex-column justify-content-center" style={{ minHeight: '640px' }}>
+                  <div className="text-center mb-4">
+                    {shop?.logo_path ? (
+                      <img
+                        src={getStorageUrl(shop.logo_path)}
+                        alt="Shop Logo"
+                        style={{ maxHeight: '72px', maxWidth: '240px', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <div className="d-inline-flex align-items-center justify-content-center rounded-4 bg-light" style={{ width: '72px', height: '72px' }}>
+                        <i className="bi bi-shop text-primary" style={{ fontSize: '1.8rem' }}></i>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="text-center mb-4">
+                    <div className="fw-bold" style={{ fontSize: '1.6rem' }}>
+                      {t('login.welcome_back', 'Welcome Back')}
+                    </div>
+                    <div className="text-muted small mt-1">
+                      {shop?.company_name || shop?.name || t('login.title')}
+                    </div>
+                  </div>
+
+                  <div className="mx-auto w-100" style={{ maxWidth: '420px' }}>
+                    {error && <div className="alert alert-danger text-center py-2 mb-3">{error}</div>}
+
+                    <form onSubmit={handleLogin} className="d-flex flex-column gap-3">
+                      <div className="input-group">
+                        <span className="input-group-text bg-white">
+                          <i className="bi bi-envelope text-muted"></i>
+                        </span>
+                        <input
+                          type="email"
+                          placeholder={t('login.email')}
+                          className="form-control"
+                          value={email}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            if (error) setError('');
+                          }}
+                          autoComplete="email"
+                          required
+                        />
+                      </div>
+
+                      <div className="input-group">
+                        <span className="input-group-text bg-white">
+                          <i className="bi bi-lock text-muted"></i>
+                        </span>
+                        <input
+                          type="password"
+                          placeholder={t('login.password')}
+                          className="form-control"
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            if (error) setError('');
+                          }}
+                          autoComplete="current-password"
+                          required
+                        />
+                      </div>
+
+                      <button type="submit" className="btn btn-primary w-100 fw-semibold rounded-pill py-2">
+                        {t('login.title')}
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
             </div>
-            {error && <div className="alert alert-danger text-center py-2">{error}</div>}
-            <form onSubmit={handleLogin} className="d-flex flex-column gap-3">
-              <input
-                type="email"
-                placeholder={t('login.email')}
-                className="form-control"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              <input
-                type="password"
-                placeholder={t('login.password')}
-                className="form-control"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button type="submit" className="btn btn-primary w-100 fw-bold">
-                {t('login.title')}
-              </button>
-            </form>
           </div>
         </div>
       </div>
