@@ -61,6 +61,19 @@ interface OrderPayment {
   documents?: Document[];
 }
 
+interface CustomerLocation {
+  id: number;
+  customer_id: number;
+  name: string | null;
+  address: string;
+  latitude: string | number | null;
+  longitude: string | number | null;
+  google_maps_link: string | null;
+  contact_person: string | null;
+  contact_phone: string | null;
+  is_default: boolean;
+}
+
 interface Order {
   id: number;
   total: string;
@@ -151,6 +164,28 @@ export const OrderDetail = () => {
   const [backpayInstallmentNo, setBackpayInstallmentNo] = useState('');
   const installmentScheduleRef = useRef<HTMLDivElement | null>(null);
 
+  const [customerLocations, setCustomerLocations] = useState<CustomerLocation[]>([]);
+  const [locationsLoading, setLocationsLoading] = useState(false);
+  const [jobLocationId, setJobLocationId] = useState<string>('customer');
+  const [jobManualAddress, setJobManualAddress] = useState('');
+  const [billingLocationId, setBillingLocationId] = useState<string>('customer');
+  const [billingManualAddress, setBillingManualAddress] = useState('');
+  const [billingDifferentFromJob, setBillingDifferentFromJob] = useState(false);
+  const [showAddLocationModal, setShowAddLocationModal] = useState(false);
+  const [savingLocation, setSavingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [addressPrefsReady, setAddressPrefsReady] = useState(false);
+  const [addressPrefsSaving, setAddressPrefsSaving] = useState(false);
+  const [addressPrefsSaveError, setAddressPrefsSaveError] = useState<string | null>(null);
+  const [locationForm, setLocationForm] = useState({
+    name: '',
+    address: '',
+    google_maps_link: '',
+    contact_person: '',
+    contact_phone: '',
+    is_default: false,
+  });
+
   const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
   const formatMoney = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -180,19 +215,101 @@ export const OrderDetail = () => {
     } as Order;
   };
 
-  const formatDateTime = (iso: string) => {
-    const d = new Date(iso);
-    const date = new Intl.DateTimeFormat('th-TH', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    }).format(d);
-    const time = new Intl.DateTimeFormat('th-TH', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }).format(d);
-    return { date, time };
+  const getOrderStorageKey = (key: string) => `vendia:order:${id || 'unknown'}:${key}`;
+
+  const extractLatLngFromGoogleMapsLink = (value: string) => {
+    try {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+
+      let url: URL | null = null;
+      if (trimmed.startsWith('http')) {
+        try {
+          url = new URL(trimmed);
+        } catch {
+          url = null;
+        }
+      }
+
+      if (url) {
+        const q = url.searchParams.get('q') || url.searchParams.get('query');
+        if (q) {
+          const match = q.match(/(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)/);
+          if (match) {
+            return {
+              lat: parseFloat(match[1]),
+              lng: parseFloat(match[3]),
+            };
+          }
+        }
+
+        const pathMatch = url.pathname.match(/@(-?\d+(\.\d+)?),(-?\d+(\.\d+)?)/);
+        if (pathMatch) {
+          return {
+            lat: parseFloat(pathMatch[1]),
+            lng: parseFloat(pathMatch[3]),
+          };
+        }
+      }
+
+      const match = trimmed.match(/(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)/);
+      if (match) {
+        return {
+          lat: parseFloat(match[1]),
+          lng: parseFloat(match[3]),
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const fetchCustomerLocations = async (customerId: number) => {
+    setLocationsLoading(true);
+    try {
+      const res = await api.get(`/customers/${customerId}/locations`);
+      const rows = Array.isArray(res.data) ? (res.data as CustomerLocation[]) : [];
+      setCustomerLocations(rows);
+      return rows;
+    } catch (err) {
+      console.error(err);
+      setCustomerLocations([]);
+      return [];
+    } finally {
+      setLocationsLoading(false);
+    }
+  };
+
+  const findLocationById = (locId: string, locations: CustomerLocation[]) => {
+    const n = Number(locId);
+    if (!Number.isFinite(n)) return null;
+    return locations.find((l) => Number(l.id) === n) || null;
+  };
+
+  const getBillingOverrides = (
+    o: Order,
+    locations: CustomerLocation[],
+    locationId: string,
+    manualAddress: string
+  ) => {
+    let address = '';
+    let attention = '';
+    if (locationId === 'manual') {
+      address = manualAddress.trim();
+    } else if (locationId !== 'customer') {
+      const loc = findLocationById(locationId, locations);
+      if (loc) {
+        address = String(loc.address || '').trim();
+        const aParts: string[] = [];
+        if (loc.contact_person) aParts.push(String(loc.contact_person));
+        if (loc.contact_phone) aParts.push(String(loc.contact_phone));
+        attention = aParts.join(' ').trim();
+      }
+    }
+    if (!address) address = String(o.customer?.address || '').trim();
+    if (!attention) attention = String(o.customer?.contact_name || '').trim();
+    return { address, attention };
   };
 
   const formatOrderDateTime = (iso: string) => {
@@ -459,6 +576,20 @@ export const OrderDetail = () => {
     }
   };
 
+  const openReceiptPrintByDocId = (docId: number) => {
+    if (!order) return;
+    const params = new URLSearchParams();
+    params.set('type', 'receipt');
+    params.set('edit', '1');
+    params.set('doc_id', String(docId));
+    const effectiveBillingLocationId = billingDifferentFromJob ? billingLocationId : jobLocationId;
+    const effectiveBillingManualAddress = billingDifferentFromJob ? billingManualAddress : jobManualAddress;
+    const billing = getBillingOverrides(order, customerLocations, effectiveBillingLocationId, effectiveBillingManualAddress);
+    if (billing.address) params.set('customer_address', billing.address);
+    if (billing.attention) params.set('customer_attention', billing.attention);
+    window.open(`/print/order/${order.id}?${params.toString()}`, '_blank');
+  };
+
   const issueReceiptForPayment = async (paymentId: number) => {
     if (!order) return;
     try {
@@ -466,7 +597,7 @@ export const OrderDetail = () => {
       const docId = res.data?.id;
       await fetchOrder();
       if (docId) {
-        window.open(`/print/order/${order.id}?type=receipt&doc_id=${docId}&edit=1`, '_blank');
+        openReceiptPrintByDocId(Number(docId));
       }
     } catch (err) {
       console.error(err);
@@ -494,6 +625,184 @@ export const OrderDetail = () => {
   useEffect(() => {
     fetchOrder();
   }, [id]);
+
+  useEffect(() => {
+    if (!order?.customer?.id) return;
+    const customerId = Number(order.customer.id);
+    if (!Number.isFinite(customerId)) return;
+
+    const init = async () => {
+      setAddressPrefsReady(false);
+      const locations = await fetchCustomerLocations(customerId);
+      const defaultLoc = locations.find((l) => l.is_default) || locations[0] || null;
+
+      const raw: any = order;
+      const normalizeText = (v: any) => (v === null || v === undefined ? '' : String(v)).trim();
+      const normalizeKey = (v: string) => v.trim().replace(/\s+/g, ' ').toLowerCase();
+      const findLocationByAddress = (address: string) => {
+        const key = normalizeKey(address);
+        if (!key) return null;
+        return locations.find((l) => normalizeKey(l.address || '') === key) || null;
+      };
+
+      const serverJobLocId =
+        raw?.job_location_id ?? raw?.jobLocationId ?? raw?.job_customer_location_id ?? raw?.jobCustomerLocationId ?? null;
+      const serverJobAddress =
+        normalizeText(raw?.job_address ?? raw?.job_site_address ?? raw?.service_address ?? raw?.job_address_text ?? '');
+      const serverBillingLocId =
+        raw?.billing_location_id ?? raw?.billingLocationId ?? raw?.billing_customer_location_id ?? raw?.billingCustomerLocationId ?? null;
+      const serverBillingAddress =
+        normalizeText(raw?.billing_address ?? raw?.invoice_address ?? raw?.billing_address_text ?? '');
+
+      const storedJob = localStorage.getItem(getOrderStorageKey('job_location_id'));
+      const storedJobManual = localStorage.getItem(getOrderStorageKey('job_manual_address')) || '';
+      const storedBilling = localStorage.getItem(getOrderStorageKey('billing_location_id'));
+      const storedBillingManual = localStorage.getItem(getOrderStorageKey('billing_manual_address')) || '';
+      const storedBillingDiff = localStorage.getItem(getOrderStorageKey('billing_diff'));
+      const storedBillingDiffBool = storedBillingDiff === '1' || storedBillingDiff === 'true';
+
+      const customerAddress = normalizeText(order.customer?.address || '');
+
+      const jobNext = (() => {
+        if (serverJobLocId) {
+          const s = String(serverJobLocId);
+          if (findLocationById(s, locations)) return s;
+        }
+        if (serverJobAddress && serverJobAddress !== customerAddress) {
+          const matched = findLocationByAddress(serverJobAddress);
+          if (matched) return String(matched.id);
+          setJobManualAddress(serverJobAddress);
+          return 'manual';
+        }
+        if (defaultLoc && (storedJob === 'customer' || (storedJob === 'manual' && storedJobManual.trim() === ''))) {
+          return String(defaultLoc.id);
+        }
+        if (storedJob && (storedJob === 'customer' || storedJob === 'manual' || !!findLocationById(storedJob, locations))) {
+          return storedJob;
+        }
+        return defaultLoc ? String(defaultLoc.id) : 'customer';
+      })();
+
+      const billingNext = (() => {
+        if (serverBillingLocId) {
+          const s = String(serverBillingLocId);
+          if (findLocationById(s, locations)) return s;
+        }
+        if (serverBillingAddress && serverBillingAddress !== customerAddress) {
+          const matched = findLocationByAddress(serverBillingAddress);
+          if (matched) return String(matched.id);
+          setBillingManualAddress(serverBillingAddress);
+          return 'manual';
+        }
+        if (defaultLoc && (storedBilling === 'customer' || (storedBilling === 'manual' && storedBillingManual.trim() === ''))) {
+          return String(defaultLoc.id);
+        }
+        if (storedBilling && (storedBilling === 'customer' || storedBilling === 'manual' || !!findLocationById(storedBilling, locations))) {
+          return storedBilling;
+        }
+        return defaultLoc ? String(defaultLoc.id) : 'customer';
+      })();
+
+      setJobLocationId(jobNext);
+      if (!(serverJobAddress && serverJobAddress !== customerAddress)) setJobManualAddress(storedJobManual);
+      setBillingLocationId(billingNext);
+      if (!(serverBillingAddress && serverBillingAddress !== customerAddress)) setBillingManualAddress(storedBillingManual);
+      const serverHasBilling = !!serverBillingLocId || (serverBillingAddress && serverBillingAddress !== '');
+      const serverHasJob = !!serverJobLocId || (serverJobAddress && serverJobAddress !== '');
+      const inferredServerDiff = serverHasBilling
+        ? (() => {
+            if (serverHasJob) {
+              const jobLocKey = serverJobLocId ? String(serverJobLocId) : '';
+              const billingLocKey = serverBillingLocId ? String(serverBillingLocId) : '';
+              if (jobLocKey && billingLocKey) return jobLocKey !== billingLocKey;
+              const jobAddrKey = normalizeKey(serverJobAddress || customerAddress || '');
+              const billingAddrKey = normalizeKey(serverBillingAddress || customerAddress || '');
+              return jobAddrKey !== '' && billingAddrKey !== '' && jobAddrKey !== billingAddrKey;
+            }
+            return true;
+          })()
+        : storedBillingDiffBool;
+      setBillingDifferentFromJob(Boolean(inferredServerDiff));
+      setAddressPrefsReady(true);
+    };
+
+    init();
+  }, [order?.customer?.id]);
+
+  useEffect(() => {
+    if (!order?.id) return;
+    if (!addressPrefsReady) return;
+    if (!order?.customer?.id) return;
+    const tmr = window.setTimeout(async () => {
+      try {
+        setAddressPrefsSaving(true);
+        setAddressPrefsSaveError(null);
+
+        const jobLocIdOut =
+          jobLocationId !== 'customer' && jobLocationId !== 'manual' && Number.isFinite(Number(jobLocationId))
+            ? Number(jobLocationId)
+            : null;
+        const jobLocOut = jobLocIdOut ? findLocationById(String(jobLocIdOut), customerLocations) : null;
+        const jobAddressOut =
+          jobLocationId === 'manual'
+            ? jobManualAddress.trim() || null
+            : jobLocOut?.address
+              ? String(jobLocOut.address).trim() || null
+              : null;
+
+        const effectiveBillingLocationId = billingDifferentFromJob ? billingLocationId : jobLocationId;
+        const effectiveBillingManualAddress = billingDifferentFromJob ? billingManualAddress : jobManualAddress;
+        const billingLocIdOut =
+          effectiveBillingLocationId !== 'customer' && effectiveBillingLocationId !== 'manual' && Number.isFinite(Number(effectiveBillingLocationId))
+            ? Number(effectiveBillingLocationId)
+            : null;
+        const billing = getBillingOverrides(order, customerLocations, effectiveBillingLocationId, effectiveBillingManualAddress);
+
+        const payload: any = {
+          job_location_id: jobLocIdOut,
+          job_address: jobAddressOut,
+          billing_location_id: billingLocIdOut,
+          billing_address: billing.address || null,
+          billing_attention: billing.attention || null,
+        };
+
+        if (jobLocOut?.google_maps_link) payload.job_google_maps_link = jobLocOut.google_maps_link;
+        if (jobLocOut?.contact_person) payload.job_contact_person = jobLocOut.contact_person;
+        if (jobLocOut?.contact_phone) payload.job_contact_phone = jobLocOut.contact_phone;
+
+        await api.put(`/orders/${order.id}`, payload);
+      } catch (err) {
+        console.error(err);
+        setAddressPrefsSaveError(t('orders.address_save_failed', 'บันทึกที่อยู่ลงออเดอร์ไม่สำเร็จ (ระบบจะจำไว้ในเครื่องแทน)'));
+      } finally {
+        setAddressPrefsSaving(false);
+      }
+    }, 600);
+    return () => window.clearTimeout(tmr);
+  }, [
+    order?.id,
+    addressPrefsReady,
+    order?.customer?.id,
+    jobLocationId,
+    jobManualAddress,
+    billingLocationId,
+    billingManualAddress,
+    billingDifferentFromJob,
+    customerLocations,
+  ]);
+
+  useEffect(() => {
+    if (!id) return;
+    if (!addressPrefsReady) return;
+    try {
+      localStorage.setItem(getOrderStorageKey('job_location_id'), jobLocationId);
+      localStorage.setItem(getOrderStorageKey('job_manual_address'), jobManualAddress);
+      localStorage.setItem(getOrderStorageKey('billing_location_id'), billingLocationId);
+      localStorage.setItem(getOrderStorageKey('billing_manual_address'), billingManualAddress);
+      localStorage.setItem(getOrderStorageKey('billing_diff'), billingDifferentFromJob ? '1' : '0');
+    } catch {
+    }
+  }, [id, jobLocationId, jobManualAddress, billingLocationId, billingManualAddress, billingDifferentFromJob, addressPrefsReady]);
 
   useEffect(() => {
     if (!order) return;
@@ -593,6 +902,11 @@ export const OrderDetail = () => {
     const params = new URLSearchParams();
     params.set('type', type);
     params.set('edit', '1');
+    const effectiveBillingLocationId = billingDifferentFromJob ? billingLocationId : jobLocationId;
+    const effectiveBillingManualAddress = billingDifferentFromJob ? billingManualAddress : jobManualAddress;
+    const billing = getBillingOverrides(o, customerLocations, effectiveBillingLocationId, effectiveBillingManualAddress);
+    if (billing.address) params.set('customer_address', billing.address);
+    if (billing.attention) params.set('customer_attention', billing.attention);
     if (docId) params.set('doc_id', String(docId));
     window.open(`/print/order/${o.id}?${params.toString()}`, '_blank');
   };
@@ -708,14 +1022,107 @@ export const OrderDetail = () => {
     }
   };
 
-  const customerName = order?.customer?.company_name || order?.customer?.name || t('pos.walk_in');
+  const openAddLocation = () => {
+    setLocationError(null);
+    setLocationForm({
+      name: '',
+      address: '',
+      google_maps_link: '',
+      contact_person: '',
+      contact_phone: '',
+      is_default: false,
+    });
+    setShowAddLocationModal(true);
+  };
+
+  const saveLocation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!order?.customer?.id) return;
+    const customerId = Number(order.customer.id);
+    if (!Number.isFinite(customerId)) return;
+    if (!locationForm.address.trim()) {
+      setLocationError(t('customers.locations.address_required', 'กรุณากรอกที่อยู่'));
+      return;
+    }
+    setSavingLocation(true);
+    setLocationError(null);
+    try {
+      const coords = extractLatLngFromGoogleMapsLink(locationForm.google_maps_link);
+      const res = await api.post('/customer-locations', {
+        customer_id: customerId,
+        name: locationForm.name.trim() || null,
+        address: locationForm.address.trim(),
+        latitude: coords ? coords.lat : null,
+        longitude: coords ? coords.lng : null,
+        google_maps_link: locationForm.google_maps_link.trim() || null,
+        contact_person: locationForm.contact_person.trim() || null,
+        contact_phone: locationForm.contact_phone.trim() || null,
+        is_default: !!locationForm.is_default,
+      });
+      const createdId = res?.data?.id ? String(res.data.id) : null;
+      await fetchCustomerLocations(customerId);
+      if (createdId) setJobLocationId(createdId);
+      setShowAddLocationModal(false);
+      setUiMessage({ type: 'success', text: t('common.success', 'สำเร็จ') });
+    } catch (err) {
+      console.error(err);
+      setLocationError(t('customers.locations.save_failed', 'ไม่สามารถบันทึกที่อยู่ได้'));
+    } finally {
+      setSavingLocation(false);
+    }
+  };
+
   const customer = order?.customer;
 
   if (loading) return <div className="p-4 text-center">{t('common.loading')}</div>;
   if (!order) return <div className="p-4 text-center text-muted">{t('orders.not_found', 'ไม่พบออเดอร์')}</div>;
 
   const installmentReceiptCount = (order.documents || []).filter((d) => d.type === 'receipt' && d.order_payment_id).length;
-  const isInstallmentOrder = order.payment_method === 'installment' || !!order.paymentPlan;
+  const jobLoc = jobLocationId !== 'customer' && jobLocationId !== 'manual' ? findLocationById(jobLocationId, customerLocations) : null;
+  const jobDisplayAddress =
+    jobLocationId === 'manual' ? jobManualAddress.trim() : (jobLoc?.address ? String(jobLoc.address) : (customer?.address || '')).trim();
+  const effectiveBillingLocationId = billingDifferentFromJob ? billingLocationId : jobLocationId;
+  const effectiveBillingManualAddress = billingDifferentFromJob ? billingManualAddress : jobManualAddress;
+  const billingLoc =
+    effectiveBillingLocationId !== 'customer' && effectiveBillingLocationId !== 'manual'
+      ? findLocationById(effectiveBillingLocationId, customerLocations)
+      : null;
+  const billingPreview = getBillingOverrides(order, customerLocations, effectiveBillingLocationId, effectiveBillingManualAddress);
+  const totalSummary = Number(order.total || 0);
+  const paidSummary = installmentData ? Number(installmentData.paid || 0) : order.status === 'completed' ? totalSummary : 0;
+  const remainingSummary = installmentData ? Math.max(0, Number(installmentData.remaining || 0)) : order.status === 'completed' ? 0 : totalSummary;
+
+  const subtotalForTaxRaw = Number(order.subtotal ?? order.total ?? 0);
+  const subtotalForTax = Number.isFinite(subtotalForTaxRaw) ? subtotalForTaxRaw : 0;
+  const vatRateRawUncast = Number(order.vat_rate || 0);
+  const vatRateRaw = Number.isFinite(vatRateRawUncast) ? vatRateRawUncast : 0;
+  const vatPercent = vatRateRaw > 0 && vatRateRaw <= 1 ? vatRateRaw * 100 : vatRateRaw;
+  const vatAmount =
+    order.vat_amount !== undefined && order.vat_amount !== null && String(order.vat_amount).trim() !== ''
+      ? Number(order.vat_amount)
+      : round2(subtotalForTax * (vatPercent / 100));
+  const withholdingRateRawUncast = Number(order.withholding_rate || 0);
+  const withholdingRateRaw = Number.isFinite(withholdingRateRawUncast) ? withholdingRateRawUncast : 0;
+  const withholdingPercent = withholdingRateRaw > 0 && withholdingRateRaw <= 1 ? withholdingRateRaw * 100 : withholdingRateRaw;
+  const withholdingAmount =
+    order.withholding_amount !== undefined && order.withholding_amount !== null && String(order.withholding_amount).trim() !== ''
+      ? Number(order.withholding_amount)
+      : round2(subtotalForTax * (withholdingPercent / 100));
+  const payableAfterTax = round2(subtotalForTax + vatAmount - withholdingAmount);
+
+  const jobLat = jobLoc?.latitude !== null && jobLoc?.latitude !== undefined && String(jobLoc.latitude).trim() !== '' ? Number(jobLoc.latitude) : null;
+  const jobLng = jobLoc?.longitude !== null && jobLoc?.longitude !== undefined && String(jobLoc.longitude).trim() !== '' ? Number(jobLoc.longitude) : null;
+  const jobMapEmbedSrc =
+    jobLat !== null && jobLng !== null && Number.isFinite(jobLat) && Number.isFinite(jobLng)
+      ? `https://www.google.com/maps?q=${jobLat},${jobLng}&output=embed`
+      : jobDisplayAddress
+        ? `https://www.google.com/maps?q=${encodeURIComponent(jobDisplayAddress)}&output=embed`
+        : '';
+  const jobMapLinkHref = jobLoc?.google_maps_link
+    ? String(jobLoc.google_maps_link)
+    : jobDisplayAddress
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(jobDisplayAddress)}`
+      : '';
   const issuedDocumentsBody = (
     <>
       <div className="d-none d-md-block">
@@ -1194,7 +1601,7 @@ export const OrderDetail = () => {
         </div>
       </div>
 
-      <div className="d-none d-md-flex flex-wrap gap-2 mb-4">
+      <div className="d-none d-md-flex flex-wrap gap-2 mb-4 justify-content-end">
         {order.status === 'pending' && (
           <button className="btn btn-success" onClick={openPayment}>
             {t('orders.pay_now')}
@@ -1288,6 +1695,33 @@ export const OrderDetail = () => {
               </li>
             )}
           </ul>
+        </div>
+      </div>
+
+      <div className="row g-3 mb-4">
+        <div className="col-12 col-md-4">
+          <div className="card border-0 shadow-sm h-100">
+            <div className="card-body">
+              <div className="small text-muted">{t('orders.total', 'ยอดรวม')}</div>
+              <div className="fw-bold fs-4 text-primary">฿{formatMoney(totalSummary)}</div>
+            </div>
+          </div>
+        </div>
+        <div className="col-12 col-md-4">
+          <div className="card border-0 shadow-sm h-100">
+            <div className="card-body">
+              <div className="small text-muted">{t('orders.paid', 'ชำระแล้ว')}</div>
+              <div className="fw-bold fs-4 text-success">฿{formatMoney(paidSummary)}</div>
+            </div>
+          </div>
+        </div>
+        <div className="col-12 col-md-4">
+          <div className="card border-0 shadow-sm h-100">
+            <div className="card-body">
+              <div className="small text-muted">{t('orders.remaining', 'คงเหลือ')}</div>
+              <div className="fw-bold fs-4 text-danger">฿{formatMoney(remainingSummary)}</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1695,62 +2129,383 @@ export const OrderDetail = () => {
         </div>
       )}
 
-      <div className="card border-0 shadow-sm mb-4">
-        <div className="card-header bg-white d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
-          <div className="fw-bold">{t('orders.customer', 'ลูกค้า')}</div>
-          <div className="d-flex gap-2 flex-wrap">
-            {customer?.id && (
-              <button
-                className="btn btn-outline-secondary btn-sm"
-                onClick={() => navigate(`/customers/${customer.id}/edit`)}
-              >
-                {t('customers.edit_title', 'แก้ไขข้อมูลลูกค้า')}
-              </button>
-            )}
-            {order.status !== 'cancelled' && (
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => setEditingMode('customer-only')}
-              >
-                {t('actions.change', 'เปลี่ยน')}
-              </button>
-            )}
+      {showAddLocationModal && customer?.id && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+          <div className="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">{t('customers.locations.add_title', 'เพิ่มที่อยู่')}</h5>
+                <button type="button" className="btn-close" onClick={() => setShowAddLocationModal(false)}></button>
+              </div>
+              <form onSubmit={saveLocation}>
+                <div className="modal-body">
+                  {locationError && <div className="alert alert-danger py-2 mb-3">{locationError}</div>}
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">{t('customers.locations.name_label', 'ชื่อสถานที่ (เช่น บ้าน, ออฟฟิศ)')}</label>
+                    <input
+                      className="form-control"
+                      value={locationForm.name}
+                      onChange={(e) => setLocationForm((p) => ({ ...p, name: e.target.value }))}
+                      placeholder={t('customers.locations.name_placeholder', 'บ้าน')}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">{t('customers.locations.address_label', 'ที่อยู่')}</label>
+                    <textarea
+                      className="form-control"
+                      rows={3}
+                      value={locationForm.address}
+                      onChange={(e) => setLocationForm((p) => ({ ...p, address: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">{t('customers.locations.google_maps_link', 'ลิงก์ Google Maps')}</label>
+                    <input
+                      className="form-control"
+                      value={locationForm.google_maps_link}
+                      onChange={(e) => setLocationForm((p) => ({ ...p, google_maps_link: e.target.value }))}
+                      placeholder="https://maps.google.com/..."
+                    />
+                  </div>
+                  <div className="row g-3">
+                    <div className="col-12 col-md-6">
+                      <label className="form-label fw-bold">{t('customers.locations.contact_person', 'ชื่อผู้ติดต่อ (ไม่บังคับ)')}</label>
+                      <input
+                        className="form-control"
+                        value={locationForm.contact_person}
+                        onChange={(e) => setLocationForm((p) => ({ ...p, contact_person: e.target.value }))}
+                      />
+                    </div>
+                    <div className="col-12 col-md-6">
+                      <label className="form-label fw-bold">{t('customers.locations.contact_phone', 'เบอร์โทรผู้ติดต่อ (ไม่บังคับ)')}</label>
+                      <input
+                        className="form-control"
+                        value={locationForm.contact_phone}
+                        onChange={(e) => setLocationForm((p) => ({ ...p, contact_phone: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="form-check mt-3">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="addCustomerLocationDefault"
+                      checked={locationForm.is_default}
+                      onChange={(e) => setLocationForm((p) => ({ ...p, is_default: e.target.checked }))}
+                    />
+                    <label className="form-check-label fw-bold" htmlFor="addCustomerLocationDefault">
+                      {t('customers.locations.set_default', 'ตั้งเป็นที่อยู่หลัก')}
+                    </label>
+                  </div>
+                </div>
+                <div className="modal-footer d-grid gap-2 d-md-flex justify-content-end">
+                  <button type="button" className="btn btn-outline-secondary" onClick={() => setShowAddLocationModal(false)}>
+                    {t('common.cancel')}
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={savingLocation}>
+                    {savingLocation ? t('common.loading') : t('common.save', 'บันทึก')}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
-        <div className="card-body">
-          {customer ? (
-            <div className="row g-2">
-              <div className="col-12">
-                <div className="fw-bold">{customer.company_name || customer.name}</div>
-                {customer.company_name && <div className="text-muted">{customer.name}</div>}
+      )}
+
+      <div className="row g-3 mb-4">
+        <div className={`col-12${customer?.id ? ' col-lg-3' : ' col-lg-6'}`}>
+          <div className="card border-0 shadow-sm h-100">
+            <div
+              className="card-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2"
+              style={{ backgroundColor: '#F4F5FF' }}
+            >
+              <div className="fw-bold d-flex align-items-center gap-2">
+                <i className="bi bi-person"></i>
+                <span>{t('orders.customer', 'ลูกค้า')}</span>
               </div>
-              {(customer.contact_name || customer.phone || customer.email) && (
-                <div className="col-12">
-                  <div className="small text-muted">
-                    {customer.contact_name && <span className="me-3">{t('customers.locations.contact_person', 'ผู้ติดต่อ')}: {customer.contact_name}</span>}
-                    {customer.phone && <span className="me-3">{t('customers.phone', 'เบอร์โทร')}: {customer.phone}</span>}
-                    {customer.email && <span>{t('customers.email', 'อีเมล')}: {customer.email}</span>}
+              <div className="d-flex gap-2 flex-wrap">
+                {customer?.id && (
+                  <button
+                    className="btn btn-outline-secondary btn-sm"
+                    onClick={() => navigate(`/customers/${customer.id}/edit`)}
+                  >
+                    {t('customers.edit_title', 'แก้ไขข้อมูลลูกค้า')}
+                  </button>
+                )}
+                {order.status !== 'cancelled' && (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setEditingMode('customer-only')}
+                  >
+                    {t('actions.change', 'เปลี่ยน')}
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="card-body">
+              {customer ? (
+                <div className="row g-2">
+                  <div className="col-12">
+                    <div className="fw-bold">{customer.company_name || customer.name}</div>
+                    {customer.company_name && <div className="text-muted">{customer.name}</div>}
                   </div>
+                  {(customer.contact_name || customer.phone || customer.email) && (
+                    <div className="col-12">
+                      <div className="small text-muted">
+                        {customer.contact_name && <span className="me-3">{t('customers.locations.contact_person', 'ผู้ติดต่อ')}: {customer.contact_name}</span>}
+                        {customer.phone && <span className="me-3">{t('customers.phone', 'เบอร์โทร')}: {customer.phone}</span>}
+                        {customer.email && <span>{t('customers.email', 'อีเมล')}: {customer.email}</span>}
+                      </div>
+                    </div>
+                  )}
+                  {(customer.tax_id || customer.line_id) && (
+                    <div className="col-12">
+                      <div className="small text-muted">
+                        {customer.tax_id && <span className="me-3">{t('customers.tax_id', 'เลขผู้เสียภาษี')}: {customer.tax_id}</span>}
+                        {customer.line_id && <span>{t('customers.line_id', 'Line ID')}: {customer.line_id}</span>}
+                      </div>
+                    </div>
+                  )}
+                  {customer.address && (
+                    <div className="col-12">
+                      <div className="small text-muted">{t('customers.address', 'ที่อยู่')}: {customer.address}</div>
+                    </div>
+                  )}
                 </div>
-              )}
-              {(customer.tax_id || customer.line_id) && (
-                <div className="col-12">
-                  <div className="small text-muted">
-                    {customer.tax_id && <span className="me-3">{t('customers.tax_id', 'เลขผู้เสียภาษี')}: {customer.tax_id}</span>}
-                    {customer.line_id && <span>{t('customers.line_id', 'Line ID')}: {customer.line_id}</span>}
-                  </div>
-                </div>
-              )}
-              {customer.address && (
-                <div className="col-12">
-                  <div className="small text-muted">{t('customers.address', 'ที่อยู่')}: {customer.address}</div>
-                </div>
+              ) : (
+                <div className="text-muted">{t('pos.walk_in')}</div>
               )}
             </div>
-          ) : (
-            <div className="text-muted">{t('pos.walk_in')}</div>
-          )}
+          </div>
         </div>
+
+        <div className={`col-12${customer?.id ? ' col-lg-3' : ' col-lg-6'}`}>
+          <div className="card border-0 shadow-sm h-100">
+            <div className="card-header d-flex justify-content-between align-items-center" style={{ backgroundColor: '#F4F5FF' }}>
+              <div className="fw-bold d-flex align-items-center gap-2">
+                <i className="bi bi-receipt"></i>
+                <span>{t('orders.order_details', 'รายละเอียดออเดอร์')}</span>
+              </div>
+            </div>
+            <div className="card-body">
+              <div className="row g-3">
+                <div className="col-12 col-md-6 col-lg-12">
+                  <div className="small text-muted">{t('orders.payment_method', 'วิธีชำระ')}</div>
+                  <div className="fw-semibold">
+                    {order.payment_method === 'cash'
+                      ? t('pos.cash', 'เงินสด')
+                      : order.payment_method === 'transfer'
+                        ? t('pos.transfer', 'โอนเงิน')
+                        : order.payment_method === 'installment'
+                          ? t('orders.installment', 'ผ่อนชำระ')
+                          : order.payment_method || '-'}
+                  </div>
+                </div>
+                <div className="col-12 col-md-6 col-lg-12">
+                  <div className="small text-muted">{t('orders.staff', 'พนักงาน')}</div>
+                  <div className="fw-semibold">{order.user?.name || '-'}</div>
+                </div>
+              </div>
+
+              <div className="border-top mt-3 pt-3">
+                <div className="d-flex justify-content-between">
+                  <span className="text-muted">{t('pos.subtotal_before_tax', 'ยอดก่อนภาษี')}</span>
+                  <span className="fw-semibold">฿{formatMoney(subtotalForTax)}</span>
+                </div>
+                <div className="d-flex justify-content-between mt-1">
+                  <span className="text-muted">{t('orders.vat', 'VAT')}</span>
+                  <span className={`fw-semibold ${vatAmount > 0 ? '' : 'text-muted'}`}>฿{formatMoney(Math.max(0, vatAmount))}</span>
+                </div>
+                <div className="d-flex justify-content-between mt-1">
+                  <span className="text-muted">{t('orders.withholding', 'หัก ณ ที่จ่าย')}</span>
+                  <span className={`fw-semibold ${withholdingAmount > 0 ? '' : 'text-muted'}`}>-฿{formatMoney(Math.max(0, withholdingAmount))}</span>
+                </div>
+                <div className="d-flex justify-content-between mt-2">
+                  <span className="fw-bold">{t('orders.total', 'ยอดรวม')}</span>
+                  <span className="fw-bold text-primary">฿{formatMoney(payableAfterTax)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {customer?.id && (
+          <div className="col-12 col-lg-3">
+            <div className="card border-0 shadow-sm h-100">
+              <div
+                className="card-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2"
+                style={{ backgroundColor: '#F4F5FF' }}
+              >
+                <div className="fw-bold d-flex align-items-center gap-2">
+                  <i className="bi bi-geo-alt"></i>
+                  <span>{t('customers.locations.title', 'ที่อยู่จัดส่ง')}</span>
+                </div>
+                <div className="d-flex gap-2 flex-wrap">
+                  {addressPrefsSaving ? (
+                    <span className="small text-muted align-self-center">{t('common.saving', 'กำลังบันทึก...')}</span>
+                  ) : addressPrefsSaveError ? (
+                    <span className="small text-danger align-self-center">{addressPrefsSaveError}</span>
+                  ) : (
+                    <span className="small text-muted align-self-center">{t('common.saved', 'บันทึกแล้ว')}</span>
+                  )}
+                  <button className="btn btn-outline-primary btn-sm" onClick={openAddLocation}>
+                    {t('customers.locations.add_btn', 'เพิ่มที่อยู่')}
+                  </button>
+                  <button
+                    className="btn btn-outline-secondary btn-sm"
+                    disabled={locationsLoading}
+                    onClick={() => fetchCustomerLocations(Number(customer.id))}
+                  >
+                    {locationsLoading ? t('common.loading') : t('common.refresh', 'รีเฟรช')}
+                  </button>
+                </div>
+              </div>
+              <div className="card-body">
+                <div className="row g-3">
+                  <div className="col-12">
+                    <div className="fw-semibold mb-2">{t('orders.job_site_address', 'ที่อยู่เข้าหน้างาน')}</div>
+                    <select
+                      className="form-select"
+                      value={jobLocationId}
+                      onChange={(e) => setJobLocationId(e.target.value)}
+                      disabled={locationsLoading}
+                    >
+                      <option value="customer">{t('customers.address', 'ที่อยู่ลูกค้า')}</option>
+                      {customerLocations.map((loc) => (
+                        <option key={loc.id} value={String(loc.id)}>
+                          {(loc.name || t('customers.locations.title', 'ที่อยู่จัดส่ง')) + (loc.is_default ? ` · ${t('common.default', 'หลัก')}` : '')}
+                        </option>
+                      ))}
+                      <option value="manual">{t('common.custom', 'กำหนดเอง')}</option>
+                    </select>
+                    {jobLocationId === 'manual' && (
+                      <textarea
+                        className="form-control mt-2"
+                        rows={3}
+                        value={jobManualAddress}
+                        onChange={(e) => setJobManualAddress(e.target.value)}
+                        placeholder={t('orders.job_site_address_placeholder', 'กรอกที่อยู่หน้างาน')}
+                      />
+                    )}
+                    <div className="small text-muted mt-2" style={{ whiteSpace: 'pre-line' }}>
+                      {jobDisplayAddress || '-'}
+                    </div>
+                    {jobLoc?.google_maps_link && (
+                      <a
+                        href={jobLoc.google_maps_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-sm btn-outline-info mt-2"
+                      >
+                        <i className="bi bi-geo-alt-fill me-1"></i>
+                        {t('customers.locations.google_maps_link', 'Map')}
+                      </a>
+                    )}
+                  </div>
+
+                  <div className="col-12">
+                    <div className="border-top pt-3">
+                      <div className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id="billingDifferentFromJob"
+                          checked={billingDifferentFromJob}
+                          onChange={(e) => setBillingDifferentFromJob(e.target.checked)}
+                        />
+                        <label className="form-check-label fw-semibold" htmlFor="billingDifferentFromJob">
+                          {t('orders.billing_different_from_job', 'ใช้ที่อยู่ออกบิล/ใบกำกับคนละที่กับหน้างาน')}
+                        </label>
+                      </div>
+
+                      {billingDifferentFromJob ? (
+                        <div className="mt-3">
+                          <div className="fw-semibold mb-2">{t('orders.billing_address', 'ที่อยู่ออกบิล/ใบกำกับ')}</div>
+                          <select
+                            className="form-select"
+                            value={billingLocationId}
+                            onChange={(e) => setBillingLocationId(e.target.value)}
+                            disabled={locationsLoading}
+                          >
+                            <option value="customer">{t('customers.address', 'ที่อยู่ลูกค้า')}</option>
+                            {customerLocations.map((loc) => (
+                              <option key={loc.id} value={String(loc.id)}>
+                                {(loc.name || t('customers.locations.title', 'ที่อยู่จัดส่ง')) + (loc.is_default ? ` · ${t('common.default', 'หลัก')}` : '')}
+                              </option>
+                            ))}
+                            <option value="manual">{t('common.custom', 'กำหนดเอง')}</option>
+                          </select>
+                          {billingLocationId === 'manual' && (
+                            <textarea
+                              className="form-control mt-2"
+                              rows={3}
+                              value={billingManualAddress}
+                              onChange={(e) => setBillingManualAddress(e.target.value)}
+                              placeholder={t('orders.billing_address_placeholder', 'กรอกที่อยู่ออกบิล/ใบกำกับ')}
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <div className="mt-2 small text-muted">
+                          {t('orders.billing_same_as_job', 'ที่อยู่ออกบิล/ใบกำกับ: ใช้ที่อยู่เดียวกับหน้างาน')}
+                        </div>
+                      )}
+
+                      {billingDifferentFromJob && (
+                        <>
+                          <div className="small text-muted mt-2" style={{ whiteSpace: 'pre-line' }}>
+                            {billingPreview.address || '-'}
+                          </div>
+                          {billingLoc?.contact_person || billingLoc?.contact_phone ? (
+                            <div className="small text-muted" style={{ whiteSpace: 'pre-line' }}>
+                              {(billingLoc?.contact_person ? `${t('customers.locations.contact_person', 'ผู้ติดต่อ')}: ${billingLoc.contact_person}` : '') +
+                                (billingLoc?.contact_person && billingLoc?.contact_phone ? ' · ' : '') +
+                                (billingLoc?.contact_phone ? `${t('customers.locations.contact_phone', 'เบอร์โทร')}: ${billingLoc.contact_phone}` : '')}
+                            </div>
+                          ) : null}
+                          <div className="small text-muted mt-1">
+                            {t('orders.billing_address_hint', 'ระบบจะนำไปเติมในแบบฟอร์มเอกสารตอนพิมพ์/แก้ไข')}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {customer?.id && (
+          <div className="col-12 col-lg-3">
+            <div className="card border-0 shadow-sm h-100">
+              <div className="card-header d-flex justify-content-between align-items-center" style={{ backgroundColor: '#F4F5FF' }}>
+                <div className="fw-bold d-flex align-items-center gap-2">
+                  <i className="bi bi-map"></i>
+                  <span>{t('orders.job_site', 'สถานที่ติดตั้ง')}</span>
+                </div>
+                {jobMapLinkHref ? (
+                  <a className="btn btn-outline-primary btn-sm" href={jobMapLinkHref} target="_blank" rel="noopener noreferrer">
+                    {t('orders.navigate', 'นำทาง')}
+                  </a>
+                ) : null}
+              </div>
+              <div className="card-body">
+                {jobMapEmbedSrc ? (
+                  <div className="ratio ratio-16x9">
+                    <iframe src={jobMapEmbedSrc} loading="lazy"></iframe>
+                  </div>
+                ) : (
+                  <div className="text-muted small">{t('orders.no_location', 'ยังไม่มีข้อมูลสถานที่')}</div>
+                )}
+                <div className="small text-muted mt-2" style={{ whiteSpace: 'pre-line' }}>
+                  {jobDisplayAddress || '-'}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="row g-3">
@@ -1917,7 +2672,7 @@ export const OrderDetail = () => {
                                     <button
                                       type="button"
                                       className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center"
-                                      onClick={() => window.open(`/print/order/${order.id}?type=receipt&doc_id=${doc.id}&edit=1`, '_blank')}
+                                      onClick={() => openReceiptPrintByDocId(doc.id)}
                                       title={t('orders.print', 'พิมพ์')}
                                       style={{ width: '40px', height: '40px' }}
                                     >
@@ -2000,7 +2755,7 @@ export const OrderDetail = () => {
                                   <button
                                     type="button"
                                     className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center"
-                                    onClick={() => window.open(`/print/order/${order.id}?type=receipt&doc_id=${doc.id}&edit=1`, '_blank')}
+                                    onClick={() => openReceiptPrintByDocId(doc.id)}
                                     title={t('orders.print', 'พิมพ์')}
                                     style={{ width: '44px', height: '44px' }}
                                   >
@@ -2062,7 +2817,7 @@ export const OrderDetail = () => {
                                     <button
                                       type="button"
                                       className="btn btn-outline-secondary btn-sm"
-                                      onClick={() => window.open(`/print/order/${order.id}?type=receipt&doc_id=${doc.id}&edit=1`, '_blank')}
+                                      onClick={() => openReceiptPrintByDocId(doc.id)}
                                     >
                                       {t('orders.print', 'พิมพ์')}
                                     </button>
@@ -2170,14 +2925,12 @@ export const OrderDetail = () => {
               </div>
             ) : null}
 
-            {!isInstallmentOrder && (
-              <div className="card border-0 shadow-sm">
-                <div className="card-header bg-white fw-bold">{t('orders.issued_documents')}</div>
-                <div className="card-body">
-                  {issuedDocumentsBody}
-                </div>
+            <div className="card border-0 shadow-sm">
+              <div className="card-header bg-white fw-bold">{t('orders.issued_documents')}</div>
+              <div className="card-body">
+                {issuedDocumentsBody}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
