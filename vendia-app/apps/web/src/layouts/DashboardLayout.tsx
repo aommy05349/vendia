@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuthStore, useShopStore } from '@vendia/shared';
+import { api, useAuthStore, useShopStore } from '@vendia/shared';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
@@ -12,8 +12,17 @@ export const DashboardLayout = () => {
   const location = useLocation();
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [adminGroupsOpen, setAdminGroupsOpen] = useState<{ user: boolean; product: boolean; shop: boolean; documents: boolean }>(() => ({
+    user: false,
+    product: false,
+    shop: false,
+    documents: false,
+  }));
+  const [documentsBillingDebtorCount, setDocumentsBillingDebtorCount] = useState(0);
+  const [documentsMissingReceiptCount, setDocumentsMissingReceiptCount] = useState(0);
   const mobileProfileDropdownRef = useRef<HTMLDivElement>(null);
   const desktopProfileDropdownRef = useRef<HTMLDivElement>(null);
+  const remindersRequestIdRef = useRef(0);
   const apiUrlRaw = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api';
   const apiUrl = typeof apiUrlRaw === 'string' ? apiUrlRaw : 'http://localhost:8000/api';
   const apiUrlNormalized = apiUrl.replace(/^https:\/(?!\/)/, 'https://').replace(/^http:\/(?!\/)/, 'http://');
@@ -40,6 +49,46 @@ export const DashboardLayout = () => {
     setShowMobileSidebar(false);
     setShowProfileMenu(false);
   }, [location]);
+
+  useEffect(() => {
+    const path = location.pathname;
+    const group =
+      path.startsWith('/users') || path.startsWith('/teams') || path.startsWith('/customers')
+        ? 'user'
+        : path.startsWith('/products') || path.startsWith('/categories') || path.startsWith('/units') || path.startsWith('/brands')
+          ? 'product'
+          : path.startsWith('/warehouses') || path.startsWith('/settings')
+            ? 'shop'
+            : path.startsWith('/documents')
+              ? 'documents'
+              : null;
+    if (!group) return;
+    setAdminGroupsOpen((prev) => ({ ...prev, [group]: true }));
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (user?.role !== 'admin') return;
+    const requestId = (remindersRequestIdRef.current += 1);
+    const fetchCounts = async () => {
+      try {
+        const res = await api.get('/orders/reminders', { params: { scope: 'all' } });
+        if (requestId !== remindersRequestIdRef.current) return;
+        const count = Number((res as any)?.data?.billing_unpaid?.count ?? 0);
+        const receiptCount = Number((res as any)?.data?.missing_receipt?.count ?? 0);
+        setDocumentsBillingDebtorCount(Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0);
+        setDocumentsMissingReceiptCount(Number.isFinite(receiptCount) ? Math.max(0, Math.trunc(receiptCount)) : 0);
+      } catch {
+        if (requestId !== remindersRequestIdRef.current) return;
+        setDocumentsBillingDebtorCount(0);
+        setDocumentsMissingReceiptCount(0);
+      }
+    };
+    fetchCounts();
+  }, [user?.role, location.pathname]);
+
+  const toggleAdminGroup = (key: 'user' | 'product' | 'shop' | 'documents') => {
+    setAdminGroupsOpen((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -204,6 +253,16 @@ export const DashboardLayout = () => {
           <nav className="nav flex-column gap-2 overflow-y-auto overflow-x-hidden flex-grow-1" style={{ scrollbarWidth: 'thin', minHeight: 0 }}>
             {user.role !== 'technician' && (
               <>
+                {user.role === 'admin' && (
+                  <Link
+                    to="/dashboard"
+                    className={`nav-link border rounded text-dark w-100 ${
+                      location.pathname.startsWith('/dashboard') ? 'bg-primary text-white border-primary' : 'bg-white'
+                    }`}
+                  >
+                    📊 {t('common.dashboard')}
+                  </Link>
+                )}
                 <Link
                   to="/"
                   className={`nav-link border rounded text-dark w-100 ${
@@ -220,14 +279,16 @@ export const DashboardLayout = () => {
                 >
                   📄 {t('common.orders')}
                 </Link>
-                <Link
-                  to="/customers"
-                  className={`nav-link border rounded text-dark w-100 ${
-                    location.pathname === '/customers' ? 'bg-primary text-white border-primary' : 'bg-white'
-                  }`}
-                >
-                  👥 {t('common.customers')}
-                </Link>
+                {user.role !== 'admin' && (
+                  <Link
+                    to="/customers"
+                    className={`nav-link border rounded text-dark w-100 ${
+                      location.pathname === '/customers' ? 'bg-primary text-white border-primary' : 'bg-white'
+                    }`}
+                  >
+                    👥 {t('common.customers')}
+                  </Link>
+                )}
               </>
             )}
             
@@ -249,16 +310,98 @@ export const DashboardLayout = () => {
               <>
                 <div className="text-muted fw-bold small ps-2">{t('common.admin_section')}</div>
                 {/* <Link to="/attendance/history" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/attendance/history' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 Attendance History</Link> */}
-                <Link to="/dashboard" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/dashboard') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📊 {t('common.dashboard')}</Link>
-                <Link to="/users" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/users' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 {t('common.users')}</Link>
-                <Link to="/categories" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/categories' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📁 {t('common.categories')}</Link>
-                <Link to="/products" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/products' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📦 {t('common.products')}</Link>
-                <Link to="/documents" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/documents' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🧾 {t('common.documents', 'เอกสาร')}</Link>
-                <Link to="/brands" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/brands' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏷️ {t('common.brands')}</Link>
-                <Link to="/units" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/units' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚖️ {t('common.units')}</Link>
-                <Link to="/teams" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/teams' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👨‍🔧 {t('common.teams', 'Teams')}</Link>
-                <Link to="/warehouses" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/warehouses' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏭 {t('common.warehouses')}</Link>
-                <Link to="/settings" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/settings' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚙️ {t('common.settings')}</Link>
+
+                <div className="d-flex flex-column gap-2 mt-2">
+                  <button
+                    type="button"
+                    className="btn btn-light border rounded w-100 d-flex justify-content-between align-items-center text-start"
+                    onClick={() => toggleAdminGroup('documents')}
+                    aria-expanded={adminGroupsOpen.documents}
+                    aria-controls="admin-group-documents"
+                  >
+                    <span className="fw-semibold">
+                      {t('common.document_management', 'จัดการเอกสาร')}
+                      {documentsBillingDebtorCount > 0 && (
+                        <span className="badge ms-2 text-dark" style={{ background: '#ffc107' }}>
+                          {documentsBillingDebtorCount}
+                        </span>
+                      )}
+                      {documentsMissingReceiptCount > 0 && (
+                        <span className="badge bg-secondary ms-2">
+                          {documentsMissingReceiptCount}
+                        </span>
+                      )}
+                    </span>
+                    <i className={`bi bi-chevron-${adminGroupsOpen.documents ? 'up' : 'down'}`}></i>
+                  </button>
+                  <div id="admin-group-documents" className={`ps-2 d-flex flex-column gap-2 ${adminGroupsOpen.documents ? '' : 'd-none'}`}>
+                    <Link to="/documents" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/documents') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>
+                      <span className="d-flex justify-content-between align-items-center w-100">
+                        <span>🧾 {t('common.documents', 'เอกสาร')}</span>
+                        <span className="d-flex align-items-center gap-2">
+                          {documentsBillingDebtorCount > 0 && (
+                            <span className="badge text-dark" style={{ background: '#ffc107' }}>
+                              {documentsBillingDebtorCount}
+                            </span>
+                          )}
+                          {documentsMissingReceiptCount > 0 && (
+                            <span className="badge bg-secondary">
+                              {documentsMissingReceiptCount}
+                            </span>
+                          )}
+                        </span>
+                      </span>
+                    </Link>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-light border rounded w-100 d-flex justify-content-between align-items-center text-start"
+                    onClick={() => toggleAdminGroup('user')}
+                    aria-expanded={adminGroupsOpen.user}
+                    aria-controls="admin-group-user"
+                  >
+                    <span className="fw-semibold">{t('common.user_management', 'User management')}</span>
+                    <i className={`bi bi-chevron-${adminGroupsOpen.user ? 'up' : 'down'}`}></i>
+                  </button>
+                  <div id="admin-group-user" className={`ps-2 d-flex flex-column gap-2 ${adminGroupsOpen.user ? '' : 'd-none'}`}>
+                    <Link to="/users" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/users') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 {t('common.users')}</Link>
+                    <Link to="/teams" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/teams') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👨‍🔧 {t('common.teams', 'Teams')}</Link>
+                    <Link to="/customers" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/customers') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 {t('common.customers')}</Link>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-light border rounded w-100 d-flex justify-content-between align-items-center text-start"
+                    onClick={() => toggleAdminGroup('product')}
+                    aria-expanded={adminGroupsOpen.product}
+                    aria-controls="admin-group-product"
+                  >
+                    <span className="fw-semibold">{t('common.product_management', 'Product management')}</span>
+                    <i className={`bi bi-chevron-${adminGroupsOpen.product ? 'up' : 'down'}`}></i>
+                  </button>
+                  <div id="admin-group-product" className={`ps-2 d-flex flex-column gap-2 ${adminGroupsOpen.product ? '' : 'd-none'}`}>
+                    <Link to="/products" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/products') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📦 {t('common.products')}</Link>
+                    <Link to="/categories" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/categories') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📁 {t('common.categories')}</Link>
+                    <Link to="/units" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/units') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚖️ {t('common.units')}</Link>
+                    <Link to="/brands" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/brands') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏷️ {t('common.brands')}</Link>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-light border rounded w-100 d-flex justify-content-between align-items-center text-start"
+                    onClick={() => toggleAdminGroup('shop')}
+                    aria-expanded={adminGroupsOpen.shop}
+                    aria-controls="admin-group-shop"
+                  >
+                    <span className="fw-semibold">{t('common.shop_management', 'Shop management')}</span>
+                    <i className={`bi bi-chevron-${adminGroupsOpen.shop ? 'up' : 'down'}`}></i>
+                  </button>
+                  <div id="admin-group-shop" className={`ps-2 d-flex flex-column gap-2 ${adminGroupsOpen.shop ? '' : 'd-none'}`}>
+                    <Link to="/warehouses" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/warehouses') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏭 {t('common.warehouses')}</Link>
+                    <Link to="/settings" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/settings') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚙️ {t('common.settings')}</Link>
+                  </div>
+                </div>
                 {/* <div className="pb-4"></div> */}
               </>
             )}

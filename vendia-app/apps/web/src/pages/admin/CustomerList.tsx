@@ -255,11 +255,19 @@ export const CustomerList = () => {
                   const isCompany = customer.is_company === true;
                   const typeLabel = getTypeLabel(customer);
                   return (
-                    <button
+                    <div
                       key={customer.id}
-                      type="button"
                       className="card border-0 shadow-sm text-start w-100"
                       onClick={() => navigate(`/customers/${customer.id}/edit`)}
+                      role="button"
+                      tabIndex={0}
+                      style={{ cursor: 'pointer' }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          navigate(`/customers/${customer.id}/edit`);
+                        }
+                      }}
                     >
                       <div className="card-body py-3">
                         <div className="d-flex justify-content-between align-items-start gap-2">
@@ -308,7 +316,7 @@ export const CustomerList = () => {
                           </button>
                         </div>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

@@ -78,7 +78,7 @@ class OrderPaymentController extends Controller
                 $plan->save();
                 $order->status = 'completed';
             } else {
-                $order->status = in_array($order->status, ['quotation', 'cancelled']) ? $order->status : 'pending';
+                $order->status = $order->status === 'cancelled' ? 'cancelled' : 'pending';
             }
             $order->save();
 
@@ -156,11 +156,11 @@ class OrderPaymentController extends Controller
                 $plan->save();
                 $order->status = 'completed';
             } else {
-                $order->status = in_array($order->status, ['quotation', 'cancelled']) ? $order->status : 'pending';
+                $order->status = $order->status === 'cancelled' ? 'cancelled' : 'pending';
             }
             $order->save();
 
-            $issue = (bool) ($validated['issue_receipt'] ?? true);
+            $issue = (bool) ($validated['issue_receipt'] ?? false);
             if ($issue) {
                 $issuedDate = array_key_exists('issued_date', $validated) && $validated['issued_date']
                     ? Carbon::parse($validated['issued_date'])->startOfDay()

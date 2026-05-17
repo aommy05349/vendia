@@ -124,6 +124,7 @@ export const OrderList = () => {
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<'all' | 'installment'>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchText, setSearchText] = useState('');
+  const [appliedSearchText, setAppliedSearchText] = useState('');
   const [searchActive, setSearchActive] = useState(false);
   const [searchKind, setSearchKind] = useState<null | 'document' | 'order-id' | 'keyword'>(null);
   const [searchBusy, setSearchBusy] = useState(false);
@@ -356,8 +357,8 @@ export const OrderList = () => {
 
   useEffect(() => {
     if (searchActive && searchKind !== 'keyword') return;
-    fetchOrders(currentPage, false, searchActive && searchKind === 'keyword' ? searchText.trim() : undefined);
-  }, [currentPage, filterStatus, filterPaymentMethod, searchActive, searchKind, searchText]);
+    fetchOrders(currentPage, false, searchActive && searchKind === 'keyword' ? appliedSearchText.trim() : undefined);
+  }, [currentPage, filterStatus, filterPaymentMethod, searchActive, searchKind, appliedSearchText]);
 
   useEffect(() => {
     fetchDailySales();
@@ -488,19 +489,16 @@ export const OrderList = () => {
       await searchOrdersByOrderId(oid);
       return;
     }
-    if (looksLikeDocumentNumber(q)) {
-      await searchOrdersByDocumentNumber(q);
-      return;
-    }
     setSearchActive(true);
     setSearchKind('keyword');
     setSearchResultCount(null);
     setCurrentPage(1);
-    await fetchOrders(1, false, q);
+    setAppliedSearchText(q);
   };
 
   const clearSearch = () => {
     setSearchText('');
+    setAppliedSearchText('');
     setSearchActive(false);
     setSearchKind(null);
     setSearchBusy(false);

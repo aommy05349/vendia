@@ -18,6 +18,7 @@ class DocumentController extends Controller
             'status' => 'sometimes|in:active,cancelled',
             'start_date' => 'sometimes|date',
             'end_date' => 'sometimes|date',
+            'search' => 'sometimes|string|max:255',
             'per_page' => 'sometimes|integer|min:1|max:200',
         ]);
 
@@ -46,6 +47,32 @@ class DocumentController extends Controller
                     $q->whereDate('issued_date', '<=', $endDate);
                 }
             });
+        }
+
+        $search = trim((string) ($validated['search'] ?? ''));
+        if ($search !== '') {
+            $rawId = ltrim($search, '#');
+            if ($rawId !== '' && ctype_digit($rawId)) {
+                $id = (int) $rawId;
+                $query->where(function ($q) use ($id) {
+                    $q->where('id', $id)
+                        ->orWhereHas('order', function ($oq) use ($id) {
+                            $oq->where('id', $id);
+                        });
+                });
+            } else {
+                $like = "%{$search}%";
+                $query->where(function ($q) use ($like) {
+                    $q->where('number', 'like', $like)
+                        ->orWhereHas('order.customer', function ($cq) use ($like) {
+                            $cq->where('name', 'like', $like)
+                                ->orWhere('company_name', 'like', $like)
+                                ->orWhere('phone', 'like', $like)
+                                ->orWhere('email', 'like', $like)
+                                ->orWhere('tax_id', 'like', $like);
+                        });
+                });
+            }
         }
 
         return $query->paginate($validated['per_page'] ?? 20);

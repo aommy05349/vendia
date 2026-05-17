@@ -12,6 +12,8 @@ type SummaryPoint = {
   completed_count: number;
   pending_total: number;
   pending_count: number;
+  pending_installment_total: number;
+  pending_installment_count: number;
   pending_billing_total: number;
   pending_billing_count: number;
   pending_quotation_total: number;
@@ -23,11 +25,15 @@ type PendingOrder = {
   created_at: string;
   total: string | number;
   customer_name: string | null;
-  pending_kind: 'quotation' | 'billing_note';
+  pending_kind: 'quotation' | 'billing_note' | 'installment';
+  payment_method?: string | null;
+  has_payment_plan?: boolean;
   document_id?: number | null;
   document_type?: 'quotation' | 'billing_note' | string | null;
   document_number?: string | null;
 };
+
+type PendingKindFilter = 'all' | 'quotation' | 'billing_note' | 'installment';
 
 type PendingPagination = {
   page: number;
@@ -49,6 +55,8 @@ type SummaryResponse = {
     pending_count: number;
     pending_billing_total: number;
     pending_billing_count: number;
+    pending_installment_total: number;
+    pending_installment_count: number;
     pending_quotation_total: number;
     pending_quotation_count: number;
   };
@@ -88,13 +96,15 @@ export const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<SummaryResponse | null>(null);
-  const [pendingPerPage, setPendingPerPage] = useState<5 | 10 | 25 | 50>(5);
+  const [pendingPerPage, setPendingPerPage] = useState<5 | 10 | 25 | 50>(10);
   const [pendingPage, setPendingPage] = useState(1);
+  const [pendingKind, setPendingKind] = useState<PendingKindFilter>('all');
   const [hovered, setHovered] = useState<{
     left: number;
     top: number;
     label: string;
     completed: number;
+    pendingInstallment: number;
     pendingBilling: number;
     pendingQuotation: number;
     total: number;
@@ -104,6 +114,7 @@ export const Dashboard = () => {
     top: number;
     label: string;
     completed: number;
+    pendingInstallment: number;
     pendingBilling: number;
     pendingQuotation: number;
   } | null>(null);
@@ -231,9 +242,10 @@ export const Dashboard = () => {
 
   const lineIndicator = useMemo(() => {
     const completedSum = series.reduce((acc, p) => acc + (Number(p.completed_total) || 0), 0);
+    const installmentSum = series.reduce((acc, p) => acc + (Number(p.pending_installment_total) || 0), 0);
     const billingSum = series.reduce((acc, p) => acc + (Number(p.pending_billing_total) || 0), 0);
     const quotationSum = series.reduce((acc, p) => acc + (Number(p.pending_quotation_total) || 0), 0);
-    return { completedSum, billingSum, quotationSum };
+    return { completedSum, installmentSum, billingSum, quotationSum };
   }, [series]);
 
   const appliedMonthDiff = useMemo(() => {
@@ -265,6 +277,7 @@ export const Dashboard = () => {
       1,
       ...points.map((p) =>
         (Number(p.completed_total) || 0) +
+        (Number(p.pending_installment_total) || 0) +
         (Number(p.pending_billing_total) || 0) +
         (Number(p.pending_quotation_total) || 0)
       )
@@ -290,12 +303,14 @@ export const Dashboard = () => {
         <rect x="0" y="0" width={width} height={height} fill="white" />
         {points.map((p, idx) => {
           const completed = Number(p.completed_total) || 0;
+          const pendingInstallment = Number(p.pending_installment_total) || 0;
           const pendingBilling = Number(p.pending_billing_total) || 0;
           const pendingQuotation = Number(p.pending_quotation_total) || 0;
-          const total = completed + pendingBilling + pendingQuotation;
+          const total = completed + pendingInstallment + pendingBilling + pendingQuotation;
           const x = startX + idx * (barW + barGap);
           const hTotal = scaleY(total);
           const hCompleted = scaleY(completed);
+          const hPendingInstallment = scaleY(pendingInstallment);
           const hPendingBilling = scaleY(pendingBilling);
           const hPendingQuotation = scaleY(pendingQuotation);
           const yBase = padding.top + innerH;
@@ -303,6 +318,7 @@ export const Dashboard = () => {
           const yCompleted = yBase - hCompleted;
           const yPendingQuotation = yCompleted - hPendingQuotation;
           const yPendingBilling = yPendingQuotation - hPendingBilling;
+          const yPendingInstallment = yPendingBilling - hPendingInstallment;
           const axisLabel =
             groupBy === 'month'
               ? formatMonthLabel(p.bucket)
@@ -320,22 +336,23 @@ export const Dashboard = () => {
                 if (!rect) return;
                 const left = Math.max(8, Math.min(rect.width - 8, e.clientX - rect.left));
                 const top = Math.max(8, Math.min(rect.height - 8, e.clientY - rect.top));
-                setHovered({ left, top, label: hoverLabel, completed, pendingBilling, pendingQuotation, total });
+                setHovered({ left, top, label: hoverLabel, completed, pendingInstallment, pendingBilling, pendingQuotation, total });
               }}
               onMouseMove={(e) => {
                 const rect = chartWrapRef.current?.getBoundingClientRect();
                 if (!rect) return;
                 const left = Math.max(8, Math.min(rect.width - 8, e.clientX - rect.left));
                 const top = Math.max(8, Math.min(rect.height - 8, e.clientY - rect.top));
-                setHovered({ left, top, label: hoverLabel, completed, pendingBilling, pendingQuotation, total });
+                setHovered({ left, top, label: hoverLabel, completed, pendingInstallment, pendingBilling, pendingQuotation, total });
               }}
               onMouseLeave={() => setHovered(null)}
-              onTouchStart={() => setHovered({ left: x + barW / 2, top: yTotal, label: hoverLabel, completed, pendingBilling, pendingQuotation, total })}
+              onTouchStart={() => setHovered({ left: x + barW / 2, top: yTotal, label: hoverLabel, completed, pendingInstallment, pendingBilling, pendingQuotation, total })}
             >
               <rect x={x} y={yTotal} width={barW} height={hTotal} fill="#e9ecef" rx="4" />
               <rect x={x} y={yCompleted} width={barW} height={hCompleted} fill="#198754" rx="4" />
               <rect x={x} y={yPendingQuotation} width={barW} height={hPendingQuotation} fill="#fd7e14" rx="4" />
               <rect x={x} y={yPendingBilling} width={barW} height={hPendingBilling} fill="#ffc107" rx="4" />
+              <rect x={x} y={yPendingInstallment} width={barW} height={hPendingInstallment} fill="#dc3545" rx="4" />
               {(isOneMonthRange && groupBy === 'day'
                 ? new Date(`${p.bucket}T00:00:00`).getDate() % 2 === 1
                 : idx % Math.ceil(points.length / 10) === 0) && (
@@ -364,6 +381,7 @@ export const Dashboard = () => {
       1,
       ...points.flatMap((p) => [
         Number(p.completed_total) || 0,
+        Number(p.pending_installment_total) || 0,
         Number(p.pending_billing_total) || 0,
         Number(p.pending_quotation_total) || 0,
       ])
@@ -427,6 +445,7 @@ export const Dashboard = () => {
 
         {points.map((p, idx) => {
           const completed = Number(p.completed_total) || 0;
+          const pendingInstallment = Number(p.pending_installment_total) || 0;
           const pendingBilling = Number(p.pending_billing_total) || 0;
           const pendingQuotation = Number(p.pending_quotation_total) || 0;
           const x = xAt(idx);
@@ -446,28 +465,30 @@ export const Dashboard = () => {
                 if (!rect) return;
                 const left = Math.max(8, Math.min(rect.width - 8, e.clientX - rect.left));
                 const top = Math.max(8, Math.min(rect.height - 8, e.clientY - rect.top));
-                setHoveredLine({ left, top, label: hoverLabel, completed, pendingBilling, pendingQuotation });
+                setHoveredLine({ left, top, label: hoverLabel, completed, pendingInstallment, pendingBilling, pendingQuotation });
               }}
               onMouseMove={(e) => {
                 const rect = lineChartWrapRef.current?.getBoundingClientRect();
                 if (!rect) return;
                 const left = Math.max(8, Math.min(rect.width - 8, e.clientX - rect.left));
                 const top = Math.max(8, Math.min(rect.height - 8, e.clientY - rect.top));
-                setHoveredLine({ left, top, label: hoverLabel, completed, pendingBilling, pendingQuotation });
+                setHoveredLine({ left, top, label: hoverLabel, completed, pendingInstallment, pendingBilling, pendingQuotation });
               }}
               onMouseLeave={() => setHoveredLine(null)}
               onTouchStart={() =>
                 setHoveredLine({
                   left: x,
-                  top: Math.min(yAt(Math.max(completed, pendingBilling, pendingQuotation)), padding.top + innerH),
+                  top: Math.min(yAt(Math.max(completed, pendingInstallment, pendingBilling, pendingQuotation)), padding.top + innerH),
                   label: hoverLabel,
                   completed,
+                  pendingInstallment,
                   pendingBilling,
                   pendingQuotation,
                 })
               }
             >
               <circle cx={x} cy={yAt(completed)} r="3.5" fill="#198754" />
+              <circle cx={x} cy={yAt(pendingInstallment)} r="3.5" fill="#dc3545" />
               <circle cx={x} cy={yAt(pendingBilling)} r="3.5" fill="#ffc107" />
               <circle cx={x} cy={yAt(pendingQuotation)} r="3.5" fill="#fd7e14" />
               {showAxisLabel && (
@@ -494,6 +515,7 @@ export const Dashboard = () => {
             group_by: groupBy,
             start_date: range?.startDate,
             end_date: range?.endDate,
+            pending_kind: pendingKind,
             pending_page: pendingPage,
             pending_per_page: pendingPerPage,
           },
@@ -510,7 +532,7 @@ export const Dashboard = () => {
       }
     };
     fetchSummary();
-  }, [appliedFromMonth, appliedToMonth, groupBy, pendingPage, pendingPerPage, t]);
+  }, [appliedFromMonth, appliedToMonth, groupBy, pendingKind, pendingPage, pendingPerPage, t]);
 
   const totalOrdersCount = (data?.totals.completed_count || 0) + (data?.totals.pending_count || 0);
   const totalOrdersAmount = (data?.totals.completed_total || 0) + (data?.totals.pending_total || 0);
@@ -641,8 +663,13 @@ export const Dashboard = () => {
                 <div className="small mt-2">
                   <div className="text-muted d-flex align-items-center gap-2">
                     <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#ffc107' }} />
-                    <span>{t('dashboard.pending_billing_note', 'ใบวางบิล')}:</span>
+                    <span>{t('dashboard.pending_billing_note', 'รอชำระ')}:</span>
                     <span className="fw-semibold">฿{formatMoney(data.totals.pending_billing_total || 0)}</span>
+                  </div>
+                  <div className="text-muted d-flex align-items-center gap-2">
+                    <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#dc3545' }} />
+                    <span>{t('orders.installment', 'ผ่อนชำระ')}:</span>
+                    <span className="fw-semibold">฿{formatMoney(data.totals.pending_installment_total || 0)}</span>
                   </div>
                   <div className="text-muted d-flex align-items-center gap-2">
                     <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#fd7e14' }} />
@@ -667,7 +694,11 @@ export const Dashboard = () => {
                 </span>
                 <span className="d-inline-flex align-items-center gap-2">
                   <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#ffc107' }} />
-                  <span>{t('dashboard.legend_billing_note', 'ใบวางบิล')}: {data?.totals.pending_billing_count || 0}</span>
+                  <span>{t('dashboard.legend_billing_note', 'รอชำระ')}: {data?.totals.pending_billing_count || 0}</span>
+                </span>
+                <span className="d-inline-flex align-items-center gap-2">
+                  <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#dc3545' }} />
+                  <span>{t('orders.installment', 'ผ่อนชำระ')}: {data?.totals.pending_installment_count || 0}</span>
                 </span>
                 <span className="d-inline-flex align-items-center gap-2">
                   <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#fd7e14' }} />
@@ -698,7 +729,11 @@ export const Dashboard = () => {
                 </div>
                 <div className="d-flex align-items-center gap-2">
                   <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: '#ffc107' }} />
-                  <span className="small text-muted">{t('dashboard.legend_billing_note', 'ใบวางบิล')}</span>
+                  <span className="small text-muted">{t('dashboard.legend_billing_note', 'รอชำระ')}</span>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: '#dc3545' }} />
+                  <span className="small text-muted">{t('orders.installment', 'ผ่อนชำระ')}</span>
                 </div>
                 <div className="d-flex align-items-center gap-2">
                   <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: '#fd7e14' }} />
@@ -737,7 +772,8 @@ export const Dashboard = () => {
                     >
                       <div className="fw-semibold">{hovered.label}</div>
                       <div>{t('dashboard.tooltip.completed', 'ชำระแล้ว')}: ฿{formatMoney(hovered.completed)}</div>
-                      <div>{t('dashboard.tooltip.billing_note', 'ใบวางบิล')}: ฿{formatMoney(hovered.pendingBilling)}</div>
+                      <div>{t('dashboard.tooltip.billing_note', 'รอชำระ')}: ฿{formatMoney(hovered.pendingBilling)}</div>
+                      <div>{t('orders.installment', 'ผ่อนชำระ')}: ฿{formatMoney(hovered.pendingInstallment)}</div>
                       <div>{t('dashboard.tooltip.quotation', 'ใบเสนอราคา')}: ฿{formatMoney(hovered.pendingQuotation)}</div>
                       <div className="opacity-75">{t('dashboard.tooltip.total', 'รวม')}: ฿{formatMoney(hovered.total)}</div>
                     </div>
@@ -753,7 +789,7 @@ export const Dashboard = () => {
             <div className="card-body p-2">
               <div className="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-2">
                 <h5 className="mb-0 flex-grow-1" style={{ minWidth: 260 }}>
-                  {t('dashboard.line_chart_title', 'กราฟเส้น (ชำระแล้ว/ใบวางบิล/ใบเสนอราคา)')}
+                  {t('dashboard.line_chart_title', 'กราฟเส้น (ชำระแล้ว/รอชำระ/ผ่อนชำระ/ใบเสนอราคา)')}
                 </h5>
                 <div
                   className="d-flex flex-column align-items-end flex-shrink-0 ms-auto"
@@ -766,6 +802,10 @@ export const Dashboard = () => {
                   <div className="d-flex align-items-center gap-2">
                     <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, background: '#ffc107' }} />
                     <span className="fw-semibold" style={{ color: '#8a6d00' }}>฿{formatMoney(lineIndicator.billingSum)}</span>
+                  </div>
+                  <div className="d-flex align-items-center gap-2">
+                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, background: '#dc3545' }} />
+                    <span className="fw-semibold text-danger">฿{formatMoney(lineIndicator.installmentSum)}</span>
                   </div>
                   <div className="d-flex align-items-center gap-2">
                     <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, background: '#fd7e14' }} />
@@ -805,7 +845,8 @@ export const Dashboard = () => {
                     >
                       <div className="fw-semibold">{hoveredLine.label}</div>
                       <div>{t('dashboard.tooltip.completed', 'ชำระแล้ว')}: ฿{formatMoney(hoveredLine.completed)}</div>
-                      <div>{t('dashboard.tooltip.billing_note', 'ใบวางบิล')}: ฿{formatMoney(hoveredLine.pendingBilling)}</div>
+                      <div>{t('dashboard.tooltip.billing_note', 'รอชำระ')}: ฿{formatMoney(hoveredLine.pendingBilling)}</div>
+                      <div>{t('orders.installment', 'ผ่อนชำระ')}: ฿{formatMoney(hoveredLine.pendingInstallment)}</div>
                       <div>{t('dashboard.tooltip.quotation', 'ใบเสนอราคา')}: ฿{formatMoney(hoveredLine.pendingQuotation)}</div>
                     </div>
                   )}
@@ -819,7 +860,69 @@ export const Dashboard = () => {
       <div className="card border-0 shadow-sm">
         <div className="card-body">
           <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-            <h5 className="mb-0">{t('dashboard.pending_list', 'รายการรอชำระล่าสุด')}</h5>
+            <div className="d-flex flex-wrap align-items-end gap-3">
+              <h5 className="mb-0">{t('dashboard.pending_list', 'รายการรอชำระล่าสุด')}</h5>
+              <ul className="nav nav-tabs" style={{ borderBottom: 0 }}>
+                <li className="nav-item">
+                  <button
+                    type="button"
+                    className={`nav-link ${pendingKind === 'all' ? 'active' : ''}`}
+                    onClick={() => {
+                      setPendingKind('all');
+                      setPendingPage(1);
+                    }}
+                  >
+                    {t('common.all', 'ทั้งหมด')}
+                    <span className="badge bg-secondary ms-2">{data?.totals.pending_count || 0}</span>
+                  </button>
+                </li>
+                <li className="nav-item">
+                  <button
+                    type="button"
+                    className={`nav-link ${pendingKind === 'billing_note' ? 'active' : ''}`}
+                    onClick={() => {
+                      setPendingKind('billing_note');
+                      setPendingPage(1);
+                    }}
+                  >
+                    {t('dashboard.kind.billing_note', 'รอชำระ')}
+                    <span className="badge ms-2 text-dark" style={{ background: '#ffc107' }}>
+                      {data?.totals.pending_billing_count || 0}
+                    </span>
+                  </button>
+                </li>
+                <li className="nav-item">
+                  <button
+                    type="button"
+                    className={`nav-link ${pendingKind === 'installment' ? 'active' : ''}`}
+                    onClick={() => {
+                      setPendingKind('installment');
+                      setPendingPage(1);
+                    }}
+                  >
+                    {t('orders.installment', 'ผ่อนชำระ')}
+                    <span className="badge ms-2 text-white" style={{ background: '#dc3545' }}>
+                      {data?.totals.pending_installment_count || 0}
+                    </span>
+                  </button>
+                </li>
+                <li className="nav-item">
+                  <button
+                    type="button"
+                    className={`nav-link ${pendingKind === 'quotation' ? 'active' : ''}`}
+                    onClick={() => {
+                      setPendingKind('quotation');
+                      setPendingPage(1);
+                    }}
+                  >
+                    {t('dashboard.kind.quotation', 'ใบเสนอราคา')}
+                    <span className="badge ms-2 text-white" style={{ background: '#fd7e14' }}>
+                      {data?.totals.pending_quotation_count || 0}
+                    </span>
+                  </button>
+                </li>
+              </ul>
+            </div>
             <div className="d-flex align-items-center gap-2">
               <div className="text-muted small">{t('dashboard.per_page', 'ต่อหน้า')}</div>
               <select
@@ -856,18 +959,33 @@ export const Dashboard = () => {
                 </thead>
                 <tbody>
                   {data.pending_orders.map((o) => (
-                    <tr key={o.id}>
+                    <tr
+                      key={o.id}
+                      role="button"
+                      tabIndex={0}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => navigate(`/orders/${o.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') navigate(`/orders/${o.id}`);
+                      }}
+                    >
                       <td className="fw-semibold">#{o.id}</td>
                       <td>
                         <span
                           className={`badge ${o.pending_kind === 'billing_note' ? 'text-dark' : ''}`}
                           style={{
-                            background: o.pending_kind === 'billing_note' ? '#ffc107' : '#fd7e14',
+                            background: (() => {
+                              if (o.pending_kind === 'installment') return '#dc3545';
+                              return o.pending_kind === 'billing_note' ? '#ffc107' : '#fd7e14';
+                            })(),
                           }}
                         >
-                          {o.pending_kind === 'billing_note'
-                            ? t('dashboard.kind.billing_note', 'ใบวางบิล')
-                            : t('dashboard.kind.quotation', 'ใบเสนอราคา')}
+                          {(() => {
+                            if (o.pending_kind === 'installment') return t('orders.installment', 'ผ่อนชำระ');
+                            return o.pending_kind === 'billing_note'
+                              ? t('dashboard.kind.billing_note', 'รอชำระ')
+                              : t('dashboard.kind.quotation', 'ใบเสนอราคา');
+                          })()}
                         </span>
                       </td>
                       <td>{o.customer_name || t('pos.walk_in', 'ลูกค้าหน้าร้าน')}</td>
@@ -876,15 +994,22 @@ export const Dashboard = () => {
                       </td>
                       <td className="text-end fw-semibold">฿{formatMoney(o.total)}</td>
                       <td className="text-end">
-                        <button
-                          type="button"
-                          className="btn btn-outline-secondary btn-sm"
-                          onClick={() => openDocument(o)}
-                          title={o.document_number ? String(o.document_number) : undefined}
-                          aria-label={t('dashboard.view_document', 'ดูเอกสาร')}
-                        >
-                          <i className="bi bi-printer" style={{ fontSize: '1.25rem', lineHeight: 1 }} />
-                        </button>
+                        {o.pending_kind === 'installment' || !o.document_type ? (
+                          <span className="text-muted small">-</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary btn-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDocument(o);
+                            }}
+                            title={o.document_number ? String(o.document_number) : undefined}
+                            aria-label={t('dashboard.view_document', 'ดูเอกสาร')}
+                          >
+                            <i className="bi bi-printer" style={{ fontSize: '1.25rem', lineHeight: 1 }} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

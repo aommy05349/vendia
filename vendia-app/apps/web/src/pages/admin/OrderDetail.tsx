@@ -157,7 +157,7 @@ export const OrderDetail = () => {
   const [installmentPayNote, setInstallmentPayNote] = useState('');
   const [installmentUseExistingReceipt, setInstallmentUseExistingReceipt] = useState(false);
   const [installmentExistingReceiptNo, setInstallmentExistingReceiptNo] = useState('');
-  const [installmentIssueReceipt, setInstallmentIssueReceipt] = useState(true);
+  const [installmentIssueReceipt, setInstallmentIssueReceipt] = useState(false);
   const [selectedInstallmentNo, setSelectedInstallmentNo] = useState<number | null>(null);
   const [installmentPaymentMode, setInstallmentPaymentMode] = useState<'next' | 'specific' | 'close'>('next');
   const [showBackpayModal, setShowBackpayModal] = useState(false);
@@ -528,7 +528,7 @@ export const OrderDetail = () => {
     setInstallmentPayNote('');
     setInstallmentUseExistingReceipt(false);
     setInstallmentExistingReceiptNo('');
-    setInstallmentIssueReceipt(true);
+    setInstallmentIssueReceipt(false);
     setShowInstallmentPaymentModal(true);
   };
 

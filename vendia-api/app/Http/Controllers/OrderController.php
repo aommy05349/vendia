@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Models\OrderPayment;
 use App\Models\Product;
 use App\Models\Document;
 use App\Models\DocumentCounter;
@@ -12,6 +13,108 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
+    private function installmentDueDate(Carbon $startDate, int $dueDay, int $monthOffset): Carbon
+    {
+        $anchor = Carbon::create($startDate->year, $startDate->month, 1)->addMonths($monthOffset);
+        $lastDay = (int) $anchor->copy()->endOfMonth()->day;
+        $day = min(max(1, $dueDay), $lastDay);
+        return Carbon::create($anchor->year, $anchor->month, $day)->startOfDay();
+    }
+
+    private function installmentExpectedAmount(
+        float $orderTotal,
+        float $downPayment,
+        int $installmentCount,
+        float $installmentAmount,
+        int $no
+    ): float {
+        if ($no === 0) return round($downPayment, 2);
+        if ($installmentCount <= 0) return 0.0;
+        $installmentTotal = round(max(0.0, $orderTotal - $downPayment), 2);
+        $base = round(max(0.0, $installmentAmount), 2);
+        $lastAmount = round(max(0.0, $installmentTotal - $base * max(0, $installmentCount - 1)), 2);
+        if ($no === $installmentCount) return $lastAmount;
+        return $base;
+    }
+
+    private function installmentDueAmountInRange(Order $order, Carbon $start, Carbon $end): float
+    {
+        $plan = $order->paymentPlan;
+        if (!$plan) return 0.0;
+        $planStatus = (string) ($plan->status ?? 'active');
+        if ($planStatus === 'cancelled' || $planStatus === 'completed') return 0.0;
+
+        $orderTotal = (float) ($plan->total ?? $order->total ?? 0);
+        $down = (float) ($plan->down_payment ?? 0);
+        $count = (int) ($plan->installment_count ?? 0);
+        $amount = (float) ($plan->installment_amount ?? 0);
+
+        $startDate = $plan->start_date
+            ? Carbon::parse($plan->start_date)->startOfDay()
+            : Carbon::parse($order->created_at)->startOfDay();
+        $dueDay = $plan->due_day !== null ? (int) $plan->due_day : (int) $startDate->day;
+
+        $paidNos = [];
+        foreach (($order->payments ?? []) as $p) {
+            if ($p->installment_no === null) continue;
+            $paidNos[(int) $p->installment_no] = true;
+        }
+
+        $sum = 0.0;
+        if ($down > 0) {
+            if (!isset($paidNos[0]) && $startDate->betweenIncluded($start, $end)) {
+                $sum += $this->installmentExpectedAmount($orderTotal, $down, $count, $amount, 0);
+            }
+        }
+
+        for ($i = 1; $i <= $count; $i += 1) {
+            if (isset($paidNos[$i])) continue;
+            $due = $this->installmentDueDate($startDate, $dueDay, $i - 1);
+            if (!$due->betweenIncluded($start, $end)) continue;
+            $sum += $this->installmentExpectedAmount($orderTotal, $down, $count, $amount, $i);
+        }
+
+        return round($sum, 2);
+    }
+
+    private function installmentShouldShowInRange(Order $order, Carbon $end): bool
+    {
+        $plan = $order->paymentPlan;
+        if (!$plan) return true;
+
+        $planStatus = (string) ($plan->status ?? 'active');
+        if ($planStatus === 'cancelled' || $planStatus === 'completed') return false;
+
+        $total = (float) ($plan->total ?? $order->total ?? 0);
+        $paid = (float) ($order->payments?->sum('amount') ?? 0);
+        if (round($total - $paid, 2) <= 0) return false;
+
+        $paidNos = [];
+        foreach (($order->payments ?? []) as $p) {
+            if ($p->installment_no === null) continue;
+            $paidNos[(int) $p->installment_no] = true;
+        }
+
+        $startDate = $plan->start_date
+            ? Carbon::parse($plan->start_date)->startOfDay()
+            : Carbon::parse($order->created_at)->startOfDay();
+        $dueDay = $plan->due_day !== null ? (int) $plan->due_day : (int) $startDate->day;
+
+        $down = (float) ($plan->down_payment ?? 0);
+        if ($down > 0) {
+            if (!isset($paidNos[0]) && $startDate->lessThanOrEqualTo($end)) return true;
+        }
+
+        $count = (int) ($plan->installment_count ?? 0);
+        for ($i = 1; $i <= $count; $i += 1) {
+            $due = $this->installmentDueDate($startDate, $dueDay, $i - 1);
+            if ($due->greaterThan($end)) break;
+            if (!isset($paidNos[$i])) return true;
+        }
+
+        return false;
+    }
+
     public function dailySales(Request $request)
     {
         $date = $request->input('date', date('Y-m-d'));
@@ -36,6 +139,227 @@ class OrderController extends Controller
         ]);
     }
 
+    public function reminders(Request $request)
+    {
+        $validated = $request->validate([
+            'scope' => 'sometimes|in:all,range',
+            'start_date' => 'sometimes|date',
+            'end_date' => 'sometimes|date',
+            'include_orders' => 'sometimes|boolean',
+        ]);
+
+        $scope = (string) ($validated['scope'] ?? 'all');
+        $includeOrders = (bool) ($validated['include_orders'] ?? false);
+
+        $start = null;
+        $end = null;
+        if ($scope === 'range') {
+            $now = Carbon::now();
+            $start = isset($validated['start_date'])
+                ? Carbon::parse($validated['start_date'])->startOfDay()
+                : $now->copy()->startOfMonth()->startOfDay();
+            $end = isset($validated['end_date'])
+                ? Carbon::parse($validated['end_date'])->endOfDay()
+                : $now->copy()->endOfDay();
+
+            if ($start->greaterThan($end)) {
+                [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+            }
+        }
+
+        $billingUnpaidBase = Order::query()
+            ->whereIn('status', ['pending', 'quotation'])
+            ->whereNotNull('billing_note_number')
+            ->where('billing_note_status', 'active');
+        if ($scope === 'range' && $start && $end) {
+            $billingUnpaidBase->whereBetween('created_at', [$start, $end]);
+        }
+        $billingUnpaidCount = (int) (clone $billingUnpaidBase)->count();
+        $billingUnpaidTotal = (float) (clone $billingUnpaidBase)->sum('total');
+        $billingUnpaidTopCustomers = DB::table('orders as o')
+            ->leftJoin('customers as c', 'o.customer_id', '=', 'c.id')
+            ->whereIn('o.status', ['pending', 'quotation'])
+            ->whereNotNull('o.billing_note_number')
+            ->where('o.billing_note_status', 'active')
+            ->when($scope === 'range' && $start && $end, function ($q) use ($start, $end) {
+                $q->whereBetween('o.created_at', [$start, $end]);
+            })
+            ->selectRaw('o.customer_id as customer_id')
+            ->selectRaw('c.is_company as is_company')
+            ->selectRaw('c.company_name as company_name')
+            ->selectRaw('c.name as name')
+            ->selectRaw('COUNT(*) as count')
+            ->selectRaw('SUM(o.total) as total')
+            ->groupBy('o.customer_id', 'c.is_company', 'c.company_name', 'c.name')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->get()
+            ->map(function ($r) {
+                $customerName = $r->company_name ?: ($r->name ?: null);
+                return [
+                    'customer_id' => $r->customer_id !== null ? (int) $r->customer_id : null,
+                    'customer_name' => $customerName ? (string) $customerName : null,
+                    'customer_is_company' => $r->is_company !== null ? (bool) $r->is_company : null,
+                    'count' => (int) ($r->count ?? 0),
+                    'total' => (float) ($r->total ?? 0),
+                ];
+            })
+            ->values();
+
+        $billingOrders = collect();
+        if ($includeOrders) {
+            $customerIds = $billingUnpaidTopCustomers
+                ->pluck('customer_id')
+                ->filter(fn ($v) => $v !== null)
+                ->map(fn ($v) => (int) $v)
+                ->values()
+                ->all();
+
+            $billingOrdersQuery = Order::query()
+                ->select(['id', 'customer_id', 'created_at', 'total', 'billing_note_number'])
+                ->whereIn('status', ['pending', 'quotation'])
+                ->whereNotNull('billing_note_number')
+                ->where('billing_note_status', 'active')
+                ->orderByDesc('created_at')
+                ->orderByDesc('id');
+
+            $billingOrdersQuery->where(function ($q) use ($customerIds) {
+                if (count($customerIds) > 0) {
+                    $q->whereIn('customer_id', $customerIds);
+                }
+                $q->orWhereNull('customer_id');
+            });
+
+            if ($scope === 'range' && $start && $end) {
+                $billingOrdersQuery->whereBetween('created_at', [$start, $end]);
+            }
+
+            $billingOrders = $billingOrdersQuery
+                ->limit(200)
+                ->get()
+                ->map(function ($o) {
+                    return [
+                        'id' => (int) $o->id,
+                        'customer_id' => $o->customer_id !== null ? (int) $o->customer_id : null,
+                        'created_at' => $o->created_at,
+                        'total' => (float) ($o->total ?? 0),
+                        'billing_note_number' => $o->billing_note_number ? (string) $o->billing_note_number : null,
+                    ];
+                })
+                ->values();
+        }
+
+        $missingReceiptBase = Order::query()
+            ->where('status', 'completed')
+            ->where(function ($q) {
+                $q->whereNull('receipt_number')
+                    ->orWhereNull('receipt_status')
+                    ->orWhere('receipt_status', '!=', 'active');
+            });
+        if ($scope === 'range' && $start && $end) {
+            $missingReceiptBase->whereBetween('created_at', [$start, $end]);
+        }
+        $missingReceiptCount = (int) (clone $missingReceiptBase)->count();
+        $missingReceiptTotal = (float) (clone $missingReceiptBase)->sum('total');
+        $missingReceiptTopCustomers = DB::table('orders as o')
+            ->leftJoin('customers as c', 'o.customer_id', '=', 'c.id')
+            ->where('o.status', 'completed')
+            ->where(function ($q) {
+                $q->whereNull('o.receipt_number')
+                    ->orWhereNull('o.receipt_status')
+                    ->orWhere('o.receipt_status', '!=', 'active');
+            })
+            ->when($scope === 'range' && $start && $end, function ($q) use ($start, $end) {
+                $q->whereBetween('o.created_at', [$start, $end]);
+            })
+            ->selectRaw('o.customer_id as customer_id')
+            ->selectRaw('c.is_company as is_company')
+            ->selectRaw('c.company_name as company_name')
+            ->selectRaw('c.name as name')
+            ->selectRaw('COUNT(*) as count')
+            ->selectRaw('SUM(o.total) as total')
+            ->groupBy('o.customer_id', 'c.is_company', 'c.company_name', 'c.name')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->get()
+            ->map(function ($r) {
+                $customerName = $r->company_name ?: ($r->name ?: null);
+                return [
+                    'customer_id' => $r->customer_id !== null ? (int) $r->customer_id : null,
+                    'customer_name' => $customerName ? (string) $customerName : null,
+                    'customer_is_company' => $r->is_company !== null ? (bool) $r->is_company : null,
+                    'count' => (int) ($r->count ?? 0),
+                    'total' => (float) ($r->total ?? 0),
+                ];
+            })
+            ->values();
+
+        $missingReceiptOrders = collect();
+        if ($includeOrders) {
+            $customerIds = $missingReceiptTopCustomers
+                ->pluck('customer_id')
+                ->filter(fn ($v) => $v !== null)
+                ->map(fn ($v) => (int) $v)
+                ->values()
+                ->all();
+
+            $missingReceiptOrdersQuery = Order::query()
+                ->select(['id', 'customer_id', 'created_at', 'total', 'receipt_number', 'receipt_status'])
+                ->where('status', 'completed')
+                ->where(function ($q) {
+                    $q->whereNull('receipt_number')
+                        ->orWhereNull('receipt_status')
+                        ->orWhere('receipt_status', '!=', 'active');
+                })
+                ->orderByDesc('created_at')
+                ->orderByDesc('id');
+
+            $missingReceiptOrdersQuery->where(function ($q) use ($customerIds) {
+                if (count($customerIds) > 0) {
+                    $q->whereIn('customer_id', $customerIds);
+                }
+                $q->orWhereNull('customer_id');
+            });
+
+            if ($scope === 'range' && $start && $end) {
+                $missingReceiptOrdersQuery->whereBetween('created_at', [$start, $end]);
+            }
+
+            $missingReceiptOrders = $missingReceiptOrdersQuery
+                ->limit(200)
+                ->get()
+                ->map(function ($o) {
+                    return [
+                        'id' => (int) $o->id,
+                        'customer_id' => $o->customer_id !== null ? (int) $o->customer_id : null,
+                        'created_at' => $o->created_at,
+                        'total' => (float) ($o->total ?? 0),
+                        'receipt_number' => $o->receipt_number ? (string) $o->receipt_number : null,
+                        'receipt_status' => $o->receipt_status ? (string) $o->receipt_status : null,
+                    ];
+                })
+                ->values();
+        }
+
+        return response()->json([
+            'scope' => $scope,
+            'start_date' => $scope === 'range' && $start ? $start->toDateString() : null,
+            'end_date' => $scope === 'range' && $end ? $end->toDateString() : null,
+            'billing_unpaid' => [
+                'total' => $billingUnpaidTotal,
+                'count' => $billingUnpaidCount,
+                'top_customers' => $billingUnpaidTopCustomers,
+                'orders' => $billingOrders,
+            ],
+            'missing_receipt' => [
+                'total' => $missingReceiptTotal,
+                'count' => $missingReceiptCount,
+                'top_customers' => $missingReceiptTopCustomers,
+                'orders' => $missingReceiptOrders,
+            ],
+        ]);
+    }
+
     public function summary(Request $request)
     {
         $validated = $request->validate([
@@ -43,6 +367,8 @@ class OrderController extends Controller
             'group_by' => 'sometimes|in:day,month',
             'start_date' => 'sometimes|date',
             'end_date' => 'sometimes|date',
+            'pending_kind' => 'sometimes|in:all,billing_note,installment,quotation',
+            'reminders_scope' => 'sometimes|in:all,range',
             'pending_limit' => 'sometimes|integer|min:0|max:200',
             'pending_page' => 'sometimes|integer|min:1|max:10000',
             'pending_per_page' => 'sometimes|integer|in:5,10,25,50',
@@ -80,48 +406,6 @@ class OrderController extends Controller
             [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
         }
 
-        $driver = DB::connection()->getDriverName();
-        $bucketExpr = null;
-        if ($groupBy === 'month') {
-            $bucketExpr = $driver === 'sqlite'
-                ? "strftime('%Y-%m-01', created_at)"
-                : "DATE_FORMAT(created_at, '%Y-%m-01')";
-        } else {
-            $bucketExpr = $driver === 'sqlite'
-                ? "date(created_at)"
-                : "DATE(created_at)";
-        }
-
-        $rows = Order::query()
-            ->selectRaw("{$bucketExpr} as bucket")
-            ->selectRaw("SUM(CASE WHEN status = 'completed' THEN total ELSE 0 END) as completed_total")
-            ->selectRaw("COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_count")
-            ->selectRaw("SUM(CASE WHEN status IN ('pending','quotation') THEN total ELSE 0 END) as pending_total")
-            ->selectRaw("COUNT(CASE WHEN status IN ('pending','quotation') THEN 1 END) as pending_count")
-            ->selectRaw("SUM(CASE WHEN status IN ('pending','quotation') AND billing_note_number IS NOT NULL AND billing_note_status = 'active' THEN total ELSE 0 END) as pending_billing_total")
-            ->selectRaw("COUNT(CASE WHEN status IN ('pending','quotation') AND billing_note_number IS NOT NULL AND billing_note_status = 'active' THEN 1 END) as pending_billing_count")
-            ->selectRaw("SUM(CASE WHEN status IN ('pending','quotation') AND NOT (billing_note_number IS NOT NULL AND billing_note_status = 'active') THEN total ELSE 0 END) as pending_quotation_total")
-            ->selectRaw("COUNT(CASE WHEN status IN ('pending','quotation') AND NOT (billing_note_number IS NOT NULL AND billing_note_status = 'active') THEN 1 END) as pending_quotation_count")
-            ->whereBetween('created_at', [$start, $end])
-            ->whereIn('status', ['completed', 'pending', 'quotation'])
-            ->groupBy('bucket')
-            ->orderBy('bucket')
-            ->get();
-
-        $map = [];
-        foreach ($rows as $r) {
-            $map[(string) $r->bucket] = [
-                'completed_total' => (float) ($r->completed_total ?? 0),
-                'completed_count' => (int) ($r->completed_count ?? 0),
-                'pending_total' => (float) ($r->pending_total ?? 0),
-                'pending_count' => (int) ($r->pending_count ?? 0),
-                'pending_billing_total' => (float) ($r->pending_billing_total ?? 0),
-                'pending_billing_count' => (int) ($r->pending_billing_count ?? 0),
-                'pending_quotation_total' => (float) ($r->pending_quotation_total ?? 0),
-                'pending_quotation_count' => (int) ($r->pending_quotation_count ?? 0),
-            ];
-        }
-
         $buckets = [];
         if ($groupBy === 'month') {
             $cursor = $start->copy()->startOfMonth();
@@ -147,54 +431,236 @@ class OrderController extends Controller
             }
         }
 
+        $bucketMap = [];
+        foreach ($buckets as $b) {
+            $bucketMap[$b['bucket']] = [
+                'completed_total' => 0.0,
+                'completed_count' => 0,
+                'pending_installment_total' => 0.0,
+                'pending_installment_count' => 0,
+                'pending_billing_total' => 0.0,
+                'pending_billing_count' => 0,
+                'pending_quotation_total' => 0.0,
+                'pending_quotation_count' => 0,
+            ];
+        }
+
+        $bucketFormat = $groupBy === 'month' ? 'Y-m-01' : 'Y-m-d';
+        Order::query()
+            ->select(['id', 'created_at', 'total', 'status', 'payment_method', 'billing_note_number', 'billing_note_status'])
+            ->with([
+                'paymentPlan:id,order_id,total,down_payment,installment_count,installment_amount,start_date,due_day,status',
+                'payments:id,order_id,installment_no,amount,paid_at',
+            ])
+            ->whereBetween('created_at', [$start, $end])
+            ->whereIn('status', ['completed', 'pending', 'quotation'])
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->chunk(250, function ($orders) use (&$bucketMap, $bucketFormat, $start, $end) {
+                foreach ($orders as $o) {
+                    $bucketKey = Carbon::parse($o->created_at)->format($bucketFormat);
+                    if (!isset($bucketMap[$bucketKey])) continue;
+
+                    if ((string) $o->status === 'completed') {
+                        $isInstallment = (string) ($o->payment_method ?? '') === 'installment' || $o->paymentPlan;
+                        if (!$isInstallment) {
+                            $bucketMap[$bucketKey]['completed_total'] += (float) ($o->total ?? 0);
+                            $bucketMap[$bucketKey]['completed_count'] += 1;
+                        }
+                        continue;
+                    }
+
+                    $isInstallment = (string) ($o->payment_method ?? '') === 'installment' || $o->paymentPlan;
+                    if ($isInstallment) {
+                        $plan = $o->paymentPlan;
+                        if ($plan) {
+                            $planStatus = (string) ($plan->status ?? 'active');
+                            if ($planStatus !== 'cancelled' && $planStatus !== 'completed') {
+                                $startDate = $plan->start_date
+                                    ? Carbon::parse($plan->start_date)->startOfDay()
+                                    : Carbon::parse($o->created_at)->startOfDay();
+                                $dueDay = $plan->due_day !== null ? (int) $plan->due_day : (int) $startDate->day;
+                                $down = (float) ($plan->down_payment ?? 0);
+                                $count = (int) ($plan->installment_count ?? 0);
+                                $amount = (float) ($plan->installment_amount ?? 0);
+                                $orderTotal = (float) ($plan->total ?? $o->total ?? 0);
+
+                                $paidNos = [];
+                                foreach (($o->payments ?? []) as $p) {
+                                    if ($p->installment_no === null) continue;
+                                    $paidNos[(int) $p->installment_no] = true;
+                                }
+
+                                $countedKeys = [];
+                                if ($down > 0 && !isset($paidNos[0])) {
+                                    $due = $startDate;
+                                    if ($due->betweenIncluded($start, $end)) {
+                                        $k = $due->format($bucketFormat);
+                                        if (isset($bucketMap[$k])) {
+                                            $v = $this->installmentExpectedAmount($orderTotal, $down, $count, $amount, 0);
+                                            if ($v > 0) {
+                                                $bucketMap[$k]['pending_installment_total'] += $v;
+                                                $countedKeys[$k] = true;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                for ($i = 1; $i <= $count; $i += 1) {
+                                    if (isset($paidNos[$i])) continue;
+                                    $due = $this->installmentDueDate($startDate, $dueDay, $i - 1);
+                                    if (!$due->betweenIncluded($start, $end)) continue;
+                                    $k = $due->format($bucketFormat);
+                                    if (!isset($bucketMap[$k])) continue;
+                                    $v = $this->installmentExpectedAmount($orderTotal, $down, $count, $amount, $i);
+                                    if ($v <= 0) continue;
+                                    $bucketMap[$k]['pending_installment_total'] += $v;
+                                    $countedKeys[$k] = true;
+                                }
+
+                                foreach (array_keys($countedKeys) as $k) {
+                                    $bucketMap[$k]['pending_installment_count'] += 1;
+                                }
+                            }
+                        }
+                        continue;
+                    }
+
+                    $hasActiveBilling = (bool) ($o->billing_note_number && (string) $o->billing_note_status === 'active');
+                    if ($hasActiveBilling) {
+                        $bucketMap[$bucketKey]['pending_billing_total'] += (float) ($o->total ?? 0);
+                        $bucketMap[$bucketKey]['pending_billing_count'] += 1;
+                    } else {
+                        $bucketMap[$bucketKey]['pending_quotation_total'] += (float) ($o->total ?? 0);
+                        $bucketMap[$bucketKey]['pending_quotation_count'] += 1;
+                    }
+                }
+            });
+
+        OrderPayment::query()
+            ->select(['id', 'order_id', 'amount', 'paid_at'])
+            ->whereBetween('paid_at', [$start, $end])
+            ->orderBy('paid_at')
+            ->orderBy('id')
+            ->chunk(500, function ($payments) use (&$bucketMap, $bucketFormat) {
+                foreach ($payments as $p) {
+                    if (!$p->paid_at) continue;
+                    $bucketKey = Carbon::parse($p->paid_at)->format($bucketFormat);
+                    if (!isset($bucketMap[$bucketKey])) continue;
+                    $bucketMap[$bucketKey]['completed_total'] += (float) ($p->amount ?? 0);
+                }
+            });
+
         $series = [];
         $totals = [
             'completed_total' => 0.0,
             'completed_count' => 0,
             'pending_total' => 0.0,
             'pending_count' => 0,
+            'pending_installment_total' => 0.0,
+            'pending_installment_count' => 0,
             'pending_billing_total' => 0.0,
             'pending_billing_count' => 0,
             'pending_quotation_total' => 0.0,
             'pending_quotation_count' => 0,
         ];
         foreach ($buckets as $b) {
-            $v = $map[$b['bucket']] ?? [
+            $v = $bucketMap[$b['bucket']] ?? [
                 'completed_total' => 0.0,
                 'completed_count' => 0,
-                'pending_total' => 0.0,
-                'pending_count' => 0,
+                'pending_installment_total' => 0.0,
+                'pending_installment_count' => 0,
                 'pending_billing_total' => 0.0,
                 'pending_billing_count' => 0,
                 'pending_quotation_total' => 0.0,
                 'pending_quotation_count' => 0,
             ];
+
+            $pendingTotal = (float) ($v['pending_billing_total'] + $v['pending_installment_total'] + $v['pending_quotation_total']);
+            $pendingCount = (int) ($v['pending_billing_count'] + $v['pending_installment_count'] + $v['pending_quotation_count']);
+
             $series[] = [
                 'bucket' => $b['bucket'],
                 'label' => $b['label'],
-                'completed_total' => $v['completed_total'],
-                'completed_count' => $v['completed_count'],
-                'pending_total' => $v['pending_total'],
-                'pending_count' => $v['pending_count'],
-                'pending_billing_total' => $v['pending_billing_total'],
-                'pending_billing_count' => $v['pending_billing_count'],
-                'pending_quotation_total' => $v['pending_quotation_total'],
-                'pending_quotation_count' => $v['pending_quotation_count'],
+                'completed_total' => (float) $v['completed_total'],
+                'completed_count' => (int) $v['completed_count'],
+                'pending_total' => $pendingTotal,
+                'pending_count' => $pendingCount,
+                'pending_installment_total' => (float) $v['pending_installment_total'],
+                'pending_installment_count' => (int) $v['pending_installment_count'],
+                'pending_billing_total' => (float) $v['pending_billing_total'],
+                'pending_billing_count' => (int) $v['pending_billing_count'],
+                'pending_quotation_total' => (float) $v['pending_quotation_total'],
+                'pending_quotation_count' => (int) $v['pending_quotation_count'],
             ];
-            $totals['completed_total'] += $v['completed_total'];
-            $totals['completed_count'] += $v['completed_count'];
-            $totals['pending_total'] += $v['pending_total'];
-            $totals['pending_count'] += $v['pending_count'];
-            $totals['pending_billing_total'] += $v['pending_billing_total'];
-            $totals['pending_billing_count'] += $v['pending_billing_count'];
-            $totals['pending_quotation_total'] += $v['pending_quotation_total'];
-            $totals['pending_quotation_count'] += $v['pending_quotation_count'];
+
+            $totals['completed_total'] += (float) $v['completed_total'];
+            $totals['completed_count'] += (int) $v['completed_count'];
+            $totals['pending_total'] += $pendingTotal;
+            $totals['pending_count'] += $pendingCount;
+            $totals['pending_installment_total'] += (float) $v['pending_installment_total'];
+            $totals['pending_installment_count'] += (int) $v['pending_installment_count'];
+            $totals['pending_billing_total'] += (float) $v['pending_billing_total'];
+            $totals['pending_billing_count'] += (int) $v['pending_billing_count'];
+            $totals['pending_quotation_total'] += (float) $v['pending_quotation_total'];
+            $totals['pending_quotation_count'] += (int) $v['pending_quotation_count'];
         }
 
         $pendingPage = (int) ($validated['pending_page'] ?? 1);
         $pendingPerPage = isset($validated['pending_per_page'])
             ? (int) $validated['pending_per_page']
             : (int) ($validated['pending_limit'] ?? 10);
+        $pendingKind = (string) ($validated['pending_kind'] ?? 'all');
+
+        $pendingTotals = [
+            'pending_billing_total' => 0.0,
+            'pending_billing_count' => 0,
+            'pending_installment_total' => 0.0,
+            'pending_installment_count' => 0,
+            'pending_quotation_total' => 0.0,
+            'pending_quotation_count' => 0,
+        ];
+        Order::query()
+            ->select(['id', 'created_at', 'total', 'status', 'payment_method', 'billing_note_number', 'billing_note_status'])
+            ->with([
+                'paymentPlan:id,order_id,total,down_payment,installment_count,installment_amount,start_date,due_day,status',
+                'payments:id,order_id,installment_no,amount,paid_at',
+            ])
+            ->whereBetween('created_at', [$start, $end])
+            ->whereIn('status', ['pending', 'quotation'])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->chunk(250, function ($orders) use (&$pendingTotals, $start, $end) {
+                foreach ($orders as $o) {
+                    $isInstallment = (string) ($o->payment_method ?? '') === 'installment' || $o->paymentPlan;
+                    if ($isInstallment) {
+                        $due = $this->installmentDueAmountInRange($o, $start, $end);
+                        if ($due <= 0) continue;
+                        $pendingTotals['pending_installment_total'] += $due;
+                        $pendingTotals['pending_installment_count'] += 1;
+                        continue;
+                    }
+
+                    $hasActiveBilling = (bool) ($o->billing_note_number && (string) $o->billing_note_status === 'active');
+                    if ($hasActiveBilling) {
+                        $pendingTotals['pending_billing_total'] += (float) ($o->total ?? 0);
+                        $pendingTotals['pending_billing_count'] += 1;
+                    } else {
+                        $pendingTotals['pending_quotation_total'] += (float) ($o->total ?? 0);
+                        $pendingTotals['pending_quotation_count'] += 1;
+                    }
+                }
+            });
+
+        $totals['pending_billing_total'] = (float) $pendingTotals['pending_billing_total'];
+        $totals['pending_billing_count'] = (int) $pendingTotals['pending_billing_count'];
+        $totals['pending_installment_total'] = (float) $pendingTotals['pending_installment_total'];
+        $totals['pending_installment_count'] = (int) $pendingTotals['pending_installment_count'];
+        $totals['pending_quotation_total'] = (float) $pendingTotals['pending_quotation_total'];
+        $totals['pending_quotation_count'] = (int) $pendingTotals['pending_quotation_count'];
+
+        $totals['pending_total'] = (float) ($totals['pending_billing_total'] + $totals['pending_installment_total'] + $totals['pending_quotation_total']);
+        $totals['pending_count'] = (int) ($totals['pending_billing_count'] + $totals['pending_installment_count'] + $totals['pending_quotation_count']);
 
         if ($pendingPerPage <= 0) {
             $pendingOrders = collect();
@@ -205,38 +671,116 @@ class OrderController extends Controller
                 'total_pages' => 0,
             ];
         } else {
-            $pendingBase = Order::query()
-                ->with(['customer', 'documents'])
+            $baseForScan = Order::query()
+                ->select(['id', 'created_at', 'total', 'status', 'customer_id', 'payment_method', 'billing_note_number', 'billing_note_status'])
+                ->with([
+                    'paymentPlan:id,order_id,total,down_payment,installment_count,installment_amount,start_date,due_day,status',
+                    'payments:id,order_id,installment_no,amount,paid_at',
+                ])
                 ->whereIn('status', ['pending', 'quotation'])
                 ->whereBetween('created_at', [$start, $end]);
 
-            $pendingTotal = (clone $pendingBase)->count();
-            $pendingTotalPages = (int) ceil($pendingTotal / $pendingPerPage);
-            $pendingPageClamped = max(1, min($pendingPage, max(1, $pendingTotalPages)));
-            $offset = ($pendingPageClamped - 1) * $pendingPerPage;
+            if ($pendingKind === 'billing_note') {
+                $baseForScan
+                    ->where(function ($q) {
+                        $q->where('payment_method', '!=', 'installment')
+                            ->whereDoesntHave('paymentPlan');
+                    })
+                    ->whereNotNull('billing_note_number')
+                    ->where('billing_note_status', 'active');
+            } elseif ($pendingKind === 'installment') {
+                $baseForScan
+                    ->where(function ($q) {
+                        $q->where('payment_method', 'installment')
+                            ->orWhereHas('paymentPlan');
+                    });
+            } elseif ($pendingKind === 'quotation') {
+                $baseForScan
+                    ->where(function ($q) {
+                        $q->where('payment_method', '!=', 'installment')
+                            ->whereDoesntHave('paymentPlan');
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('billing_note_number')
+                            ->orWhere('billing_note_status', '!=', 'active');
+                    });
+            }
 
-            $pendingOrders = (clone $pendingBase)
-                ->orderByDesc('created_at')
-                ->offset($offset)
-                ->limit($pendingPerPage)
+            $scanPage = $pendingPage;
+            $pendingTotal = 0;
+            $pendingIds = [];
+
+            $pendingAmounts = [];
+            $scan = function (int $page) use ($baseForScan, $pendingPerPage, &$pendingTotal, &$pendingIds, &$pendingAmounts, $start, $end) {
+                $pendingTotal = 0;
+                $pendingIds = [];
+                $pendingAmounts = [];
+                $startIndex = max(0, ($page - 1) * $pendingPerPage);
+                $endIndex = $startIndex + $pendingPerPage - 1;
+
+                (clone $baseForScan)
+                    ->orderByDesc('created_at')
+                    ->orderByDesc('id')
+                    ->chunk(250, function ($orders) use (&$pendingTotal, &$pendingIds, &$pendingAmounts, $startIndex, $endIndex, $start, $end) {
+                        foreach ($orders as $o) {
+                            $isInstallment = (string) ($o->payment_method ?? '') === 'installment' || $o->paymentPlan;
+                            $amount = (float) ($o->total ?? 0);
+                            if ($isInstallment) {
+                                $due = $this->installmentDueAmountInRange($o, $start, $end);
+                                if ($due <= 0) continue;
+                                $amount = $due;
+                            }
+
+                            if ($pendingTotal >= $startIndex && $pendingTotal <= $endIndex) {
+                                $pendingIds[] = (int) $o->id;
+                                $pendingAmounts[(int) $o->id] = $amount;
+                            }
+                            $pendingTotal += 1;
+                        }
+                    });
+            };
+
+            $scan($scanPage);
+
+            $pendingTotalPages = (int) ceil(max(0, $pendingTotal) / $pendingPerPage);
+            $pendingPageClamped = max(1, min($pendingPage, max(1, $pendingTotalPages)));
+            if ($pendingTotalPages > 0 && $pendingPageClamped !== $scanPage) {
+                $scan($pendingPageClamped);
+            }
+
+            $loaded = Order::query()
+                ->with(['customer', 'documents', 'paymentPlan'])
+                ->whereIn('id', $pendingIds)
                 ->get()
-                ->map(function ($o) {
-                    $isBilling = (bool) ($o->billing_note_number && $o->billing_note_status === 'active');
-                    $docType = $isBilling ? 'billing_note' : 'quotation';
+                ->keyBy('id');
+
+            $pendingOrders = collect($pendingIds)
+                ->map(fn ($id) => $loaded->get($id))
+                ->filter()
+                ->map(function ($o) use ($pendingAmounts) {
+                    $orderId = (int) $o->id;
+                    $amount = array_key_exists($orderId, $pendingAmounts) ? (float) $pendingAmounts[$orderId] : (float) ($o->total ?? 0);
+
+                    $isInstallment = ((string) ($o->payment_method ?? '') === 'installment' || $o->paymentPlan) && array_key_exists($orderId, $pendingAmounts);
+                    $hasActiveBilling = !$isInstallment && (bool) ($o->billing_note_number && (string) $o->billing_note_status === 'active');
+                    $effectiveKind = $isInstallment ? 'installment' : ($hasActiveBilling ? 'billing_note' : 'quotation');
+                    $docType = $effectiveKind === 'billing_note' ? 'billing_note' : 'quotation';
                     $doc = $o->documents
                         ->where('type', $docType)
                         ->where('status', 'active')
                         ->sortByDesc('issued_date')
                         ->first();
                     return [
-                        'id' => $o->id,
+                        'id' => (int) $o->id,
                         'created_at' => $o->created_at,
-                        'total' => $o->total,
+                        'total' => $amount,
                         'customer_name' => $o->customer?->company_name ?: ($o->customer?->name ?: null),
-                        'pending_kind' => $isBilling ? 'billing_note' : 'quotation',
-                        'document_id' => $doc?->id,
-                        'document_type' => $docType,
-                        'document_number' => $doc?->number,
+                        'pending_kind' => $effectiveKind,
+                        'payment_method' => $o->payment_method ? (string) $o->payment_method : null,
+                        'has_payment_plan' => $o->paymentPlan ? true : false,
+                        'document_id' => $effectiveKind === 'installment' ? null : $doc?->id,
+                        'document_type' => $effectiveKind === 'installment' ? null : $docType,
+                        'document_number' => $effectiveKind === 'installment' ? null : $doc?->number,
                     ];
                 })
                 ->values();
@@ -244,10 +788,92 @@ class OrderController extends Controller
             $pendingPagination = [
                 'page' => $pendingPageClamped,
                 'per_page' => $pendingPerPage,
-                'total' => $pendingTotal,
-                'total_pages' => $pendingTotalPages,
+                'total' => (int) $pendingTotal,
+                'total_pages' => (int) $pendingTotalPages,
             ];
         }
+
+        $remindersScope = (string) ($validated['reminders_scope'] ?? 'all');
+
+        $billingUnpaidBase = Order::query()
+            ->whereIn('status', ['pending', 'quotation'])
+            ->whereNotNull('billing_note_number')
+            ->where('billing_note_status', 'active');
+        if ($remindersScope === 'range') {
+            $billingUnpaidBase->whereBetween('created_at', [$start, $end]);
+        }
+        $billingUnpaidCount = (int) (clone $billingUnpaidBase)->count();
+        $billingUnpaidTotal = (float) (clone $billingUnpaidBase)->sum('total');
+        $billingUnpaidTopCustomers = DB::table('orders as o')
+            ->leftJoin('customers as c', 'o.customer_id', '=', 'c.id')
+            ->whereIn('o.status', ['pending', 'quotation'])
+            ->whereNotNull('o.billing_note_number')
+            ->where('o.billing_note_status', 'active')
+            ->when($remindersScope === 'range', function ($q) use ($start, $end) {
+                $q->whereBetween('o.created_at', [$start, $end]);
+            })
+            ->selectRaw('o.customer_id as customer_id')
+            ->selectRaw('c.company_name as company_name')
+            ->selectRaw('c.name as name')
+            ->selectRaw('COUNT(*) as count')
+            ->selectRaw('SUM(o.total) as total')
+            ->groupBy('o.customer_id', 'c.company_name', 'c.name')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->get()
+            ->map(function ($r) {
+                $customerName = $r->company_name ?: ($r->name ?: null);
+                return [
+                    'customer_id' => $r->customer_id !== null ? (int) $r->customer_id : null,
+                    'customer_name' => $customerName ? (string) $customerName : null,
+                    'count' => (int) ($r->count ?? 0),
+                    'total' => (float) ($r->total ?? 0),
+                ];
+            })
+            ->values();
+
+        $missingReceiptBase = Order::query()
+            ->where('status', 'completed')
+            ->where(function ($q) {
+                $q->whereNull('receipt_number')
+                    ->orWhereNull('receipt_status')
+                    ->orWhere('receipt_status', '!=', 'active');
+            });
+        if ($remindersScope === 'range') {
+            $missingReceiptBase->whereBetween('created_at', [$start, $end]);
+        }
+        $missingReceiptCount = (int) (clone $missingReceiptBase)->count();
+        $missingReceiptTotal = (float) (clone $missingReceiptBase)->sum('total');
+        $missingReceiptTopCustomers = DB::table('orders as o')
+            ->leftJoin('customers as c', 'o.customer_id', '=', 'c.id')
+            ->where('o.status', 'completed')
+            ->where(function ($q) {
+                $q->whereNull('o.receipt_number')
+                    ->orWhereNull('o.receipt_status')
+                    ->orWhere('o.receipt_status', '!=', 'active');
+            })
+            ->when($remindersScope === 'range', function ($q) use ($start, $end) {
+                $q->whereBetween('o.created_at', [$start, $end]);
+            })
+            ->selectRaw('o.customer_id as customer_id')
+            ->selectRaw('c.company_name as company_name')
+            ->selectRaw('c.name as name')
+            ->selectRaw('COUNT(*) as count')
+            ->selectRaw('SUM(o.total) as total')
+            ->groupBy('o.customer_id', 'c.company_name', 'c.name')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->get()
+            ->map(function ($r) {
+                $customerName = $r->company_name ?: ($r->name ?: null);
+                return [
+                    'customer_id' => $r->customer_id !== null ? (int) $r->customer_id : null,
+                    'customer_name' => $customerName ? (string) $customerName : null,
+                    'count' => (int) ($r->count ?? 0),
+                    'total' => (float) ($r->total ?? 0),
+                ];
+            })
+            ->values();
 
         return response()->json([
             'preset' => $preset,
@@ -258,6 +884,19 @@ class OrderController extends Controller
             'totals' => $totals,
             'pending_orders' => $pendingOrders,
             'pending_pagination' => $pendingPagination,
+            'reminders' => [
+                'scope' => $remindersScope,
+                'billing_unpaid' => [
+                    'total' => $billingUnpaidTotal,
+                    'count' => $billingUnpaidCount,
+                    'top_customers' => $billingUnpaidTopCustomers,
+                ],
+                'missing_receipt' => [
+                    'total' => $missingReceiptTotal,
+                    'count' => $missingReceiptCount,
+                    'top_customers' => $missingReceiptTopCustomers,
+                ],
+            ],
         ]);
     }
 
@@ -320,7 +959,35 @@ class OrderController extends Controller
             });
         }
 
-        $orders = $query->paginate(10);
+        $search = trim((string) $request->input('search', ''));
+        if ($search !== '') {
+            $rawId = ltrim($search, '#');
+            if ($rawId !== '' && ctype_digit($rawId)) {
+                $query->where('id', (int) $rawId);
+            } else {
+                $like = "%{$search}%";
+                $query->where(function ($q) use ($like) {
+                    $q->whereHas('customer', function ($cq) use ($like) {
+                        $cq->where('name', 'like', $like)
+                            ->orWhere('company_name', 'like', $like)
+                            ->orWhere('phone', 'like', $like)
+                            ->orWhere('email', 'like', $like)
+                            ->orWhere('tax_id', 'like', $like);
+                    })
+                    ->orWhere('quotation_number', 'like', $like)
+                    ->orWhere('billing_note_number', 'like', $like)
+                    ->orWhere('receipt_number', 'like', $like)
+                    ->orWhereHas('documents', function ($dq) use ($like) {
+                        $dq->where('number', 'like', $like);
+                    });
+                });
+            }
+        }
+
+        $perPage = (int) $request->input('per_page', 10);
+        if ($perPage <= 0) $perPage = 10;
+        if ($perPage > 200) $perPage = 200;
+        $orders = $query->paginate($perPage);
 
         $orders->getCollection()->each(function($order) {
             $sortedItems = $order->items->sortBy(function($item) {

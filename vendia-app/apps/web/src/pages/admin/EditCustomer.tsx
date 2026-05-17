@@ -93,14 +93,14 @@ export const EditCustomer = () => {
         setContactHandle(rawLineId);
       }
       setFormData({
-        first_name: user.first_name,
-        last_name: user.last_name,
-        contact_name: user.contact_name || '',
+        first_name: typeof user.first_name === 'string' ? user.first_name : '',
+        last_name: typeof user.last_name === 'string' ? user.last_name : '',
+        contact_name: typeof user.contact_name === 'string' ? user.contact_name : '',
         email: emailForForm,
-        phone: user.phone || '',
-        company_name: user.company_name || '',
-        tax_id: user.tax_id || '',
-        address: user.address || '',
+        phone: typeof user.phone === 'string' ? user.phone : '',
+        company_name: typeof user.company_name === 'string' ? user.company_name : '',
+        tax_id: typeof user.tax_id === 'string' ? user.tax_id : '',
+        address: typeof user.address === 'string' ? user.address : '',
       });
     } catch (err) {
       console.error(err);
@@ -121,12 +121,12 @@ export const EditCustomer = () => {
     setError('');
 
     try {
-      const companyName = formData.company_name.trim();
-      const contactName = formData.contact_name.trim();
-      const email = formData.email.trim();
-      const phone = formData.phone.trim();
-      const taxId = formData.tax_id.trim();
-      const address = formData.address.trim();
+      const companyName = (formData.company_name || '').trim();
+      const contactName = (formData.contact_name || '').trim();
+      const email = (formData.email || '').trim();
+      const phone = (formData.phone || '').trim();
+      const taxId = (formData.tax_id || '').trim();
+      const address = (formData.address || '').trim();
       const handle = contactHandle.trim();
       const storedLineId = handle === '' ? '' : contactChannel === 'facebook' ? (handle.toUpperCase().startsWith('FB:') || handle.toUpperCase().startsWith('FACEBOOK:') ? handle : `FB:${handle}`) : handle;
 
@@ -134,9 +134,9 @@ export const EditCustomer = () => {
         is_company: isCompany,
         company_name: companyName === '' ? null : companyName,
         contact_name: contactName === '' ? null : contactName,
-        first_name: isCompany ? '' : formData.first_name.trim(),
-        last_name: isCompany ? '' : formData.last_name.trim(),
-        name: (isCompany ? formData.company_name : `${formData.first_name} ${formData.last_name}`).trim(),
+        first_name: isCompany ? '' : (formData.first_name || '').trim(),
+        last_name: isCompany ? '' : (formData.last_name || '').trim(),
+        name: (isCompany ? companyName : `${(formData.first_name || '').trim()} ${(formData.last_name || '').trim()}`).trim(),
         email: email === '' ? null : email,
         phone: phone === '' ? null : phone,
         tax_id: taxId === '' ? null : taxId,

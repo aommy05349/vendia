@@ -31,6 +31,10 @@
     "brands": "Brands",
     "units": "Units",
     "warehouses": "Warehouses",
+    "user_management": "User management",
+    "product_management": "Product management",
+    "shop_management": "Shop management",
+    "document_management": "Document management",
     "cancel": "Cancel",
     "save": "Save",
     "edit": "Edit",
@@ -73,7 +77,19 @@
     "go_orders": "Go to orders",
     "chart_title": "Revenue chart (paid/unpaid)",
     "line_chart_title": "Line chart (paid/billing note/quotation)",
+    "tabs": {
+      "overview": "Overview",
+      "billing": "Billing debtors",
+      "receipt": "Missing receipts"
+    },
     "pending_list": "Latest unpaid orders",
+    "billing_unpaid_all": "Unpaid billing notes (all time)",
+    "missing_receipt_all": "Paid but missing receipt (all time)",
+    "scope": {
+      "label": "Scope",
+      "all": "All time",
+      "range": "Selected range"
+    },
     "no_pending": "No unpaid orders in this range",
     "pending_kind": "Type",
     "document": "Document",
