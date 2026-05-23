@@ -442,6 +442,11 @@ export const OrderDetail = () => {
     };
   }, [order, t]);
 
+  const isInstallmentOrder = useMemo(() => {
+    if (!order) return false;
+    return order.payment_method === 'installment' || !!order.paymentPlan || isLegacyInstallmentOrder(order);
+  }, [order]);
+
   const openInstallmentPlan = () => {
     if (!order) return;
     const existing = order.paymentPlan || null;
@@ -624,6 +629,23 @@ export const OrderDetail = () => {
 
   useEffect(() => {
     fetchOrder();
+  }, [id]);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      try {
+        if (event.origin !== window.location.origin) return;
+        const data: any = event.data;
+        if (!data || data.type !== 'vendia:order_updated') return;
+        const incomingId = Number(data.orderId);
+        if (!Number.isFinite(incomingId)) return;
+        if (Number(id) !== incomingId) return;
+        fetchOrder();
+      } catch {
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
   }, [id]);
 
   useEffect(() => {
@@ -2925,12 +2947,14 @@ export const OrderDetail = () => {
               </div>
             ) : null}
 
-            <div className="card border-0 shadow-sm">
-              <div className="card-header bg-white fw-bold">{t('orders.issued_documents')}</div>
-              <div className="card-body">
-                {issuedDocumentsBody}
+            {!isInstallmentOrder && (
+              <div className="card border-0 shadow-sm">
+                <div className="card-header bg-white fw-bold">{t('orders.issued_documents')}</div>
+                <div className="card-body">
+                  {issuedDocumentsBody}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

@@ -494,6 +494,12 @@ export const PrintOrder = () => {
                 : order.receipt_number;
     const currentDocumentForRemarks = order.documents?.find((d) => d.type === type && d.number === currentNumberForRemarks);
     const docForRemarks = documentRecord || currentDocumentForRemarks;
+    const displayDocumentNo =
+        (docForRemarks?.number && String(docForRemarks.number).trim() !== '')
+            ? String(docForRemarks.number)
+            : (currentNumberForRemarks && String(currentNumberForRemarks).trim() !== '')
+                ? String(currentNumberForRemarks)
+                : String(order.id);
 
     const attention =
         order.customer?.is_company
@@ -658,12 +664,7 @@ export const PrintOrder = () => {
                     <div className="row mb-1">
                         <div className="col-4 fw-bold text-end">{t('print.document.no')}</div>
                         <div className="col-8">
-                            {isQuotation 
-                                ? (order.quotation_number || order.id) 
-                                : isBillingNote 
-                                    ? (order.billing_note_number || order.id) 
-                                    : (order.receipt_number || order.id)
-                            }
+                            {displayDocumentNo}
                         </div>
                     </div>
                     <div className="row mb-1">
@@ -1081,7 +1082,16 @@ export const PrintOrder = () => {
                                     if (docId) {
                                         const refreshed = await api.get(`/documents/${docId}`);
                                         setDocumentRecord(refreshed.data);
-                                        if (refreshed.data?.order) setOrder(refreshed.data.order);
+                                        if (refreshed.data?.order) {
+                                            setOrder(refreshed.data.order);
+                                            try {
+                                                window.opener?.postMessage(
+                                                    { type: 'vendia:order_updated', orderId: refreshed.data.order.id },
+                                                    window.location.origin
+                                                );
+                                            } catch {
+                                            }
+                                        }
                                     }
                                     setSaveModal({ type: 'success', message: t('common.saved', 'บันทึกแล้ว') });
                                 } catch (err) {
