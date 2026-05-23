@@ -1,6 +1,7 @@
 {
   "common": {
     "dashboard": "Dashboard",
+    "overview": "Sales report",
     "pos": "POS",
     "orders": "Orders",
     "products": "Products",
@@ -47,7 +48,7 @@
     "today": "Today"
   },
   "dashboard": {
-    "title": "Dashboard",
+    "title": "Revenue & Pending Overview",
     "range": "Range",
     "daily": "Daily",
     "monthly": "Monthly",

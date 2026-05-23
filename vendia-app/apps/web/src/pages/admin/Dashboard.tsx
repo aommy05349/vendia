@@ -348,11 +348,11 @@ export const Dashboard = () => {
               onMouseLeave={() => setHovered(null)}
               onTouchStart={() => setHovered({ left: x + barW / 2, top: yTotal, label: hoverLabel, completed, pendingInstallment, pendingBilling, pendingQuotation, total })}
             >
-              <rect x={x} y={yTotal} width={barW} height={hTotal} fill="#e9ecef" rx="4" />
-              <rect x={x} y={yCompleted} width={barW} height={hCompleted} fill="#198754" rx="4" />
-              <rect x={x} y={yPendingQuotation} width={barW} height={hPendingQuotation} fill="#fd7e14" rx="4" />
-              <rect x={x} y={yPendingBilling} width={barW} height={hPendingBilling} fill="#ffc107" rx="4" />
-              <rect x={x} y={yPendingInstallment} width={barW} height={hPendingInstallment} fill="#dc3545" rx="4" />
+              <rect x={x} y={yTotal} width={barW} height={hTotal} fill="var(--vendia-surface-3)" rx="4" />
+              <rect x={x} y={yCompleted} width={barW} height={hCompleted} fill="var(--vendia-status-receipt)" rx="4" />
+              <rect x={x} y={yPendingQuotation} width={barW} height={hPendingQuotation} fill="var(--vendia-status-quotation)" rx="4" />
+              <rect x={x} y={yPendingBilling} width={barW} height={hPendingBilling} fill="var(--vendia-status-billing)" rx="4" />
+              <rect x={x} y={yPendingInstallment} width={barW} height={hPendingInstallment} fill="var(--vendia-status-installment)" rx="4" />
               {(isOneMonthRange && groupBy === 'day'
                 ? new Date(`${p.bucket}T00:00:00`).getDate() % 2 === 1
                 : idx % Math.ceil(points.length / 10) === 0) && (
@@ -361,7 +361,7 @@ export const Dashboard = () => {
                   y={height - 18}
                   textAnchor="middle"
                   fontSize="11"
-                  fill="#6c757d"
+                  fill="var(--vendia-text-muted)"
                 >
                   {axisLabel}
                 </text>
@@ -425,23 +425,23 @@ export const Dashboard = () => {
 
     return (
       <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="340" role="img" aria-label="Revenue line chart">
-        <rect x="0" y="0" width={width} height={height} fill="white" />
+        <rect x="0" y="0" width={width} height={height} fill="var(--vendia-surface)" />
 
         {ticks.map((v) => {
           const y = yAt(v);
           return (
             <g key={v}>
-              <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#f1f3f5" strokeWidth="1" />
-              <text x={padding.left - 10} y={y + 4} textAnchor="end" fontSize="12" fill="#6c757d">
+              <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="var(--vendia-grid)" strokeWidth="1" />
+              <text x={padding.left - 10} y={y + 4} textAnchor="end" fontSize="12" fill="var(--vendia-text-muted)">
                 ฿{formatMoney(v)}
               </text>
             </g>
           );
         })}
 
-        <path d={buildPath(completedVals)} fill="none" stroke="#198754" strokeWidth="2.5" />
-        <path d={buildPath(billingVals)} fill="none" stroke="#ffc107" strokeWidth="2.5" />
-        <path d={buildPath(quotationVals)} fill="none" stroke="#fd7e14" strokeWidth="2.5" />
+        <path d={buildPath(completedVals)} fill="none" stroke="var(--vendia-status-receipt)" strokeWidth="2.5" />
+        <path d={buildPath(billingVals)} fill="none" stroke="var(--vendia-status-billing)" strokeWidth="2.5" />
+        <path d={buildPath(quotationVals)} fill="none" stroke="var(--vendia-status-quotation)" strokeWidth="2.5" />
 
         {points.map((p, idx) => {
           const completed = Number(p.completed_total) || 0;
@@ -487,12 +487,12 @@ export const Dashboard = () => {
                 })
               }
             >
-              <circle cx={x} cy={yAt(completed)} r="3.5" fill="#198754" />
-              <circle cx={x} cy={yAt(pendingInstallment)} r="3.5" fill="#dc3545" />
-              <circle cx={x} cy={yAt(pendingBilling)} r="3.5" fill="#ffc107" />
-              <circle cx={x} cy={yAt(pendingQuotation)} r="3.5" fill="#fd7e14" />
+              <circle cx={x} cy={yAt(completed)} r="3.5" fill="var(--vendia-status-receipt)" />
+              <circle cx={x} cy={yAt(pendingInstallment)} r="3.5" fill="var(--vendia-status-installment)" />
+              <circle cx={x} cy={yAt(pendingBilling)} r="3.5" fill="var(--vendia-status-billing)" />
+              <circle cx={x} cy={yAt(pendingQuotation)} r="3.5" fill="var(--vendia-status-quotation)" />
               {showAxisLabel && (
-                <text x={x} y={height - 18} textAnchor="middle" fontSize="12" fill="#6c757d">
+                <text x={x} y={height - 18} textAnchor="middle" fontSize="12" fill="var(--vendia-text-muted)">
                   {axisLabel}
                 </text>
               )}
@@ -662,17 +662,17 @@ export const Dashboard = () => {
               {data && (
                 <div className="small mt-2">
                   <div className="text-muted d-flex align-items-center gap-2">
-                    <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#ffc107' }} />
+                    <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: 'var(--vendia-status-billing)' }} />
                     <span>{t('dashboard.pending_billing_note', 'รอชำระ')}:</span>
                     <span className="fw-semibold">฿{formatMoney(data.totals.pending_billing_total || 0)}</span>
                   </div>
                   <div className="text-muted d-flex align-items-center gap-2">
-                    <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#dc3545' }} />
+                    <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: 'var(--vendia-status-installment)' }} />
                     <span>{t('orders.installment', 'ผ่อนชำระ')}:</span>
                     <span className="fw-semibold">฿{formatMoney(data.totals.pending_installment_total || 0)}</span>
                   </div>
                   <div className="text-muted d-flex align-items-center gap-2">
-                    <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#fd7e14' }} />
+                    <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: 'var(--vendia-status-quotation)' }} />
                     <span>{t('dashboard.pending_quotation', 'ใบเสนอราคา')}:</span>
                     <span className="fw-semibold">฿{formatMoney(data.totals.pending_quotation_total || 0)}</span>
                   </div>
@@ -689,19 +689,19 @@ export const Dashboard = () => {
               <div className="small text-muted">{t('dashboard.avg_order_value', 'ค่าเฉลี่ย/ออเดอร์')}: ฿{formatMoney(avgOrderValue)}</div>
               <div className="small text-muted mt-2 d-flex flex-wrap gap-2">
                 <span className="d-inline-flex align-items-center gap-2">
-                  <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#198754' }} />
+                  <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: 'var(--vendia-status-receipt)' }} />
                   <span>{t('dashboard.legend_completed', 'ชำระแล้ว')}: {data?.totals.completed_count || 0}</span>
                 </span>
                 <span className="d-inline-flex align-items-center gap-2">
-                  <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#ffc107' }} />
+                  <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: 'var(--vendia-status-billing)' }} />
                   <span>{t('dashboard.legend_billing_note', 'รอชำระ')}: {data?.totals.pending_billing_count || 0}</span>
                 </span>
                 <span className="d-inline-flex align-items-center gap-2">
-                  <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#dc3545' }} />
+                  <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: 'var(--vendia-status-installment)' }} />
                   <span>{t('orders.installment', 'ผ่อนชำระ')}: {data?.totals.pending_installment_count || 0}</span>
                 </span>
                 <span className="d-inline-flex align-items-center gap-2">
-                  <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: '#fd7e14' }} />
+                  <span className="d-inline-block rounded" style={{ width: 10, height: 10, background: 'var(--vendia-status-quotation)' }} />
                   <span>{t('dashboard.legend_quotation', 'ใบเสนอราคา')}: {data?.totals.pending_quotation_count || 0}</span>
                 </span>
               </div>
@@ -724,19 +724,19 @@ export const Dashboard = () => {
               </div>
               <div className="d-flex align-items-center gap-3 mb-2 flex-wrap">
                 <div className="d-flex align-items-center gap-2">
-                  <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: '#198754' }} />
+                  <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: 'var(--vendia-status-receipt)' }} />
                   <span className="small text-muted">{t('dashboard.legend_completed', 'ชำระแล้ว')}</span>
                 </div>
                 <div className="d-flex align-items-center gap-2">
-                  <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: '#ffc107' }} />
+                  <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: 'var(--vendia-status-billing)' }} />
                   <span className="small text-muted">{t('dashboard.legend_billing_note', 'รอชำระ')}</span>
                 </div>
                 <div className="d-flex align-items-center gap-2">
-                  <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: '#dc3545' }} />
+                  <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: 'var(--vendia-status-installment)' }} />
                   <span className="small text-muted">{t('orders.installment', 'ผ่อนชำระ')}</span>
                 </div>
                 <div className="d-flex align-items-center gap-2">
-                  <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: '#fd7e14' }} />
+                  <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: 'var(--vendia-status-quotation)' }} />
                   <span className="small text-muted">{t('dashboard.legend_quotation', 'ใบเสนอราคา')}</span>
                 </div>
               </div>
@@ -796,20 +796,20 @@ export const Dashboard = () => {
                   style={{ fontSize: 14, lineHeight: 1.25, minWidth: 190, whiteSpace: 'nowrap' }}
                 >
                   <div className="d-flex align-items-center gap-2">
-                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, background: '#198754' }} />
+                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, background: 'var(--vendia-status-receipt)' }} />
                     <span className="fw-semibold text-success">฿{formatMoney(lineIndicator.completedSum)}</span>
                   </div>
                   <div className="d-flex align-items-center gap-2">
-                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, background: '#ffc107' }} />
-                    <span className="fw-semibold" style={{ color: '#8a6d00' }}>฿{formatMoney(lineIndicator.billingSum)}</span>
+                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, background: 'var(--vendia-status-billing)' }} />
+                    <span className="fw-semibold" style={{ color: 'var(--vendia-status-billing-ink)' }}>฿{formatMoney(lineIndicator.billingSum)}</span>
                   </div>
                   <div className="d-flex align-items-center gap-2">
-                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, background: '#dc3545' }} />
+                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, background: 'var(--vendia-status-installment)' }} />
                     <span className="fw-semibold text-danger">฿{formatMoney(lineIndicator.installmentSum)}</span>
                   </div>
                   <div className="d-flex align-items-center gap-2">
-                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, background: '#fd7e14' }} />
-                    <span className="fw-semibold" style={{ color: '#b24a00' }}>฿{formatMoney(lineIndicator.quotationSum)}</span>
+                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, background: 'var(--vendia-status-quotation)' }} />
+                    <span className="fw-semibold" style={{ color: 'var(--vendia-status-quotation-ink)' }}>฿{formatMoney(lineIndicator.quotationSum)}</span>
                   </div>
                 </div>
               </div>
@@ -886,7 +886,7 @@ export const Dashboard = () => {
                     }}
                   >
                     {t('dashboard.kind.billing_note', 'รอชำระ')}
-                    <span className="badge ms-2 text-dark" style={{ background: '#ffc107' }}>
+                    <span className="badge ms-2 vendia-badge-billing">
                       {data?.totals.pending_billing_count || 0}
                     </span>
                   </button>
@@ -901,7 +901,7 @@ export const Dashboard = () => {
                     }}
                   >
                     {t('orders.installment', 'ผ่อนชำระ')}
-                    <span className="badge ms-2 text-white" style={{ background: '#dc3545' }}>
+                    <span className="badge ms-2 vendia-badge-installment">
                       {data?.totals.pending_installment_count || 0}
                     </span>
                   </button>
@@ -916,7 +916,7 @@ export const Dashboard = () => {
                     }}
                   >
                     {t('dashboard.kind.quotation', 'ใบเสนอราคา')}
-                    <span className="badge ms-2 text-white" style={{ background: '#fd7e14' }}>
+                    <span className="badge ms-2 vendia-badge-quotation">
                       {data?.totals.pending_quotation_count || 0}
                     </span>
                   </button>
@@ -975,8 +975,8 @@ export const Dashboard = () => {
                           className={`badge ${o.pending_kind === 'billing_note' ? 'text-dark' : ''}`}
                           style={{
                             background: (() => {
-                              if (o.pending_kind === 'installment') return '#dc3545';
-                              return o.pending_kind === 'billing_note' ? '#ffc107' : '#fd7e14';
+                              if (o.pending_kind === 'installment') return 'var(--vendia-status-installment)';
+                              return o.pending_kind === 'billing_note' ? 'var(--vendia-status-billing)' : 'var(--vendia-status-quotation)';
                             })(),
                           }}
                         >

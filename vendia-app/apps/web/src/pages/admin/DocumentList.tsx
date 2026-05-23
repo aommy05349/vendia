@@ -117,9 +117,9 @@ export const DocumentList = () => {
   };
 
   const typeBadgeStyle = (docType: DocumentType): React.CSSProperties => {
-    if (docType === 'receipt') return { background: '#198754', color: '#fff' };
-    if (docType === 'billing_note') return { background: '#ffc107', color: '#111' };
-    return { background: '#fd7e14', color: '#fff' };
+    if (docType === 'receipt') return { background: 'var(--vendia-status-receipt)', color: '#fff' };
+    if (docType === 'billing_note') return { background: 'var(--vendia-status-billing)', color: '#111827' };
+    return { background: 'var(--vendia-status-quotation)', color: '#fff' };
   };
 
   const formatMoney = (v: number | string) => {

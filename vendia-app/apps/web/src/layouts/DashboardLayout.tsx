@@ -12,7 +12,8 @@ export const DashboardLayout = () => {
   const location = useLocation();
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [adminGroupsOpen, setAdminGroupsOpen] = useState<{ user: boolean; product: boolean; shop: boolean; documents: boolean }>(() => ({
+  const [adminGroupsOpen, setAdminGroupsOpen] = useState<{ dashboard: boolean; user: boolean; product: boolean; shop: boolean; documents: boolean }>(() => ({
+    dashboard: false,
     user: false,
     product: false,
     shop: false,
@@ -53,15 +54,17 @@ export const DashboardLayout = () => {
   useEffect(() => {
     const path = location.pathname;
     const group =
-      path.startsWith('/users') || path.startsWith('/teams') || path.startsWith('/customers')
-        ? 'user'
-        : path.startsWith('/products') || path.startsWith('/categories') || path.startsWith('/units') || path.startsWith('/brands')
-          ? 'product'
-          : path.startsWith('/warehouses') || path.startsWith('/settings')
-            ? 'shop'
-            : path.startsWith('/documents')
-              ? 'documents'
-              : null;
+      path.startsWith('/dashboard')
+        ? 'dashboard'
+        : path.startsWith('/users') || path.startsWith('/teams') || path.startsWith('/customers')
+          ? 'user'
+          : path.startsWith('/products') || path.startsWith('/categories') || path.startsWith('/units') || path.startsWith('/brands')
+            ? 'product'
+            : path.startsWith('/warehouses') || path.startsWith('/settings')
+              ? 'shop'
+              : path.startsWith('/documents')
+                ? 'documents'
+                : null;
     if (!group) return;
     setAdminGroupsOpen((prev) => ({ ...prev, [group]: true }));
   }, [location.pathname]);
@@ -86,7 +89,7 @@ export const DashboardLayout = () => {
     fetchCounts();
   }, [user?.role, location.pathname]);
 
-  const toggleAdminGroup = (key: 'user' | 'product' | 'shop' | 'documents') => {
+  const toggleAdminGroup = (key: 'dashboard' | 'user' | 'product' | 'shop' | 'documents') => {
     setAdminGroupsOpen((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
@@ -121,6 +124,7 @@ export const DashboardLayout = () => {
     if (path.startsWith('/units')) return t('common.units');
     if (path.startsWith('/warehouses')) return t('common.warehouses');
     if (path.startsWith('/settings')) return t('common.settings');
+    if (path.startsWith('/dashboard/subcategory')) return t('analytics.title', 'ข้อมูลสินค้าและบริการ');
     if (path.startsWith('/dashboard')) return t('common.dashboard');
 
     return shop?.name || 'Vendia POS';
@@ -254,14 +258,38 @@ export const DashboardLayout = () => {
             {user.role !== 'technician' && (
               <>
                 {user.role === 'admin' && (
-                  <Link
-                    to="/dashboard"
-                    className={`nav-link border rounded text-dark w-100 ${
-                      location.pathname.startsWith('/dashboard') ? 'bg-primary text-white border-primary' : 'bg-white'
-                    }`}
-                  >
-                    📊 {t('common.dashboard')}
-                  </Link>
+                  <>
+                    <button
+                      type="button"
+                      className={`btn border rounded w-100 d-flex justify-content-between align-items-center text-start ${
+                        location.pathname.startsWith('/dashboard') ? 'btn-primary text-white border-primary' : 'btn-light'
+                      }`}
+                      onClick={() => toggleAdminGroup('dashboard')}
+                      aria-expanded={adminGroupsOpen.dashboard}
+                      aria-controls="nav-group-dashboard"
+                    >
+                      <span className="fw-semibold">📊 {t('common.dashboard')}</span>
+                      <i className={`bi bi-chevron-${adminGroupsOpen.dashboard ? 'up' : 'down'}`}></i>
+                    </button>
+                    <div id="nav-group-dashboard" className={`ps-2 d-flex flex-column gap-2 ${adminGroupsOpen.dashboard ? '' : 'd-none'}`}>
+                      <Link
+                        to="/dashboard"
+                        className={`nav-link border rounded text-dark w-100 ${
+                          location.pathname === '/dashboard' ? 'bg-primary text-white border-primary' : 'bg-white'
+                        }`}
+                      >
+                        📊 {t('common.overview')}
+                      </Link>
+                      <Link
+                        to="/dashboard/subcategory"
+                        className={`nav-link border rounded text-dark w-100 ${
+                          location.pathname.startsWith('/dashboard/subcategory') ? 'bg-primary text-white border-primary' : 'bg-white'
+                        }`}
+                      >
+                        📈 {t('analytics.title', 'ข้อมูลสินค้าและบริการ')}
+                      </Link>
+                    </div>
+                  </>
                 )}
                 <Link
                   to="/"
@@ -322,7 +350,7 @@ export const DashboardLayout = () => {
                     <span className="fw-semibold">
                       {t('common.document_management', 'จัดการเอกสาร')}
                       {documentsBillingDebtorCount > 0 && (
-                        <span className="badge ms-2 text-dark" style={{ background: '#ffc107' }}>
+                        <span className="badge ms-2 vendia-badge-billing">
                           {documentsBillingDebtorCount}
                         </span>
                       )}
@@ -340,7 +368,7 @@ export const DashboardLayout = () => {
                         <span>🧾 {t('common.documents', 'เอกสาร')}</span>
                         <span className="d-flex align-items-center gap-2">
                           {documentsBillingDebtorCount > 0 && (
-                            <span className="badge text-dark" style={{ background: '#ffc107' }}>
+                            <span className="badge vendia-badge-billing">
                               {documentsBillingDebtorCount}
                             </span>
                           )}

@@ -21,3 +21,121 @@
 html, body, #root {
   height: 100%;
 }
+
+:root {
+  --vendia-surface: #ffffff;
+  --vendia-surface-2: #f8fafc;
+  --vendia-surface-3: #eef2f7;
+  --vendia-text: #0f172a;
+  --vendia-text-muted: #64748b;
+  --vendia-border: #e2e8f0;
+  --vendia-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+
+  --vendia-brand: #1d4ed8;
+  --vendia-brand-rgb: 29, 78, 216;
+  --vendia-brand-soft: rgba(29, 78, 216, 0.12);
+
+  --vendia-status-installment: #ef4444;
+  --vendia-status-installment-rgb: 239, 68, 68;
+  --vendia-status-installment-ink: #991b1b;
+  --vendia-status-receipt: #22c55e;
+  --vendia-status-receipt-rgb: 34, 197, 94;
+  --vendia-status-receipt-ink: #166534;
+  --vendia-status-billing: #f59e0b;
+  --vendia-status-billing-rgb: 245, 158, 11;
+  --vendia-status-billing-ink: #92400e;
+  --vendia-status-quotation: #f97316;
+  --vendia-status-quotation-rgb: 249, 115, 22;
+  --vendia-status-quotation-ink: #9a3412;
+
+  --vendia-metric-count: #1d4ed8;
+  --vendia-metric-revenue: #7c3aed;
+  --vendia-metric-revenue-rgb: 124, 58, 237;
+  --vendia-grid: #e9eef5;
+
+  --vendia-palette-1: var(--vendia-brand);
+  --vendia-palette-2: var(--vendia-metric-revenue);
+  --vendia-palette-3: #14b8a6;
+  --vendia-palette-4: var(--vendia-status-receipt);
+  --vendia-palette-5: var(--vendia-status-billing);
+  --vendia-palette-6: var(--vendia-status-quotation);
+  --vendia-palette-7: var(--vendia-status-installment);
+  --vendia-palette-8: var(--vendia-text-muted);
+
+  --bs-body-bg: var(--vendia-surface-2);
+  --bs-body-color: var(--vendia-text);
+  --bs-border-color: var(--vendia-border);
+
+  --bs-primary: var(--vendia-brand);
+  --bs-primary-rgb: var(--vendia-brand-rgb);
+
+  --bs-success: var(--vendia-status-receipt);
+  --bs-success-rgb: var(--vendia-status-receipt-rgb);
+
+  --bs-warning: var(--vendia-status-billing);
+  --bs-warning-rgb: var(--vendia-status-billing-rgb);
+
+  --bs-danger: var(--vendia-status-installment);
+  --bs-danger-rgb: var(--vendia-status-installment-rgb);
+
+  --bs-info: var(--vendia-status-quotation);
+  --bs-info-rgb: var(--vendia-status-quotation-rgb);
+
+  --bs-light-rgb: 248, 250, 252;
+  --bs-dark-rgb: 15, 23, 42;
+
+  --bs-link-color: var(--vendia-brand);
+  --bs-link-hover-color: #1e40af;
+
+  --bs-border-radius: 0.75rem;
+  --bs-border-radius-sm: 0.6rem;
+  --bs-border-radius-lg: 1rem;
+}
+
+body {
+  background: var(--bs-body-bg);
+}
+
+.card {
+  border-color: var(--bs-border-color);
+}
+
+.shadow-soft {
+  box-shadow: var(--vendia-shadow) !important;
+}
+
+.text-muted {
+  color: var(--vendia-text-muted) !important;
+}
+
+.bg-surface {
+  background-color: var(--vendia-surface) !important;
+}
+
+.bg-surface-2 {
+  background-color: var(--vendia-surface-2) !important;
+}
+
+.bg-surface-3 {
+  background-color: var(--vendia-surface-3) !important;
+}
+
+.badge.vendia-badge-billing {
+  background: var(--vendia-status-billing) !important;
+  color: #111827 !important;
+}
+
+.badge.vendia-badge-receipt {
+  background: var(--vendia-status-receipt) !important;
+  color: #ffffff !important;
+}
+
+.badge.vendia-badge-quotation {
+  background: var(--vendia-status-quotation) !important;
+  color: #ffffff !important;
+}
+
+.badge.vendia-badge-installment {
+  background: var(--vendia-status-installment) !important;
+  color: #ffffff !important;
+}

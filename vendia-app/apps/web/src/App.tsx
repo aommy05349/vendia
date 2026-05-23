@@ -28,6 +28,7 @@ import { DocumentList } from './pages/admin/DocumentList';
 import { OrderList } from './pages/admin/OrderList';
 import { OrderDetail } from './pages/admin/OrderDetail';
 import { Dashboard } from './pages/admin/Dashboard';
+import { SubcategoryDashboard } from './pages/admin/SubcategoryDashboard';
 import { CustomerList } from './pages/admin/CustomerList';
 import { CreateCustomer } from './pages/admin/CreateCustomer';
 import { EditCustomer } from './pages/admin/EditCustomer';
@@ -296,6 +297,9 @@ function App() {
           } />
           <Route path="dashboard" element={
             user.role === 'admin' ? <Dashboard /> : <Navigate to="/" />
+          } />
+          <Route path="dashboard/subcategory" element={
+            user.role === 'admin' ? <SubcategoryDashboard /> : <Navigate to="/" />
           } />
           <Route path="orders" element={<OrderList />} />
           <Route path="orders/:id" element={<OrderDetail />} />

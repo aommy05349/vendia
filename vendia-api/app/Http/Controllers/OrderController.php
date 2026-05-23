@@ -900,6 +900,390 @@ class OrderController extends Controller
         ]);
     }
 
+    public function subcategoryDashboard(Request $request)
+    {
+        $validated = $request->validate([
+            'start_date' => 'sometimes|date',
+            'end_date' => 'sometimes|date',
+        ]);
+
+        $now = Carbon::now();
+        $start = isset($validated['start_date'])
+            ? Carbon::parse($validated['start_date'])->startOfDay()
+            : $now->copy()->subDays(29)->startOfDay();
+        $end = isset($validated['end_date'])
+            ? Carbon::parse($validated['end_date'])->endOfDay()
+            : $now->copy()->endOfDay();
+
+        if ($start->greaterThan($end)) {
+            [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+        }
+
+        $rangeDays = max(1, $start->diffInDays($end) + 1);
+        $prevEnd = $start->copy()->subDay()->endOfDay();
+        $prevStart = $prevEnd->copy()->subDays($rangeDays - 1)->startOfDay();
+
+        $makeEmptyBuckets = function (Carbon $s, Carbon $e) {
+            $out = [];
+            $d = $s->copy()->startOfDay();
+            while ($d->lessThanOrEqualTo($e)) {
+                $key = $d->toDateString();
+                $out[$key] = [
+                    'date' => $key,
+                    'service_count' => 0,
+                    'service_revenue' => 0.0,
+                    'product_count' => 0,
+                    'product_revenue' => 0.0,
+                ];
+                $d->addDay();
+            }
+            return $out;
+        };
+
+        $compute = function (Carbon $s, Carbon $e) use ($makeEmptyBuckets) {
+            $buckets = $makeEmptyBuckets($s, $e);
+
+            $serviceByProduct = [];
+            $productByProduct = [];
+            $serviceByCategory = [];
+            $productByCategory = [];
+
+            $serviceCustomerCounts = [];
+            $serviceCustomerTotal = 0;
+            $serviceCustomerRepeat = 0;
+
+            $startForOrders = $s->copy()->startOfDay();
+            $endForOrders = $e->copy()->endOfDay();
+
+            $installmentOrderIds = OrderPayment::query()
+                ->whereBetween('paid_at', [$startForOrders, $endForOrders])
+                ->select('order_id')
+                ->distinct()
+                ->pluck('order_id')
+                ->map(fn ($v) => (int) $v)
+                ->values()
+                ->all();
+
+            $nonInstallmentOrders = Order::query()
+                ->where('status', 'completed')
+                ->whereBetween('created_at', [$startForOrders, $endForOrders])
+                ->where(function ($q) {
+                    $q->whereNull('payment_method')
+                        ->orWhere('payment_method', '!=', 'installment');
+                })
+                ->whereDoesntHave('paymentPlan')
+                ->select(['id', 'customer_id', 'created_at', 'total', 'subtotal', 'payment_method'])
+                ->with(['items.product.category'])
+                ->get();
+
+            $installmentOrders = count($installmentOrderIds) > 0
+                ? Order::query()
+                    ->whereIn('id', $installmentOrderIds)
+                    ->select(['id', 'customer_id', 'created_at', 'total', 'subtotal', 'payment_method'])
+                    ->with([
+                        'items.product.category',
+                        'paymentPlan:id,order_id,total',
+                        'payments:id,order_id,amount,paid_at',
+                    ])
+                    ->get()
+                : collect();
+
+            $ordersCreatedInRange = Order::query()
+                ->whereBetween('created_at', [$startForOrders, $endForOrders])
+                ->select(['id', 'customer_id', 'created_at', 'total', 'subtotal', 'payment_method'])
+                ->with(['items.product.category', 'paymentPlan:id,order_id,total'])
+                ->get()
+                ->keyBy('id');
+
+            foreach ($ordersCreatedInRange as $o) {
+                $hasService = false;
+                foreach (($o->items ?? []) as $it) {
+                    $p = $it->product;
+                    if ($p && (string) ($p->product_type ?? '') === 'service') {
+                        $hasService = true;
+                        break;
+                    }
+                }
+                if (!$hasService) continue;
+                if ($o->customer_id === null) continue;
+                $cid = (int) $o->customer_id;
+                $serviceCustomerCounts[$cid] = ($serviceCustomerCounts[$cid] ?? 0) + 1;
+            }
+            foreach ($serviceCustomerCounts as $count) {
+                $serviceCustomerTotal += 1;
+                if ($count >= 2) $serviceCustomerRepeat += 1;
+            }
+
+            $accumulateItem = function (
+                array &$byProduct,
+                array &$byCategory,
+                int $productId,
+                string $name,
+                ?string $sku,
+                ?int $categoryId,
+                string $categoryName,
+                float $qty,
+                float $revenue
+            ) {
+                if (!array_key_exists($productId, $byProduct)) {
+                    $byProduct[$productId] = [
+                        'product_id' => $productId,
+                        'name' => $name,
+                        'sku' => $sku,
+                        'category_id' => $categoryId,
+                        'category_name' => $categoryName,
+                        'quantity' => 0.0,
+                        'revenue' => 0.0,
+                    ];
+                }
+                $byProduct[$productId]['quantity'] += $qty;
+                $byProduct[$productId]['revenue'] += $revenue;
+
+                $catKey = $categoryId !== null ? (string) $categoryId : 'null';
+                if (!array_key_exists($catKey, $byCategory)) {
+                    $byCategory[$catKey] = [
+                        'category_id' => $categoryId,
+                        'category_name' => $categoryName,
+                        'quantity' => 0.0,
+                        'revenue' => 0.0,
+                    ];
+                }
+                $byCategory[$catKey]['quantity'] += $qty;
+                $byCategory[$catKey]['revenue'] += $revenue;
+            };
+
+            $allocateByOrder = function (Order $o, float $orderRevenue, ?string $revenueDate = null) use (
+                &$buckets,
+                &$serviceByProduct,
+                &$productByProduct,
+                &$serviceByCategory,
+                &$productByCategory,
+                $accumulateItem,
+                $startForOrders,
+                $endForOrders
+            ) {
+                $items = $o->items ?? [];
+                if (count($items) === 0) return;
+
+                $base = 0.0;
+                foreach ($items as $it) {
+                    $qty = (float) ($it->quantity ?? 0);
+                    $price = (float) ($it->price ?? 0);
+                    $itemTotal = $qty * $price;
+                    if ($itemTotal <= 0) continue;
+                    $base += $itemTotal;
+                }
+                if ($base <= 0) {
+                    $base = (float) ($o->subtotal ?? $o->total ?? 0);
+                }
+                if ($base <= 0) $base = 1.0;
+
+                $createdKey = Carbon::parse($o->created_at)->toDateString();
+                $isCreatedInRange = Carbon::parse($o->created_at)->betweenIncluded($startForOrders, $endForOrders);
+
+                $revKey = $revenueDate ? Carbon::parse($revenueDate)->toDateString() : $createdKey;
+                if (isset($buckets[$revKey])) {
+                    foreach ($items as $it) {
+                        $p = $it->product;
+                        if (!$p) continue;
+                        $qty = (float) ($it->quantity ?? 0);
+                        $price = (float) ($it->price ?? 0);
+                        if ($qty <= 0 || $price < 0) continue;
+                        $itemTotal = $qty * $price;
+                        $ratio = $itemTotal > 0 ? ($itemTotal / $base) : 0.0;
+                        $allocated = $orderRevenue * $ratio;
+                        $isService = (string) ($p->product_type ?? '') === 'service';
+
+                        if ($isService) {
+                            $buckets[$revKey]['service_revenue'] += $allocated;
+                        } else {
+                            $buckets[$revKey]['product_revenue'] += $allocated;
+                        }
+                    }
+                }
+
+                if ($isCreatedInRange && isset($buckets[$createdKey])) {
+                    foreach ($items as $it) {
+                        $p = $it->product;
+                        if (!$p) continue;
+                        $qty = (float) ($it->quantity ?? 0);
+                        $price = (float) ($it->price ?? 0);
+                        if ($qty <= 0 || $price < 0) continue;
+                        $isService = (string) ($p->product_type ?? '') === 'service';
+                        if ($isService) {
+                            $buckets[$createdKey]['service_count'] += $qty;
+                        } else {
+                            $buckets[$createdKey]['product_count'] += $qty;
+                        }
+                    }
+                }
+
+                foreach ($items as $it) {
+                    $p = $it->product;
+                    if (!$p) continue;
+                    $qty = (float) ($it->quantity ?? 0);
+                    $price = (float) ($it->price ?? 0);
+                    if ($qty <= 0 || $price < 0) continue;
+                    $itemTotal = $qty * $price;
+                    $ratio = $itemTotal > 0 ? ($itemTotal / $base) : 0.0;
+                    $allocatedRevenue = $orderRevenue * $ratio;
+
+                    $cat = $p->category;
+                    $categoryId = $cat ? (int) $cat->id : null;
+                    $categoryName = $cat ? (string) $cat->name : 'Uncategorized';
+                    $productId = (int) $p->id;
+                    $name = (string) ($p->name ?? '');
+                    $sku = $p->sku ? (string) $p->sku : null;
+
+                    $isService = (string) ($p->product_type ?? '') === 'service';
+                    if ($isService) {
+                        $accumulateItem($serviceByProduct, $serviceByCategory, $productId, $name, $sku, $categoryId, $categoryName, $qty, $allocatedRevenue);
+                    } else {
+                        $accumulateItem($productByProduct, $productByCategory, $productId, $name, $sku, $categoryId, $categoryName, $qty, $allocatedRevenue);
+                    }
+                }
+            };
+
+            foreach ($nonInstallmentOrders as $o) {
+                $allocateByOrder($o, (float) ($o->total ?? 0));
+            }
+
+            foreach ($installmentOrders as $o) {
+                $payments = $o->payments ?? [];
+                foreach ($payments as $p) {
+                    $paidAt = Carbon::parse($p->paid_at);
+                    if (!$paidAt->betweenIncluded($startForOrders, $endForOrders)) continue;
+                    $allocateByOrder($o, (float) ($p->amount ?? 0), $paidAt->toDateString());
+                }
+            }
+
+            $serviceCount = array_reduce($buckets, fn ($acc, $b) => $acc + (float) ($b['service_count'] ?? 0), 0.0);
+            $serviceRevenue = array_reduce($buckets, fn ($acc, $b) => $acc + (float) ($b['service_revenue'] ?? 0), 0.0);
+            $productCount = array_reduce($buckets, fn ($acc, $b) => $acc + (float) ($b['product_count'] ?? 0), 0.0);
+            $productRevenue = array_reduce($buckets, fn ($acc, $b) => $acc + (float) ($b['product_revenue'] ?? 0), 0.0);
+
+            $serviceProducts = array_values($serviceByProduct);
+            usort($serviceProducts, fn ($a, $b) => ($b['quantity'] <=> $a['quantity']) ?: ($b['revenue'] <=> $a['revenue']));
+            $topService = $serviceProducts[0] ?? null;
+            $topServiceShare = $serviceCount > 0 && $topService ? round(((float) $topService['quantity'] / $serviceCount) * 100, 1) : 0.0;
+
+            $serviceCategories = array_values($serviceByCategory);
+            usort($serviceCategories, fn ($a, $b) => ($b['quantity'] <=> $a['quantity']) ?: ($b['revenue'] <=> $a['revenue']));
+            $serviceCategoryTotalQty = array_reduce($serviceCategories, fn ($acc, $c) => $acc + (float) ($c['quantity'] ?? 0), 0.0);
+            $serviceCategoryDist = array_map(function ($c) use ($serviceCategoryTotalQty) {
+                $share = $serviceCategoryTotalQty > 0 ? round(((float) ($c['quantity'] ?? 0) / $serviceCategoryTotalQty) * 100, 1) : 0.0;
+                return [
+                    'category_id' => $c['category_id'],
+                    'category_name' => $c['category_name'],
+                    'quantity' => round((float) ($c['quantity'] ?? 0), 2),
+                    'revenue' => round((float) ($c['revenue'] ?? 0), 2),
+                    'share' => $share,
+                ];
+            }, $serviceCategories);
+
+            $productCategories = array_values($productByCategory);
+            usort($productCategories, fn ($a, $b) => ($b['quantity'] <=> $a['quantity']) ?: ($b['revenue'] <=> $a['revenue']));
+            $productCategoryTotalQty = array_reduce($productCategories, fn ($acc, $c) => $acc + (float) ($c['quantity'] ?? 0), 0.0);
+            $productCategoryDist = array_map(function ($c) use ($productCategoryTotalQty) {
+                $share = $productCategoryTotalQty > 0 ? round(((float) ($c['quantity'] ?? 0) / $productCategoryTotalQty) * 100, 1) : 0.0;
+                return [
+                    'category_id' => $c['category_id'],
+                    'category_name' => $c['category_name'],
+                    'quantity' => round((float) ($c['quantity'] ?? 0), 2),
+                    'revenue' => round((float) ($c['revenue'] ?? 0), 2),
+                    'share' => $share,
+                ];
+            }, $productCategories);
+
+            $topServiceList = array_slice($serviceProducts, 0, 5);
+            $topProductList = array_values($productByProduct);
+            usort($topProductList, fn ($a, $b) => ($b['quantity'] <=> $a['quantity']) ?: ($b['revenue'] <=> $a['revenue']));
+            $topProductList = array_slice($topProductList, 0, 5);
+
+            $serviceBreakdown = array_values($serviceByProduct);
+            usort($serviceBreakdown, fn ($a, $b) => ($b['quantity'] <=> $a['quantity']) ?: ($b['revenue'] <=> $a['revenue']));
+            $productBreakdown = array_values($productByProduct);
+            usort($productBreakdown, fn ($a, $b) => ($b['quantity'] <=> $a['quantity']) ?: ($b['revenue'] <=> $a['revenue']));
+
+            return [
+                'buckets' => array_values($buckets),
+                'service' => [
+                    'count' => round($serviceCount, 2),
+                    'revenue' => round($serviceRevenue, 2),
+                    'top_name' => $topService ? (string) $topService['name'] : null,
+                    'top_share' => $topServiceShare,
+                    'repeat_rate' => $serviceCustomerTotal > 0 ? round(($serviceCustomerRepeat / $serviceCustomerTotal) * 100, 1) : 0.0,
+                    'type_distribution' => $serviceCategoryDist,
+                    'top5' => array_map(fn ($r) => [
+                        'product_id' => $r['product_id'],
+                        'name' => $r['name'],
+                        'quantity' => round((float) $r['quantity'], 2),
+                        'revenue' => round((float) $r['revenue'], 2),
+                    ], $topServiceList),
+                    'breakdown' => array_map(fn ($r) => [
+                        'product_id' => $r['product_id'],
+                        'name' => $r['name'],
+                        'sku' => $r['sku'],
+                        'category_name' => $r['category_name'],
+                        'quantity' => round((float) $r['quantity'], 2),
+                        'revenue' => round((float) $r['revenue'], 2),
+                    ], $serviceBreakdown),
+                ],
+                'product' => [
+                    'count' => round($productCount, 2),
+                    'revenue' => round($productRevenue, 2),
+                    'type_distribution' => $productCategoryDist,
+                    'top5' => array_map(fn ($r) => [
+                        'product_id' => $r['product_id'],
+                        'name' => $r['name'],
+                        'quantity' => round((float) $r['quantity'], 2),
+                        'revenue' => round((float) $r['revenue'], 2),
+                    ], $topProductList),
+                    'breakdown' => array_map(fn ($r) => [
+                        'product_id' => $r['product_id'],
+                        'name' => $r['name'],
+                        'sku' => $r['sku'],
+                        'category_name' => $r['category_name'],
+                        'quantity' => round((float) $r['quantity'], 2),
+                        'revenue' => round((float) $r['revenue'], 2),
+                    ], $productBreakdown),
+                ],
+            ];
+        };
+
+        $current = $compute($start, $end);
+        $previous = $compute($prevStart, $prevEnd);
+
+        $serviceGrowth = ($previous['service']['count'] ?? 0) > 0
+            ? round(((float) ($current['service']['count'] ?? 0) - (float) ($previous['service']['count'] ?? 0)) / (float) ($previous['service']['count'] ?? 1) * 100, 1)
+            : 0.0;
+        $serviceRevenueGrowth = ($previous['service']['revenue'] ?? 0) > 0
+            ? round(((float) ($current['service']['revenue'] ?? 0) - (float) ($previous['service']['revenue'] ?? 0)) / (float) ($previous['service']['revenue'] ?? 1) * 100, 1)
+            : 0.0;
+        $productGrowth = ($previous['product']['count'] ?? 0) > 0
+            ? round(((float) ($current['product']['count'] ?? 0) - (float) ($previous['product']['count'] ?? 0)) / (float) ($previous['product']['count'] ?? 1) * 100, 1)
+            : 0.0;
+        $productRevenueGrowth = ($previous['product']['revenue'] ?? 0) > 0
+            ? round(((float) ($current['product']['revenue'] ?? 0) - (float) ($previous['product']['revenue'] ?? 0)) / (float) ($previous['product']['revenue'] ?? 1) * 100, 1)
+            : 0.0;
+
+        return response()->json([
+            'start_date' => $start->toDateString(),
+            'end_date' => $end->toDateString(),
+            'prev_start_date' => $prevStart->toDateString(),
+            'prev_end_date' => $prevEnd->toDateString(),
+            'growth' => [
+                'service_count' => $serviceGrowth,
+                'service_revenue' => $serviceRevenueGrowth,
+                'product_count' => $productGrowth,
+                'product_revenue' => $productRevenueGrowth,
+            ],
+            'series' => $current['buckets'],
+            'service' => $current['service'],
+            'product' => $current['product'],
+        ]);
+    }
+
     public function index(Request $request)
     {
         $query = Order::with([
@@ -1138,9 +1522,9 @@ class OrderController extends Controller
         });
     }
 
-    public function show($id)
+    public function show(Order $order)
     {
-        $order = Order::with([
+        $order->load([
             'items.product',
             'user',
             'customer',
@@ -1148,11 +1532,9 @@ class OrderController extends Controller
             'documents',
             'paymentPlan',
             'payments.documents',
-        ])->findOrFail($id);
+        ]);
         
-        // No automatic/lazy generation anymore
-        
-        $sortedItems = $order->items->sortBy(function($item) {
+        $sortedItems = collect($order->items)->sortBy(function($item) {
             $product = $item->product;
             if (!$product) return 999;
             if ($product->product_type !== 'service') return 1;

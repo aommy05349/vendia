@@ -38,6 +38,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders/daily-sales', [OrderController::class, 'dailySales']);
     Route::get('/orders/reminders', [OrderController::class, 'reminders']);
     Route::get('/orders/summary', [OrderController::class, 'summary']);
+    Route::get('/analytics/subcategory-dashboard', [OrderController::class, 'subcategoryDashboard']);
     Route::post('/orders/{id}/cancel-document', [OrderController::class, 'cancelDocument']);
     Route::post('/orders/{id}/issue-document', [OrderController::class, 'issueDocument']);
     Route::post('/orders/{order}/installment-plan', [OrderPaymentController::class, 'upsertPlan']);
