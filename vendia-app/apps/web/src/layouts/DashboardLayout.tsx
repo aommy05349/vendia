@@ -10,6 +10,10 @@ export const DashboardLayout = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const adminBase = '/admin';
+  const routePath = location.pathname.startsWith(adminBase)
+    ? (location.pathname.slice(adminBase.length) || '/')
+    : location.pathname;
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [adminGroupsOpen, setAdminGroupsOpen] = useState<{ dashboard: boolean; user: boolean; product: boolean; shop: boolean; documents: boolean }>(() => ({
@@ -52,7 +56,7 @@ export const DashboardLayout = () => {
   }, [location]);
 
   useEffect(() => {
-    const path = location.pathname;
+    const path = routePath;
     const group =
       path.startsWith('/dashboard')
         ? 'dashboard'
@@ -67,7 +71,7 @@ export const DashboardLayout = () => {
                 : null;
     if (!group) return;
     setAdminGroupsOpen((prev) => ({ ...prev, [group]: true }));
-  }, [location.pathname]);
+  }, [routePath]);
 
   useEffect(() => {
     if (user?.role !== 'admin') return;
@@ -108,9 +112,9 @@ export const DashboardLayout = () => {
   }, []);
 
   const getPageTitle = () => {
-    const path = location.pathname;
+    const path = routePath;
 
-    if (path === '/') return t('common.pos');
+    if (path === '/' || path === '/pos' || path.startsWith('/pos/')) return t('common.pos');
     if (path.startsWith('/orders')) return t('common.orders');
     if (path.startsWith('/customers')) return t('common.customers');
     if (path.startsWith('/profile')) return t('common.profile');
@@ -132,7 +136,7 @@ export const DashboardLayout = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/admin/login');
   };
 
   if (!user) {
@@ -194,7 +198,7 @@ export const DashboardLayout = () => {
                   className="dropdown-item"
                   onClick={() => {
                     setShowProfileMenu(false);
-                    navigate('/profile');
+                    navigate(`${adminBase}/profile`);
                   }}
                 >
                   {t('common.profile')}
@@ -262,7 +266,7 @@ export const DashboardLayout = () => {
                     <button
                       type="button"
                       className={`btn border rounded w-100 d-flex justify-content-between align-items-center text-start ${
-                        location.pathname.startsWith('/dashboard') ? 'btn-primary text-white border-primary' : 'btn-light'
+                        routePath.startsWith('/dashboard') ? 'btn-primary text-white border-primary' : 'btn-light'
                       }`}
                       onClick={() => toggleAdminGroup('dashboard')}
                       aria-expanded={adminGroupsOpen.dashboard}
@@ -273,17 +277,17 @@ export const DashboardLayout = () => {
                     </button>
                     <div id="nav-group-dashboard" className={`ps-2 d-flex flex-column gap-2 ${adminGroupsOpen.dashboard ? '' : 'd-none'}`}>
                       <Link
-                        to="/dashboard"
+                        to={`${adminBase}/dashboard`}
                         className={`nav-link border rounded text-dark w-100 ${
-                          location.pathname === '/dashboard' ? 'bg-primary text-white border-primary' : 'bg-white'
+                          routePath === '/dashboard' ? 'bg-primary text-white border-primary' : 'bg-white'
                         }`}
                       >
                         📊 {t('common.overview')}
                       </Link>
                       <Link
-                        to="/dashboard/subcategory"
+                        to={`${adminBase}/dashboard/subcategory`}
                         className={`nav-link border rounded text-dark w-100 ${
-                          location.pathname.startsWith('/dashboard/subcategory') ? 'bg-primary text-white border-primary' : 'bg-white'
+                          routePath.startsWith('/dashboard/subcategory') ? 'bg-primary text-white border-primary' : 'bg-white'
                         }`}
                       >
                         📈 {t('analytics.title', 'ข้อมูลสินค้าและบริการ')}
@@ -292,26 +296,26 @@ export const DashboardLayout = () => {
                   </>
                 )}
                 <Link
-                  to="/"
+                  to={`${adminBase}/pos`}
                   className={`nav-link border rounded text-dark w-100 ${
-                    location.pathname === '/' ? 'bg-primary text-white border-primary' : 'bg-white'
+                    routePath === '/' || routePath === '/pos' || routePath.startsWith('/pos/') ? 'bg-primary text-white border-primary' : 'bg-white'
                   }`}
                 >
                   🛒 {t('common.pos')}
                 </Link>
                 <Link
-                  to="/orders"
+                  to={`${adminBase}/orders`}
                   className={`nav-link border rounded text-dark w-100 ${
-                    location.pathname === '/orders' ? 'bg-primary text-white border-primary' : 'bg-white'
+                    routePath.startsWith('/orders') ? 'bg-primary text-white border-primary' : 'bg-white'
                   }`}
                 >
                   📄 {t('common.orders')}
                 </Link>
                 {user.role !== 'admin' && (
                   <Link
-                    to="/customers"
+                    to={`${adminBase}/customers`}
                     className={`nav-link border rounded text-dark w-100 ${
-                      location.pathname === '/customers' ? 'bg-primary text-white border-primary' : 'bg-white'
+                      routePath.startsWith('/customers') ? 'bg-primary text-white border-primary' : 'bg-white'
                     }`}
                   >
                     👥 {t('common.customers')}
@@ -321,15 +325,15 @@ export const DashboardLayout = () => {
             )}
             
             {user.role === 'admin' && (
-              <Link to="/appointments" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/appointments') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 {t('common.appointments')}</Link>
+              <Link to={`${adminBase}/appointments`} className={`nav-link border rounded text-dark w-100 ${routePath.startsWith('/appointments') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 {t('common.appointments')}</Link>
             )}
 
             {(user.role === 'technician' || user.role === 'admin') && (
               <>
                 <div className=" text-muted fw-bold small ps-2">{t('common.technician_section')}</div>
-                <Link to="/technician" className={`nav-link border rounded text-dark w-100 ${location.pathname === '/technician' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⏱️ {t('common.attendance')}</Link>
+                <Link to={`${adminBase}/technician`} className={`nav-link border rounded text-dark w-100 ${routePath === '/technician' ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⏱️ {t('common.attendance')}</Link>
                 {user.role === 'technician' && (
-                  <Link to="/technician/jobs" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/technician/jobs') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 {t('common.my_jobs')}</Link>
+                  <Link to={`${adminBase}/technician/jobs`} className={`nav-link border rounded text-dark w-100 ${routePath.startsWith('/technician/jobs') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📅 {t('common.my_jobs')}</Link>
                 )}
               </>
             )}
@@ -363,7 +367,7 @@ export const DashboardLayout = () => {
                     <i className={`bi bi-chevron-${adminGroupsOpen.documents ? 'up' : 'down'}`}></i>
                   </button>
                   <div id="admin-group-documents" className={`ps-2 d-flex flex-column gap-2 ${adminGroupsOpen.documents ? '' : 'd-none'}`}>
-                    <Link to="/documents" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/documents') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>
+                    <Link to={`${adminBase}/documents`} className={`nav-link border rounded text-dark w-100 ${routePath.startsWith('/documents') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>
                       <span className="d-flex justify-content-between align-items-center w-100">
                         <span>🧾 {t('common.documents', 'เอกสาร')}</span>
                         <span className="d-flex align-items-center gap-2">
@@ -393,9 +397,9 @@ export const DashboardLayout = () => {
                     <i className={`bi bi-chevron-${adminGroupsOpen.user ? 'up' : 'down'}`}></i>
                   </button>
                   <div id="admin-group-user" className={`ps-2 d-flex flex-column gap-2 ${adminGroupsOpen.user ? '' : 'd-none'}`}>
-                    <Link to="/users" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/users') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 {t('common.users')}</Link>
-                    <Link to="/teams" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/teams') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👨‍🔧 {t('common.teams', 'Teams')}</Link>
-                    <Link to="/customers" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/customers') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 {t('common.customers')}</Link>
+                    <Link to={`${adminBase}/users`} className={`nav-link border rounded text-dark w-100 ${routePath.startsWith('/users') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 {t('common.users')}</Link>
+                    <Link to={`${adminBase}/teams`} className={`nav-link border rounded text-dark w-100 ${routePath.startsWith('/teams') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👨‍🔧 {t('common.teams', 'Teams')}</Link>
+                    <Link to={`${adminBase}/customers`} className={`nav-link border rounded text-dark w-100 ${routePath.startsWith('/customers') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>👥 {t('common.customers')}</Link>
                   </div>
 
                   <button
@@ -409,10 +413,10 @@ export const DashboardLayout = () => {
                     <i className={`bi bi-chevron-${adminGroupsOpen.product ? 'up' : 'down'}`}></i>
                   </button>
                   <div id="admin-group-product" className={`ps-2 d-flex flex-column gap-2 ${adminGroupsOpen.product ? '' : 'd-none'}`}>
-                    <Link to="/products" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/products') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📦 {t('common.products')}</Link>
-                    <Link to="/categories" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/categories') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📁 {t('common.categories')}</Link>
-                    <Link to="/units" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/units') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚖️ {t('common.units')}</Link>
-                    <Link to="/brands" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/brands') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏷️ {t('common.brands')}</Link>
+                    <Link to={`${adminBase}/products`} className={`nav-link border rounded text-dark w-100 ${routePath.startsWith('/products') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📦 {t('common.products')}</Link>
+                    <Link to={`${adminBase}/categories`} className={`nav-link border rounded text-dark w-100 ${routePath.startsWith('/categories') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>📁 {t('common.categories')}</Link>
+                    <Link to={`${adminBase}/units`} className={`nav-link border rounded text-dark w-100 ${routePath.startsWith('/units') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚖️ {t('common.units')}</Link>
+                    <Link to={`${adminBase}/brands`} className={`nav-link border rounded text-dark w-100 ${routePath.startsWith('/brands') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏷️ {t('common.brands')}</Link>
                   </div>
 
                   <button
@@ -426,8 +430,8 @@ export const DashboardLayout = () => {
                     <i className={`bi bi-chevron-${adminGroupsOpen.shop ? 'up' : 'down'}`}></i>
                   </button>
                   <div id="admin-group-shop" className={`ps-2 d-flex flex-column gap-2 ${adminGroupsOpen.shop ? '' : 'd-none'}`}>
-                    <Link to="/warehouses" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/warehouses') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏭 {t('common.warehouses')}</Link>
-                    <Link to="/settings" className={`nav-link border rounded text-dark w-100 ${location.pathname.startsWith('/settings') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚙️ {t('common.settings')}</Link>
+                    <Link to={`${adminBase}/warehouses`} className={`nav-link border rounded text-dark w-100 ${routePath.startsWith('/warehouses') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>🏭 {t('common.warehouses')}</Link>
+                    <Link to={`${adminBase}/settings`} className={`nav-link border rounded text-dark w-100 ${routePath.startsWith('/settings') ? 'bg-primary text-white border-primary' : 'bg-white'}`}>⚙️ {t('common.settings')}</Link>
                   </div>
                 </div>
                 {/* <div className="pb-4"></div> */}
@@ -474,7 +478,7 @@ export const DashboardLayout = () => {
                       className="dropdown-item"
                       onClick={() => {
                         setShowProfileMenu(false);
-                        navigate('/profile');
+                        navigate(`${adminBase}/profile`);
                       }}
                     >
                       {t('common.profile')}

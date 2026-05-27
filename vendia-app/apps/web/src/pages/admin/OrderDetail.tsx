@@ -90,6 +90,8 @@ interface Order {
   quotation_status?: string;
   billing_note_number?: string;
   billing_note_status?: string;
+  invoice_number?: string;
+  invoice_status?: string;
   receipt_number?: string;
   receipt_status?: string;
   user?: {
@@ -123,7 +125,7 @@ export const OrderDetail = () => {
   const [uiMessage, setUiMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
   const [confirmAction, setConfirmAction] = useState<
     | null
-    | { kind: 'cancel-document'; docType: 'quotation' | 'billing_note' | 'receipt'; number: string }
+    | { kind: 'cancel-document'; docType: 'quotation' | 'billing_note' | 'invoice' | 'receipt'; number: string }
     | { kind: 'delete-installment-receipt'; paymentId: number; number: string }
     | { kind: 'convert-quotation' }
     | { kind: 'cancel-order' }
@@ -856,7 +858,7 @@ export const OrderDetail = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [moreMenuOpen]);
 
-  const getDocumentHistory = (o: Order, type: 'quotation' | 'billing_note' | 'receipt') => {
+  const getDocumentHistory = (o: Order, type: 'quotation' | 'billing_note' | 'invoice' | 'receipt') => {
     const docsAll = (o.documents || []).filter(d => d.type === type);
     const docs = type === 'receipt' ? docsAll.filter((d) => !d.order_payment_id) : docsAll;
     const currentNumber =
@@ -864,19 +866,23 @@ export const OrderDetail = () => {
         ? o.quotation_number
         : type === 'billing_note'
           ? o.billing_note_number
-          : o.receipt_number;
+          : type === 'invoice'
+            ? o.invoice_number
+            : o.receipt_number;
     const currentStatus =
       type === 'quotation'
         ? o.quotation_status
         : type === 'billing_note'
           ? o.billing_note_status
-          : o.receipt_status;
+          : type === 'invoice'
+            ? o.invoice_status
+            : o.receipt_status;
 
     if (!currentNumber || docs.some(d => d.number === currentNumber)) return docs;
 
     return [
       {
-        id: -o.id * 10 - (type === 'quotation' ? 1 : type === 'billing_note' ? 2 : 3),
+        id: -o.id * 10 - (type === 'quotation' ? 1 : type === 'billing_note' ? 2 : type === 'invoice' ? 3 : 4),
         type,
         number: currentNumber,
         status: currentStatus || 'active',
@@ -886,13 +892,15 @@ export const OrderDetail = () => {
     ];
   };
 
-  const handlePrint = async (o: Order, type: 'receipt' | 'quotation' | 'billing_note') => {
+  const handlePrint = async (o: Order, type: 'receipt' | 'quotation' | 'billing_note' | 'invoice') => {
     const currentNumber =
       type === 'quotation'
         ? o.quotation_number
         : type === 'billing_note'
           ? o.billing_note_number
-          : o.receipt_number;
+          : type === 'invoice'
+            ? o.invoice_number
+            : o.receipt_number;
 
     let docId = o.documents?.find((d) => d.type === type && d.number === currentNumber)?.id;
     if (!docId && currentNumber) {
@@ -933,7 +941,7 @@ export const OrderDetail = () => {
     window.open(`/print/order/${o.id}?${params.toString()}`, '_blank');
   };
 
-  const handleIssueDocument = async (orderId: number, type: 'quotation' | 'billing_note' | 'receipt') => {
+  const handleIssueDocument = async (orderId: number, type: 'quotation' | 'billing_note' | 'invoice' | 'receipt') => {
     try {
       await api.post(`/orders/${orderId}/issue-document`, { type });
       await fetchOrder();
@@ -944,7 +952,7 @@ export const OrderDetail = () => {
     }
   };
 
-  const handleCancelDocument = async (orderId: number, type: 'quotation' | 'billing_note' | 'receipt') => {
+  const handleCancelDocument = async (orderId: number, type: 'quotation' | 'billing_note' | 'invoice' | 'receipt') => {
     try {
       await api.post(`/orders/${orderId}/cancel-document`, { type });
       await fetchOrder();
@@ -1263,6 +1271,62 @@ export const OrderDetail = () => {
 
           <li className="list-group-item px-0">
             <div className="d-flex justify-content-between align-items-center mb-1">
+              <span className="fw-bold">{t('orders.invoice', 'ใบแจ้งหนี้')}</span>
+              {(!order.invoice_number || order.invoice_status === 'cancelled') && (
+                <button
+                  className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
+                  onClick={() => handleIssueDocument(order.id, 'invoice')}
+                  title={t('orders.create')}
+                  style={{ width: '40px', height: '40px' }}
+                >
+                  <i className="bi bi-plus-lg" style={{ fontSize: '1.1rem' }}></i>
+                </button>
+              )}
+            </div>
+
+            {getDocumentHistory(order, 'invoice').map(doc => (
+              <div key={doc.id} className="d-flex justify-content-between align-items-center mb-1 ps-2 border-start border-3">
+                <div>
+                  <span className={`font-monospace d-block small ${doc.status === 'cancelled' ? 'text-decoration-line-through text-danger' : 'text-success'}`}>
+                    {doc.number}
+                  </span>
+                  <span className="text-muted" style={{ fontSize: '0.7em' }}>
+                    {new Date(doc.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="btn-group">
+                  {doc.status !== 'cancelled' ? (
+                    <>
+                      <button
+                        className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center"
+                        onClick={() => handlePrint(order, 'invoice')}
+                        title={t('orders.print')}
+                        style={{ width: '40px', height: '40px' }}
+                      >
+                        <i className="bi bi-printer" style={{ fontSize: '1.05rem' }}></i>
+                      </button>
+                      <button
+                        className="btn btn-outline-danger p-0 d-inline-flex align-items-center justify-content-center"
+                        onClick={() => setConfirmAction({ kind: 'cancel-document', docType: 'invoice', number: doc.number })}
+                        title={t('common.cancel')}
+                        style={{ width: '40px', height: '40px' }}
+                      >
+                        <i className="bi bi-x-lg" style={{ fontSize: '1.05rem' }}></i>
+                      </button>
+                    </>
+                  ) : (
+                    <span className="badge bg-danger" style={{ fontSize: '0.6em' }}>{t('orders.document_cancelled')}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+            {getDocumentHistory(order, 'invoice').length === 0 && (
+              <div className="text-muted small ps-2">{t('orders.not_issued')}</div>
+            )}
+          </li>
+
+          <li className="list-group-item px-0">
+            <div className="d-flex justify-content-between align-items-center mb-1">
               <span className="fw-bold">{t('orders.receipt')}</span>
               {(!order.receipt_number || order.receipt_status === 'cancelled') && (
                 <button
@@ -1326,19 +1390,23 @@ export const OrderDetail = () => {
 
       <div className="d-block d-md-none">
         <div className="d-flex flex-column gap-2">
-          {(['quotation', 'billing_note', 'receipt'] as const).map((docType) => {
+          {(['quotation', 'billing_note', 'invoice', 'receipt'] as const).map((docType) => {
             const title =
               docType === 'quotation'
                 ? t('orders.quotation')
                 : docType === 'billing_note'
                   ? t('orders.billing_note')
+                  : docType === 'invoice'
+                    ? t('orders.invoice', 'ใบแจ้งหนี้')
                   : t('orders.receipt');
             const canCreate =
               docType === 'quotation'
                 ? !order.quotation_number || order.quotation_status === 'cancelled'
                 : docType === 'billing_note'
                   ? !order.billing_note_number || order.billing_note_status === 'cancelled'
-                  : !order.receipt_number || order.receipt_status === 'cancelled';
+                  : docType === 'invoice'
+                    ? !order.invoice_number || order.invoice_status === 'cancelled'
+                    : !order.receipt_number || order.receipt_status === 'cancelled';
             const history = getDocumentHistory(order, docType);
             return (
               <div key={docType} className="card border-0 shadow-sm">

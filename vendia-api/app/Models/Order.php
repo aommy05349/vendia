@@ -25,6 +25,8 @@ class Order extends Model
         'quotation_status',
         'billing_note_number',
         'billing_note_status',
+        'invoice_number',
+        'invoice_status',
         'receipt_number',
         'receipt_status',
     ];

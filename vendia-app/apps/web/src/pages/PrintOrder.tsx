@@ -63,6 +63,7 @@ interface Order {
     created_at: string;
     quotation_number?: string;
     billing_note_number?: string;
+    invoice_number?: string;
     receipt_number?: string;
     user?: {
         name: string;
@@ -137,6 +138,7 @@ export const PrintOrder = () => {
 
     const isQuotation = type === 'quotation';
     const isBillingNote = type === 'billing_note';
+    const isInvoice = type === 'invoice';
 
     const parsedDocumentId = useMemo(() => {
         if (!documentIdParam) return null;
@@ -152,6 +154,8 @@ export const PrintOrder = () => {
                 ? order.quotation_number
                 : type === 'billing_note'
                     ? order.billing_note_number
+                    : type === 'invoice'
+                        ? order.invoice_number
                     : order.receipt_number;
         if (!currentNumber) return null;
         const currentDocument = order.documents?.find((d) => d.type === type && d.number === currentNumber);
@@ -276,6 +280,8 @@ export const PrintOrder = () => {
                 ? order.quotation_number
                 : type === 'billing_note'
                     ? order.billing_note_number
+                    : type === 'invoice'
+                        ? order.invoice_number
                     : order.receipt_number;
         if (!currentNumber) return;
 
@@ -337,6 +343,8 @@ export const PrintOrder = () => {
                 ? order.quotation_number
                 : type === 'billing_note'
                     ? order.billing_note_number
+                    : type === 'invoice'
+                        ? order.invoice_number
                     : order.receipt_number;
         const currentDocument = order.documents?.find((d) => d.type === type && d.number === currentNumber);
         const docForDefaults = documentRecord || currentDocument;
@@ -355,7 +363,7 @@ export const PrintOrder = () => {
         setExpiryDate(typeof expiryFromUrl === 'string' && expiryFromUrl.trim() !== '' ? expiryFromUrl : (expiryFromDoc || toDateInputValue(defaultExpiry)));
 
         const showExpiryFromUrl = searchParams.get('show_expiry_date');
-        setShowExpiryDate(showExpiryFromUrl === null ? (docForDefaults?.show_expires_date ?? isQuotation) : showExpiryFromUrl === '1');
+        setShowExpiryDate(showExpiryFromUrl === null ? (docForDefaults?.show_expires_date ?? (isQuotation || isInvoice)) : showExpiryFromUrl === '1');
 
         const nameFromUrl = searchParams.get('customer_name');
         setCustomerNameOverride(typeof nameFromUrl === 'string' ? nameFromUrl : (docForDefaults?.customer_name || ''));
@@ -368,7 +376,7 @@ export const PrintOrder = () => {
         setHeaderSubtitleOverride(docForDefaults?.header_subtitle || '');
         setRemarksOverride(docForDefaults?.remarks || '');
         setUpdateOrderCreatedAt(true);
-    }, [order, isQuotation, searchParams, type, documentRecord]);
+    }, [order, isQuotation, isInvoice, searchParams, type, documentRecord]);
 
     useEffect(() => {
         if (!order || !shop) return;
@@ -411,12 +419,16 @@ export const PrintOrder = () => {
         ? t('print.quotation.title')
         : isBillingNote
             ? t('print.billing_note.title')
+            : isInvoice
+                ? t('print.invoice.title')
             : t('print.receipt.title');
 
     const documentSubtitle = isQuotation
         ? t('print.quotation.subtitle')
         : isBillingNote
             ? t('print.billing_note.subtitle')
+            : isInvoice
+                ? t('print.invoice.subtitle')
             : t('print.receipt.subtitle');
 
     const displayTitle = headerTitleOverride.trim() !== '' ? headerTitleOverride.trim() : (documentRecord?.header_title || documentTitle);
@@ -429,6 +441,7 @@ export const PrintOrder = () => {
     const isInstallmentReceipt =
         !isQuotation &&
         !isBillingNote &&
+        !isInvoice &&
         type === 'receipt' &&
         !!(documentRecord?.order_payment_id || documentRecord?.order_payment);
     const installmentPayment = (documentRecord?.order_payment || null) as OrderPayment | null;
@@ -491,6 +504,8 @@ export const PrintOrder = () => {
             ? order.quotation_number
             : type === 'billing_note'
                 ? order.billing_note_number
+                : type === 'invoice'
+                    ? order.invoice_number
                 : order.receipt_number;
     const currentDocumentForRemarks = order.documents?.find((d) => d.type === type && d.number === currentNumberForRemarks);
     const docForRemarks = documentRecord || currentDocumentForRemarks;
@@ -803,7 +818,8 @@ export const PrintOrder = () => {
                     <div className="border-top w-75 mx-auto pt-2">
                         <div className="fw-bold">
                             {isQuotation ? t('print.signatures.approved') : 
-                             isBillingNote ? t('print.signatures.received_billing') : 
+                             isBillingNote ? t('print.signatures.received_billing') :
+                             isInvoice ? t('print.signatures.received_invoice', 'ผู้รับใบแจ้งหนี้ / Received by') :
                              t('print.signatures.receiver')}
                         </div>
                         <div className="mt-4 d-flex align-items-end justify-content-center">
@@ -851,7 +867,8 @@ export const PrintOrder = () => {
                     <div className="border-top w-75 mx-auto pt-2">
                         <div className="fw-bold">
                             {isQuotation ? t('print.signatures.accepted') : 
-                             isBillingNote ? t('print.signatures.billing') : 
+                             isBillingNote ? t('print.signatures.billing') :
+                             isInvoice ? t('print.signatures.invoice', 'ผู้ออกใบแจ้งหนี้ / Issued by') :
                              t('print.signatures.collector')}
                         </div>
                         <div className="mt-4 d-flex align-items-end justify-content-center">
@@ -1033,6 +1050,8 @@ export const PrintOrder = () => {
                                                 ? order.quotation_number
                                                 : type === 'billing_note'
                                                     ? order.billing_note_number
+                                                    : type === 'invoice'
+                                                        ? order.invoice_number
                                                     : order.receipt_number;
 
                                         if (currentNumber) {

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore, api, useShopStore } from '@vendia/shared';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from './layouts/DashboardLayout';
@@ -47,10 +47,7 @@ function App() {
   const { user, login } = useAuthStore();
   const { shop, fetchShop } = useShopStore();
   const { t } = useTranslation();
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const [error, setError] = React.useState('');
-  const [loginBgOk, setLoginBgOk] = React.useState(true);
+  const role = user?.role;
   const apiUrlRaw = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api';
   const apiUrl = typeof apiUrlRaw === 'string' ? apiUrlRaw : 'http://localhost:8000/api';
   const apiUrlNormalized = apiUrl.replace(/^https:\/(?!\/)/, 'https://').replace(/^http:\/(?!\/)/, 'http://');
@@ -77,29 +74,34 @@ function App() {
     fetchShop();
   }, [fetchShop]);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const response = await api.post('/login', { email, password });
-      login(response.data.user, response.data.access_token);
-    } catch (err: any) {
-      console.error(err);
-      const messageFromApi = err?.response?.data?.message;
-      const errorsFromApi = err?.response?.data?.errors;
-      const firstError =
-        errorsFromApi && typeof errorsFromApi === 'object'
-          ? Object.values(errorsFromApi).flat()?.[0]
-          : undefined;
+  const LoginPage = () => {
+    const [email, setEmail] = React.useState('');
+    const [password, setPassword] = React.useState('');
+    const [error, setError] = React.useState('');
+    const [loginBgOk, setLoginBgOk] = React.useState(true);
 
-      setError(
-        (typeof firstError === 'string' && firstError) ||
-          (typeof messageFromApi === 'string' && messageFromApi) ||
-          t('login.invalid_credentials')
-      );
-    }
-  };
+    const handleLogin = async (e: React.FormEvent) => {
+      e.preventDefault();
+      try {
+        const response = await api.post('/login', { email, password });
+        login(response.data.user, response.data.access_token);
+      } catch (err: any) {
+        console.error(err);
+        const messageFromApi = err?.response?.data?.message;
+        const errorsFromApi = err?.response?.data?.errors;
+        const firstError =
+          errorsFromApi && typeof errorsFromApi === 'object'
+            ? Object.values(errorsFromApi).flat()?.[0]
+            : undefined;
 
-  if (!user) {
+        setError(
+          (typeof firstError === 'string' && firstError) ||
+            (typeof messageFromApi === 'string' && messageFromApi) ||
+            t('login.invalid_credentials')
+        );
+      }
+    };
+
     return (
       <div className="min-vh-100 d-flex align-items-center bg-light py-4">
         <div className="container">
@@ -222,121 +224,219 @@ function App() {
         </div>
       </div>
     );
-  }
+  };
+
+  const LandingPage = () => {
+    return (
+      <div className="min-vh-100 d-flex align-items-center bg-surface-2 py-5">
+        <div className="container">
+          <div className="row align-items-center g-4">
+            <div className="col-12 col-lg-6">
+              <div className="d-flex align-items-center gap-3 mb-3">
+                {shop?.logo_path ? (
+                  <img
+                    src={getStorageUrl(shop.logo_path)}
+                    alt="Shop Logo"
+                    style={{ height: 52, width: 'auto', objectFit: 'contain' }}
+                  />
+                ) : (
+                  <div className="d-inline-flex align-items-center justify-content-center rounded-4 bg-white border" style={{ width: 56, height: 56 }}>
+                    <i className="bi bi-shop text-primary" style={{ fontSize: '1.5rem' }}></i>
+                  </div>
+                )}
+                <div>
+                  <div className="h3 mb-0 fw-bold">{shop?.name || 'Vendia POS'}</div>
+                  <div className="text-muted">{shop?.company_name || t('login.subtitle', 'ระบบจัดการงานขาย เอกสาร และงานติดตั้ง')}</div>
+                </div>
+              </div>
+              <div className="d-flex flex-wrap gap-2 mt-4">
+                <a className="btn btn-primary px-4" href="/admin/login">
+                  {t('login.title', 'เข้าสู่ระบบ')}
+                </a>
+                {user && (
+                  <a className="btn btn-outline-primary px-4" href="/admin">
+                    ไปหน้า Admin
+                  </a>
+                )}
+              </div>
+            </div>
+
+            <div className="col-12 col-lg-6">
+              <div className="card border-0 shadow-soft overflow-hidden">
+                <div className="ratio ratio-16x9 bg-surface">
+                  <img
+                    src={loginBgUrl}
+                    alt="Cover"
+                    style={{ objectFit: 'cover' }}
+                  />
+                </div>
+                <div className="card-body">
+                  <div className="fw-semibold">จัดการทุกอย่างในที่เดียว</div>
+                  <div className="text-muted small mt-1">
+                    POS • ออเดอร์ • เอกสาร • งานช่าง • Dashboard
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const AdminIndex = () => {
+    if (user?.role === 'technician') return <Navigate to="technician" replace />;
+    if (user?.role === 'admin') return <Navigate to="dashboard" replace />;
+    return <Navigate to="pos" replace />;
+  };
+
+  const RequireAuth = ({ children }: { children: React.ReactNode }) => {
+    if (!user) return <Navigate to="/admin/login" replace />;
+    return <>{children}</>;
+  };
+
+  const MaybeLegacyRedirect = () => {
+    const location = useLocation();
+    const seg = (location.pathname.split('/')[1] || '').trim();
+    const allow = new Set([
+      'pos',
+      'orders',
+      'customers',
+      'dashboard',
+      'documents',
+      'users',
+      'products',
+      'categories',
+      'units',
+      'brands',
+      'warehouses',
+      'settings',
+      'appointments',
+      'teams',
+      'technician',
+      'profile',
+      'attendance',
+    ]);
+    if (allow.has(seg)) return <Navigate to={`/admin${location.pathname}`} replace />;
+    return <Navigate to="/" replace />;
+  };
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<DashboardLayout />}>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/admin/login" element={user ? <Navigate to="/admin" replace /> : <LoginPage />} />
+        <Route path="/login" element={<Navigate to="/admin/login" replace />} />
+
+        <Route path="/admin" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
           <Route
             index
-            element={
-              user.role === 'technician' ? <Navigate to="/technician" replace /> : <Pos />
-            }
+            element={<AdminIndex />}
           />
           <Route path="pos" element={<Pos />} />
           <Route path="users" element={
-            user.role === 'admin' ? <UserList /> : <Navigate to="/" />
+            role === 'admin' ? <UserList /> : <Navigate to="/admin" replace />
           } />
           <Route path="users/create" element={
-            user.role === 'admin' ? <CreateUser /> : <Navigate to="/" />
+            role === 'admin' ? <CreateUser /> : <Navigate to="/admin" replace />
           } />
           <Route path="users/:id/edit" element={
-            user.role === 'admin' ? <EditUser /> : <Navigate to="/" />
+            role === 'admin' ? <EditUser /> : <Navigate to="/admin" replace />
           } />
           <Route path="categories" element={
-            user.role === 'admin' ? <CategoryList /> : <Navigate to="/" />
+            role === 'admin' ? <CategoryList /> : <Navigate to="/admin" replace />
           } />
           <Route path="categories/create" element={
-            user.role === 'admin' ? <CreateCategory /> : <Navigate to="/" />
+            role === 'admin' ? <CreateCategory /> : <Navigate to="/admin" replace />
           } />
           <Route path="categories/:id/edit" element={
-            user.role === 'admin' ? <EditCategory /> : <Navigate to="/" />
+            role === 'admin' ? <EditCategory /> : <Navigate to="/admin" replace />
           } />
           <Route path="products" element={
-            user.role === 'admin' ? <ProductList /> : <Navigate to="/" />
+            role === 'admin' ? <ProductList /> : <Navigate to="/admin" replace />
           } />
           <Route path="products/create" element={
-            user.role === 'admin' ? <CreateProduct /> : <Navigate to="/" />
+            role === 'admin' ? <CreateProduct /> : <Navigate to="/admin" replace />
           } />
           <Route path="products/:id/edit" element={
-            user.role === 'admin' ? <EditProduct /> : <Navigate to="/" />
+            role === 'admin' ? <EditProduct /> : <Navigate to="/admin" replace />
           } />
           {/* Brands */}
           <Route path="brands" element={
-            user.role === 'admin' ? <BrandList /> : <Navigate to="/" />
+            role === 'admin' ? <BrandList /> : <Navigate to="/admin" replace />
           } />
           <Route path="brands/create" element={
-            user.role === 'admin' ? <CreateBrand /> : <Navigate to="/" />
+            role === 'admin' ? <CreateBrand /> : <Navigate to="/admin" replace />
           } />
           <Route path="brands/:id/edit" element={
-            user.role === 'admin' ? <EditBrand /> : <Navigate to="/" />
+            role === 'admin' ? <EditBrand /> : <Navigate to="/admin" replace />
           } />
           {/* Units */}
           <Route path="units" element={
-            user.role === 'admin' ? <UnitList /> : <Navigate to="/" />
+            role === 'admin' ? <UnitList /> : <Navigate to="/admin" replace />
           } />
           <Route path="units/create" element={
-            user.role === 'admin' ? <CreateUnit /> : <Navigate to="/" />
+            role === 'admin' ? <CreateUnit /> : <Navigate to="/admin" replace />
           } />
           <Route path="units/:id/edit" element={
-            user.role === 'admin' ? <EditUnit /> : <Navigate to="/" />
+            role === 'admin' ? <EditUnit /> : <Navigate to="/admin" replace />
           } />
           {/* Warehouses */}
           <Route path="warehouses" element={
-            user.role === 'admin' ? <WarehouseList /> : <Navigate to="/" />
+            role === 'admin' ? <WarehouseList /> : <Navigate to="/admin" replace />
           } />
           <Route path="warehouses/create" element={
-            user.role === 'admin' ? <CreateWarehouse /> : <Navigate to="/" />
+            role === 'admin' ? <CreateWarehouse /> : <Navigate to="/admin" replace />
           } />
           <Route path="warehouses/:id/edit" element={
-            user.role === 'admin' ? <EditWarehouse /> : <Navigate to="/" />
+            role === 'admin' ? <EditWarehouse /> : <Navigate to="/admin" replace />
           } />
           <Route path="settings" element={
-            user.role === 'admin' ? <ShopSettings /> : <Navigate to="/" />
+            role === 'admin' ? <ShopSettings /> : <Navigate to="/admin" replace />
           } />
           <Route path="dashboard" element={
-            user.role === 'admin' ? <Dashboard /> : <Navigate to="/" />
+            role === 'admin' ? <Dashboard /> : <Navigate to="/admin" replace />
           } />
           <Route path="dashboard/subcategory" element={
-            user.role === 'admin' ? <SubcategoryDashboard /> : <Navigate to="/" />
+            role === 'admin' ? <SubcategoryDashboard /> : <Navigate to="/admin" replace />
           } />
           <Route path="orders" element={<OrderList />} />
           <Route path="orders/:id" element={<OrderDetail />} />
           <Route path="documents" element={
-            user.role === 'admin' ? <DocumentList /> : <Navigate to="/" />
+            role === 'admin' ? <DocumentList /> : <Navigate to="/admin" replace />
           } />
           <Route path="customers" element={<CustomerList />} />
           <Route path="customers/create" element={<CreateCustomer />} />
           <Route path="customers/:id/edit" element={<EditCustomer />} />
           <Route path="technician" element={
-            user.role === 'technician' || user.role === 'admin' ? <TechnicianDashboard /> : <Navigate to="/" />
+            role === 'technician' || role === 'admin' ? <TechnicianDashboard /> : <Navigate to="/admin" replace />
           } />
           <Route path="teams" element={
-            user.role === 'admin' ? <TeamList /> : <Navigate to="/" />
+            role === 'admin' ? <TeamList /> : <Navigate to="/admin" replace />
           } />
           <Route path="attendance/history" element={
-            user.role === 'admin' ? <AttendanceHistory /> : <Navigate to="/" />
+            role === 'admin' ? <AttendanceHistory /> : <Navigate to="/admin" replace />
           } />
           {/* Appointments */}
           <Route path="appointments" element={
-            user.role === 'admin' || user.role === 'technician' ? <AppointmentList /> : <Navigate to="/" />
+            role === 'admin' || role === 'technician' ? <AppointmentList /> : <Navigate to="/admin" replace />
           } />
           <Route path="appointments/create" element={
-            user.role === 'admin' ? <CreateAppointment /> : <Navigate to="/" />
+            role === 'admin' ? <CreateAppointment /> : <Navigate to="/admin" replace />
           } />
           <Route path="appointments/:id" element={
-            user.role === 'admin' || user.role === 'technician' ? <AppointmentDetail /> : <Navigate to="/" />
+            role === 'admin' || role === 'technician' ? <AppointmentDetail /> : <Navigate to="/admin" replace />
           } />
           <Route path="appointments/:id/edit" element={
-            user.role === 'admin' ? <EditAppointment /> : <Navigate to="/" />
+            role === 'admin' ? <EditAppointment /> : <Navigate to="/admin" replace />
           } />
           <Route path="technician/jobs" element={
-            user.role === 'technician' || user.role === 'admin' ? <TechnicianJobs /> : <Navigate to="/" />
+            role === 'technician' || role === 'admin' ? <TechnicianJobs /> : <Navigate to="/admin" replace />
           } />
           <Route path="profile" element={<Profile />} />
         </Route>
         <Route path="/print/order/:id" element={<PrintOrder />} />
+        <Route path="/:seg/*" element={<MaybeLegacyRedirect />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

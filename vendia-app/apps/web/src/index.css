@@ -9,12 +9,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #dee2e6; /* Bootstrap gray-300 */
+  background: #cbd5e1;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #adb5bd; /* Bootstrap gray-500 */
+  background: #94a3b8;
 }
 
 /* Ensure full height layout */
@@ -24,12 +24,12 @@ html, body, #root {
 
 :root {
   --vendia-surface: #ffffff;
-  --vendia-surface-2: #f8fafc;
-  --vendia-surface-3: #eef2f7;
+  --vendia-surface-2: #f1f5f9;
+  --vendia-surface-3: #e2e8f0;
   --vendia-text: #0f172a;
-  --vendia-text-muted: #64748b;
-  --vendia-border: #e2e8f0;
-  --vendia-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --vendia-text-muted: #475569;
+  --vendia-border: #d7dee8;
+  --vendia-shadow: 0 12px 34px rgba(15, 23, 42, 0.12);
 
   --vendia-brand: #1d4ed8;
   --vendia-brand-rgb: 29, 78, 216;
@@ -38,9 +38,9 @@ html, body, #root {
   --vendia-status-installment: #ef4444;
   --vendia-status-installment-rgb: 239, 68, 68;
   --vendia-status-installment-ink: #991b1b;
-  --vendia-status-receipt: #22c55e;
-  --vendia-status-receipt-rgb: 34, 197, 94;
-  --vendia-status-receipt-ink: #166534;
+  --vendia-status-receipt: #16a34a;
+  --vendia-status-receipt-rgb: 22, 163, 74;
+  --vendia-status-receipt-ink: #14532d;
   --vendia-status-billing: #f59e0b;
   --vendia-status-billing-rgb: 245, 158, 11;
   --vendia-status-billing-ink: #92400e;
@@ -51,7 +51,7 @@ html, body, #root {
   --vendia-metric-count: #1d4ed8;
   --vendia-metric-revenue: #7c3aed;
   --vendia-metric-revenue-rgb: 124, 58, 237;
-  --vendia-grid: #e9eef5;
+  --vendia-grid: #dbe3ee;
 
   --vendia-palette-1: var(--vendia-brand);
   --vendia-palette-2: var(--vendia-metric-revenue);

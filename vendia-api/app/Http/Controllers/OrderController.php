@@ -1817,7 +1817,7 @@ class OrderController extends Controller
     public function cancelDocument(Request $request, $id)
     {
         $request->validate([
-            'type' => 'required|in:quotation,billing_note,receipt'
+            'type' => 'required|in:quotation,billing_note,invoice,receipt'
         ]);
 
         $order = Order::findOrFail($id);
@@ -1830,6 +1830,9 @@ class OrderController extends Controller
         } elseif ($type === 'billing_note') {
             $column = 'billing_note_number';
             $order->billing_note_status = 'cancelled';
+        } elseif ($type === 'invoice') {
+            $column = 'invoice_number';
+            $order->invoice_status = 'cancelled';
         } elseif ($type === 'receipt') {
             $column = 'receipt_number';
             $order->receipt_status = 'cancelled';
@@ -1866,7 +1869,7 @@ class OrderController extends Controller
     public function issueDocument(Request $request, $id)
     {
         $request->validate([
-            'type' => 'required|in:quotation,billing_note,receipt',
+            'type' => 'required|in:quotation,billing_note,invoice,receipt',
             'issued_date' => 'sometimes|nullable|date',
         ]);
 
@@ -1903,6 +1906,19 @@ class OrderController extends Controller
             }
             $order->billing_note_number = $this->generateDocumentNumber('BN', $order->id, $issuedDate);
             $order->billing_note_status = 'active';
+        } elseif ($type === 'invoice') {
+            $code = 'INV';
+            if ($order->invoice_number) {
+                $currentDoc = Document::where('order_id', $order->id)
+                    ->where('type', 'invoice')
+                    ->where('number', $order->invoice_number)
+                    ->first();
+                if ($order->invoice_status !== 'cancelled' && ($currentDoc?->status ?? 'active') !== 'cancelled') {
+                    return response()->json(['message' => 'Already issued'], 400);
+                }
+            }
+            $order->invoice_number = $this->generateDocumentNumber('INV', $order->id, $issuedDate);
+            $order->invoice_status = 'active';
         } elseif ($type === 'receipt') {
             $code = 'RE';
             if ($order->receipt_number) {
@@ -1941,6 +1957,7 @@ class OrderController extends Controller
                     $column = 'receipt_number';
                     if ($type === 'QT') $column = 'quotation_number';
                     if ($type === 'BN') $column = 'billing_note_number';
+                    if ($type === 'INV') $column = 'invoice_number';
 
                     $lastOrder = Order::where($column, 'like', "{$fullPrefix}%")
                         ->orderBy($column, 'desc')
@@ -1967,7 +1984,11 @@ class OrderController extends Controller
 
             Document::create([
                 'order_id' => $orderId,
-                'type' => $type === 'QT' ? 'quotation' : ($type === 'BN' ? 'billing_note' : 'receipt'),
+                'type' => $type === 'QT'
+                    ? 'quotation'
+                    : ($type === 'BN'
+                        ? 'billing_note'
+                        : ($type === 'INV' ? 'invoice' : 'receipt')),
                 'number' => $number,
                 'status' => 'active',
                 'issued_date' => $issuedDate,

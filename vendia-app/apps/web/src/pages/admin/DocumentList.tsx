@@ -3,7 +3,7 @@ import { api, Customer } from '@vendia/shared';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-type DocumentType = 'quotation' | 'billing_note' | 'receipt';
+type DocumentType = 'quotation' | 'billing_note' | 'invoice' | 'receipt';
 type DocumentStatus = 'active' | 'cancelled';
 
 type DocumentRow = {
@@ -113,12 +113,14 @@ export const DocumentList = () => {
   const typeLabel = (docType: DocumentType) => {
     if (docType === 'quotation') return t('print.quotation.title', 'ใบเสนอราคา');
     if (docType === 'billing_note') return t('print.billing_note.title', 'ใบวางบิล');
+    if (docType === 'invoice') return t('print.invoice.title', 'ใบแจ้งหนี้');
     return t('print.receipt.title', 'ใบเสร็จรับเงิน');
   };
 
   const typeBadgeStyle = (docType: DocumentType): React.CSSProperties => {
     if (docType === 'receipt') return { background: 'var(--vendia-status-receipt)', color: '#fff' };
     if (docType === 'billing_note') return { background: 'var(--vendia-status-billing)', color: '#111827' };
+    if (docType === 'invoice') return { background: 'var(--vendia-brand)', color: '#fff' };
     return { background: 'var(--vendia-status-quotation)', color: '#fff' };
   };
 
@@ -257,6 +259,7 @@ export const DocumentList = () => {
                   <option value="all">{t('documents.filters.all', 'ทั้งหมด')}</option>
                   <option value="quotation">{t('print.quotation.title', 'ใบเสนอราคา')}</option>
                   <option value="billing_note">{t('print.billing_note.title', 'ใบวางบิล')}</option>
+                  <option value="invoice">{t('print.invoice.title', 'ใบแจ้งหนี้')}</option>
                   <option value="receipt">{t('print.receipt.title', 'ใบเสร็จรับเงิน')}</option>
                 </select>
               </div>

@@ -209,6 +209,7 @@
     "print_quote": "พิมพ์ใบเสนอราคา",
     "to_order": "เปลี่ยนเป็นออเดอร์",
     "billing_note": "ใบวางบิล",
+    "invoice": "ใบแจ้งหนี้",
     "receipt": "ใบเสร็จ",
     "create_appt": "สร้างนัดหมาย",
     "hide": "ซ่อน",
@@ -920,6 +921,10 @@
       "title": "ใบวางบิล",
       "subtitle": "BILLING NOTE"
     },
+    "invoice": {
+      "title": "ใบแจ้งหนี้",
+      "subtitle": "INVOICE"
+    },
     "issuer": {
       "label_th": "ผู้ออก",
       "label_en": "Issuer"
@@ -958,9 +963,11 @@
     "signatures": {
       "approved": "อนุมัติโดย / Approved by",
       "received_billing": "ผู้รับวางบิล / Received by",
+      "received_invoice": "ผู้รับใบแจ้งหนี้ / Received by",
       "receiver": "ผู้รับสินค้า / Receiver",
       "accepted": "ยอมรับใบเสนอราคา / Accepted by",
       "billing": "ผู้วางบิล / Billing by",
+      "invoice": "ผู้ออกใบแจ้งหนี้ / Issued by",
       "collector": "ผู้รับเงิน / Collector",
       "sign": "ลงชื่อ",
       "date": "วันที่"

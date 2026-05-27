@@ -14,7 +14,7 @@ class DocumentController extends Controller
     public function index(Request $request)
     {
         $validated = $request->validate([
-            'type' => 'sometimes|in:quotation,billing_note,receipt',
+            'type' => 'sometimes|in:quotation,billing_note,invoice,receipt',
             'status' => 'sometimes|in:active,cancelled',
             'start_date' => 'sometimes|date',
             'end_date' => 'sometimes|date',
@@ -118,7 +118,11 @@ class DocumentController extends Controller
 
             if (array_key_exists('issued_date', $validated) && $validated['issued_date'] && ($document->status ?? 'active') !== 'cancelled') {
                 $issued = Carbon::parse($document->issued_date)->startOfDay();
-                $code = $document->type === 'quotation' ? 'QT' : ($document->type === 'billing_note' ? 'BN' : 'RE');
+                $code = $document->type === 'quotation'
+                    ? 'QT'
+                    : ($document->type === 'billing_note'
+                        ? 'BN'
+                        : ($document->type === 'invoice' ? 'INV' : 'RE'));
                 $dateStr = $issued->format('Ym');
                 $fullPrefix = "PT-{$code}-{$dateStr}-";
 
@@ -136,6 +140,7 @@ class DocumentController extends Controller
                             $column = 'receipt_number';
                             if ($code === 'QT') $column = 'quotation_number';
                             if ($code === 'BN') $column = 'billing_note_number';
+                            if ($code === 'INV') $column = 'invoice_number';
 
                             $lastOrder = Order::where($column, 'like', "{$fullPrefix}%")
                                 ->orderBy($column, 'desc')
@@ -161,7 +166,11 @@ class DocumentController extends Controller
 
                     $order = $document->order;
                     if ($order) {
-                        $orderColumn = $document->type === 'quotation' ? 'quotation_number' : ($document->type === 'billing_note' ? 'billing_note_number' : 'receipt_number');
+                        $orderColumn = $document->type === 'quotation'
+                            ? 'quotation_number'
+                            : ($document->type === 'billing_note'
+                                ? 'billing_note_number'
+                                : ($document->type === 'invoice' ? 'invoice_number' : 'receipt_number'));
                         if ($order->$orderColumn === $oldNumber) {
                             $order->$orderColumn = $newDocNumber;
                             $order->save();

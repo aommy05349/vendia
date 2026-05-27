@@ -208,6 +208,7 @@
     "print_quote": "Print Quote",
     "to_order": "To Order",
     "billing_note": "Billing Note",
+    "invoice": "Invoice",
     "receipt": "Receipt",
     "create_appt": "Create Appt",
     "hide": "Hide",
@@ -717,6 +718,10 @@
       "title": "Billing Note",
       "subtitle": "BILLING NOTE"
     },
+    "invoice": {
+      "title": "Invoice",
+      "subtitle": "INVOICE"
+    },
     "issuer": {
       "label_th": "Issuer",
       "label_en": ""
@@ -755,9 +760,11 @@
     "signatures": {
       "approved": "Approved by",
       "received_billing": "Received by",
+      "received_invoice": "Received by",
       "receiver": "Receiver",
       "accepted": "Accepted by",
       "billing": "Billing by",
+      "invoice": "Issued by",
       "collector": "Collector",
       "sign": "Sign",
       "date": "Date"
