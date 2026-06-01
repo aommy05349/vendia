@@ -129,6 +129,16 @@ export const DocumentList = () => {
     return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  const openDocumentWindow = (doc: DocumentRow, options?: { edit?: boolean; download?: boolean }) => {
+    if (!doc.order?.id) return;
+    const params = new URLSearchParams();
+    params.set('type', doc.type);
+    params.set('doc_id', String(doc.id));
+    if (options?.edit) params.set('edit', '1');
+    if (options?.download) params.set('download', '1');
+    window.open(`/print/order/${doc.order.id}?${params.toString()}`, '_blank');
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const raw = (params.get('tab') || '').trim();
@@ -433,8 +443,7 @@ export const DocumentList = () => {
                             className="btn btn-link p-0 fw-semibold"
                             style={{ textDecoration: 'none' }}
                             onClick={() => {
-                              if (!doc.order?.id) return;
-                              window.open(`/print/order/${doc.order.id}?type=${doc.type}&doc_id=${doc.id}`, '_blank');
+                              openDocumentWindow(doc);
                             }}
                             disabled={!doc.order?.id}
                             title={t('orders.print', 'พิมพ์')}
@@ -473,10 +482,7 @@ export const DocumentList = () => {
                             <button
                               type="button"
                               className="btn btn-outline-secondary btn-sm"
-                              onClick={() => {
-                                if (!doc.order?.id) return;
-                                window.open(`/print/order/${doc.order.id}?type=${doc.type}&doc_id=${doc.id}`, '_blank');
-                              }}
+                              onClick={() => openDocumentWindow(doc)}
                               disabled={!doc.order?.id}
                               aria-label={t('orders.print', 'พิมพ์')}
                               title={t('orders.print', 'พิมพ์')}
@@ -485,11 +491,18 @@ export const DocumentList = () => {
                             </button>
                             <button
                               type="button"
+                              className="btn btn-outline-primary btn-sm"
+                              onClick={() => openDocumentWindow(doc, { download: true })}
+                              disabled={!doc.order?.id}
+                              aria-label={t('documents.download_pdf', 'ดาวน์โหลด PDF')}
+                              title={t('documents.download_pdf', 'ดาวน์โหลด PDF')}
+                            >
+                              <i className="bi bi-download" style={{ fontSize: '1.05rem', lineHeight: 1 }} />
+                            </button>
+                            <button
+                              type="button"
                               className="btn btn-primary btn-sm"
-                              onClick={() => {
-                                if (!doc.order?.id) return;
-                                window.open(`/print/order/${doc.order.id}?type=${doc.type}&edit=1&doc_id=${doc.id}`, '_blank');
-                              }}
+                              onClick={() => openDocumentWindow(doc, { edit: true })}
                               disabled={!doc.order?.id}
                             >
                               {t('common.edit', 'แก้ไข')}

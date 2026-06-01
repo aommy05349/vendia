@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { api, Customer } from '@vendia/shared';
 import { thaiBahtText } from '../utils/thaiBaht';
@@ -110,12 +110,59 @@ type DocumentRecord = {
     order?: Order;
 };
 
+const THAI_MONTHS = [
+    'มกราคม',
+    'กุมภาพันธ์',
+    'มีนาคม',
+    'เมษายน',
+    'พฤษภาคม',
+    'มิถุนายน',
+    'กรกฎาคม',
+    'สิงหาคม',
+    'กันยายน',
+    'ตุลาคม',
+    'พฤศจิกายน',
+    'ธันวาคม',
+];
+
+const sanitizeFilenamePart = (value: string | null | undefined, fallback: string) => {
+    const normalized = String(value || '')
+        .trim()
+        .replace(/[\\/:*?"<>|]+/g, '-')
+        .replace(/\s+/g, ' ');
+    return normalized === '' ? fallback : normalized;
+};
+
+const formatThaiMonthForFilename = (date: Date | null) => {
+    if (!date || Number.isNaN(date.getTime())) return 'ไม่ระบุเดือน';
+    const month = THAI_MONTHS[date.getMonth()] || '';
+    const year = date.getFullYear() + 543;
+    return sanitizeFilenamePart(`${month}-${year}`, 'ไม่ระบุเดือน');
+};
+
+const getThaiDocumentTypeForFilename = (type: string) => {
+    if (type === 'quotation') return 'ใบเสนอราคา';
+    if (type === 'billing_note') return 'ใบวางบิล';
+    if (type === 'invoice') return 'ใบแจ้งหนี้';
+    if (type === 'receipt') return 'ใบเสร็จรับเงิน';
+    return 'เอกสาร';
+};
+
+const buildDocumentFilename = (documentTypeName: string, billName: string, issueDate: Date | null, documentNumber: string, fallbackType: string) => {
+    const safeDocumentTypeName = sanitizeFilenamePart(documentTypeName, getThaiDocumentTypeForFilename(fallbackType));
+    const safeBillName = sanitizeFilenamePart(billName, fallbackType);
+    const safeMonth = formatThaiMonthForFilename(issueDate);
+    const safeDocumentNumber = sanitizeFilenamePart(documentNumber, fallbackType);
+    return `${safeDocumentTypeName}_${safeBillName}_${safeMonth}_${safeDocumentNumber}`;
+};
+
 export const PrintOrder = () => {
     const { t } = useTranslation();
     const { id } = useParams();
     const [searchParams] = useSearchParams();
     const type = searchParams.get('type') || 'receipt';
     const editMode = searchParams.get('edit') === '1';
+    const downloadMode = searchParams.get('download') === '1';
     const documentIdParam = searchParams.get('doc_id');
     const [order, setOrder] = useState<Order | null>(null);
     const [shop, setShop] = useState<Shop | null>(null);
@@ -413,6 +460,53 @@ export const PrintOrder = () => {
         }, 300);
     }, [order, shop, editMode]);
 
+    const documentFileName = useMemo(() => {
+        const documentTypeName = getThaiDocumentTypeForFilename(type);
+        if (!order) return sanitizeFilenamePart(documentTypeName, 'เอกสาร');
+
+        const currentNumber =
+            type === 'quotation'
+                ? order.quotation_number
+                : type === 'billing_note'
+                    ? order.billing_note_number
+                    : type === 'invoice'
+                        ? order.invoice_number
+                        : order.receipt_number;
+        const currentDocument = order.documents?.find((d) => d.type === type && d.number === currentNumber);
+        const docForFilename = documentRecord || currentDocument;
+        const resolvedDocumentNo =
+            (docForFilename?.number && String(docForFilename.number).trim() !== '')
+                ? String(docForFilename.number)
+                : (currentNumber && String(currentNumber).trim() !== '')
+                    ? String(currentNumber)
+                    : String(order.id);
+        const billingNoteNumberForFilename =
+            (typeof order.billing_note_number === 'string' && order.billing_note_number.trim() !== '')
+                ? order.billing_note_number.trim()
+                : resolvedDocumentNo;
+        const resolvedCustomerName =
+            (typeof customerNameOverride === 'string' && customerNameOverride.trim() !== '')
+                ? customerNameOverride.trim()
+                : (order.customer?.company_name || order.customer?.name || 'Walk-in Customer');
+        const resolvedIssueDate = parseDateInput(issueDate) || new Date(order.created_at);
+
+        return buildDocumentFilename(
+            documentTypeName,
+            resolvedCustomerName,
+            resolvedIssueDate,
+            billingNoteNumberForFilename,
+            type
+        );
+    }, [order, documentRecord, customerNameOverride, issueDate, type]);
+
+    useEffect(() => {
+        const previousTitle = document.title;
+        document.title = documentFileName;
+        return () => {
+            document.title = previousTitle;
+        };
+    }, [documentFileName]);
+
     if (!order || !shop) return <div className="p-5 text-center">{t('common.loading')}</div>;
 
     const documentTitle = isQuotation
@@ -536,6 +630,11 @@ export const PrintOrder = () => {
         (typeof remarksOverride === 'string' && remarksOverride.trim() !== '')
             ? remarksOverride.trim()
             : (docForRemarks?.remarks && String(docForRemarks.remarks).trim() !== '' ? String(docForRemarks.remarks) : (shop.remarks || '-'));
+
+    const triggerPrintDownload = () => {
+        document.title = documentFileName;
+        window.print();
+    };
 
     const preview = (
         <div className="p-4 print-root" style={{ maxWidth: '1000px', margin: '0 auto', background: 'white', fontSize: '12px' }}>
@@ -1031,9 +1130,16 @@ export const PrintOrder = () => {
                         <button
                             type="button"
                             className="btn btn-outline-secondary"
-                            onClick={() => window.print()}
+                            onClick={triggerPrintDownload}
                         >
                             {t('print.button', 'พิมพ์')}
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-outline-primary"
+                            onClick={triggerPrintDownload}
+                        >
+                            {t('documents.download_pdf', 'ดาวน์โหลด PDF')}
                         </button>
                         <button
                             type="button"
@@ -1151,9 +1257,14 @@ export const PrintOrder = () => {
                 <>
                     {preview}
                     <div className="text-center mt-5 d-print-none">
-                        <button className="btn btn-primary btn-lg" onClick={() => window.print()}>
-                            {t('print.button')}
-                        </button>
+                        <div className="d-inline-flex flex-wrap justify-content-center gap-2">
+                            <button className="btn btn-primary btn-lg" onClick={triggerPrintDownload}>
+                                {downloadMode ? t('documents.download_pdf', 'ดาวน์โหลด PDF') : t('print.button')}
+                            </button>
+                            <button className="btn btn-outline-secondary btn-lg" onClick={triggerPrintDownload}>
+                                {t('documents.download_pdf', 'ดาวน์โหลด PDF')}
+                            </button>
+                        </div>
                     </div>
                 </>
             )}

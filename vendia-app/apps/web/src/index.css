@@ -1921,10 +1921,19 @@ html {
 }
 
 .landing-services-selector-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 12px;
   margin-top: 24px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+}
+
+.landing-services-selector-grid::-webkit-scrollbar {
+  display: none;
 }
 
 .landing-services-selector {
@@ -1932,13 +1941,16 @@ html {
   grid-template-columns: 72px 1fr;
   gap: 12px;
   align-items: center;
-  width: 100%;
+  width: min(100%, 240px);
+  min-width: 240px;
+  flex: 0 0 240px;
   padding: 12px;
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.8);
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.04);
   text-align: left;
+  scroll-snap-align: start;
   transition:
     transform 0.28s ease,
     border-color 0.28s ease,
@@ -1948,14 +1960,19 @@ html {
 
 .landing-services-selector:hover {
   transform: translateY(-4px);
-  border-color: var(--landing-color-primary-soft-strong);
-  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.08);
+  border-color: rgba(var(--landing-color-accent-rgb), 0.45);
+  background:
+    linear-gradient(180deg, rgba(var(--landing-color-accent-rgb), 0.12), rgba(255, 255, 255, 0.98)),
+    rgba(255, 255, 255, 0.98);
+  box-shadow: 0 20px 34px rgba(var(--landing-color-accent-rgb), 0.16);
 }
 
 .landing-services-selector.is-active {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 247, 255, 0.98));
-  border-color: var(--landing-color-primary-soft-strong);
-  box-shadow: 0 22px 38px var(--landing-color-primary-glow);
+  background:
+    linear-gradient(180deg, rgba(var(--landing-color-accent-rgb), 0.18), rgba(255, 255, 255, 0.98)),
+    rgba(255, 255, 255, 0.98);
+  border-color: rgba(var(--landing-color-accent-rgb), 0.52);
+  box-shadow: 0 22px 38px rgba(var(--landing-color-accent-rgb), 0.22);
 }
 
 .landing-services-selector-image {
@@ -1963,6 +1980,17 @@ html {
   height: 72px;
   border-radius: 18px;
   object-fit: cover;
+  transition:
+    transform 0.28s ease,
+    box-shadow 0.28s ease,
+    filter 0.28s ease;
+}
+
+.landing-services-selector:hover .landing-services-selector-image,
+.landing-services-selector.is-active .landing-services-selector-image {
+  transform: scale(1.03);
+  box-shadow: 0 10px 24px rgba(var(--landing-color-accent-rgb), 0.18);
+  filter: saturate(1.04);
 }
 
 .landing-services-selector-body span,
@@ -1975,6 +2003,7 @@ html {
   color: var(--landing-color-accent);
   font-size: 0.76rem;
   font-weight: 700;
+  transition: color 0.28s ease, opacity 0.28s ease;
 }
 
 .landing-services-selector-body strong {
@@ -1983,12 +2012,29 @@ html {
   font-size: 0.95rem;
   font-weight: 800;
   line-height: 1.4;
+  transition: color 0.28s ease;
 }
 
 .landing-services-selector-body small {
   margin-top: 4px;
   color: #64748b;
   font-size: 0.78rem;
+  transition: color 0.28s ease;
+}
+
+.landing-services-selector:hover .landing-services-selector-body span,
+.landing-services-selector.is-active .landing-services-selector-body span {
+  color: var(--landing-color-accent-strong);
+}
+
+.landing-services-selector:hover .landing-services-selector-body strong,
+.landing-services-selector.is-active .landing-services-selector-body strong {
+  color: var(--landing-color-accent-strong);
+}
+
+.landing-services-selector:hover .landing-services-selector-body small,
+.landing-services-selector.is-active .landing-services-selector-body small {
+  color: #475569;
 }
 
 .landing-services-summary {
@@ -3614,7 +3660,8 @@ html {
   }
 
   .landing-services-selector-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding-bottom: 6px;
   }
 
   .landing-testimonial-header,
@@ -4089,9 +4136,19 @@ html {
   }
 
   .landing-services-showcase-copy,
-  .landing-services-showcase-side,
-  .landing-services-selector-grid {
+  .landing-services-showcase-side {
     grid-template-columns: 1fr;
+  }
+
+  .landing-services-selector-grid {
+    gap: 10px;
+    padding-bottom: 4px;
+  }
+
+  .landing-services-selector {
+    width: min(100%, 220px);
+    min-width: 220px;
+    flex-basis: 220px;
   }
 
   .landing-testimonial-page {
