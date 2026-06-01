@@ -42,6 +42,7 @@ import { AppointmentDetail } from './pages/admin/AppointmentDetail';
 import { EditAppointment } from './pages/admin/EditAppointment';
 import { TechnicianJobs } from './pages/technician/TechnicianJobs';
 import { Profile } from './pages/Profile';
+import { LandingPage } from './pages/LandingPage';
 
 function App() {
   const { user, login } = useAuthStore();
@@ -226,64 +227,6 @@ function App() {
     );
   };
 
-  const LandingPage = () => {
-    return (
-      <div className="min-vh-100 d-flex align-items-center bg-surface-2 py-5">
-        <div className="container">
-          <div className="row align-items-center g-4">
-            <div className="col-12 col-lg-6">
-              <div className="d-flex align-items-center gap-3 mb-3">
-                {shop?.logo_path ? (
-                  <img
-                    src={getStorageUrl(shop.logo_path)}
-                    alt="Shop Logo"
-                    style={{ height: 52, width: 'auto', objectFit: 'contain' }}
-                  />
-                ) : (
-                  <div className="d-inline-flex align-items-center justify-content-center rounded-4 bg-white border" style={{ width: 56, height: 56 }}>
-                    <i className="bi bi-shop text-primary" style={{ fontSize: '1.5rem' }}></i>
-                  </div>
-                )}
-                <div>
-                  <div className="h3 mb-0 fw-bold">{shop?.name || 'Vendia POS'}</div>
-                  <div className="text-muted">{shop?.company_name || t('login.subtitle', 'ระบบจัดการงานขาย เอกสาร และงานติดตั้ง')}</div>
-                </div>
-              </div>
-              <div className="d-flex flex-wrap gap-2 mt-4">
-                <a className="btn btn-primary px-4" href="/admin/login">
-                  {t('login.title', 'เข้าสู่ระบบ')}
-                </a>
-                {user && (
-                  <a className="btn btn-outline-primary px-4" href="/admin">
-                    ไปหน้า Admin
-                  </a>
-                )}
-              </div>
-            </div>
-
-            <div className="col-12 col-lg-6">
-              <div className="card border-0 shadow-soft overflow-hidden">
-                <div className="ratio ratio-16x9 bg-surface">
-                  <img
-                    src={loginBgUrl}
-                    alt="Cover"
-                    style={{ objectFit: 'cover' }}
-                  />
-                </div>
-                <div className="card-body">
-                  <div className="fw-semibold">จัดการทุกอย่างในที่เดียว</div>
-                  <div className="text-muted small mt-1">
-                    POS • ออเดอร์ • เอกสาร • งานช่าง • Dashboard
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const AdminIndex = () => {
     if (user?.role === 'technician') return <Navigate to="technician" replace />;
     if (user?.role === 'admin') return <Navigate to="dashboard" replace />;
@@ -324,7 +267,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<LandingPage shop={shop} user={user} getStorageUrl={getStorageUrl} />} />
         <Route path="/admin/login" element={user ? <Navigate to="/admin" replace /> : <LoginPage />} />
         <Route path="/login" element={<Navigate to="/admin/login" replace />} />
 
