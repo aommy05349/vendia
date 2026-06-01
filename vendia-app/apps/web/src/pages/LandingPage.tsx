@@ -13,10 +13,28 @@ type LandingPageProps = {
   getStorageUrl: (path?: string | null) => string;
 };
 
+type LandingTheme = 'classic' | 'gold' | 'ocean' | 'emerald';
+
+const LANDING_THEME_STORAGE_KEY = 'vendia-landing-theme';
+const GALLERY_REVEAL_RHYTHM = [0, 88, 148, 62, 182, 108, 224, 138, 266, 174];
+const PRICING_REVEAL_RHYTHM = [0, 118, 58, 168, 92, 198];
+const INSTALL_REVEAL_RHYTHM = [36, 128, 82, 176];
+
+const landingThemes: Array<{ value: LandingTheme; label: string }> = [
+  { value: 'gold', label: 'Golden Yellow' },
+  { value: 'classic', label: 'Classic Red' },
+  { value: 'ocean', label: 'Ocean Blue' },
+  { value: 'emerald', label: 'Emerald Green' },
+];
+
+function isLandingTheme(value: string | null): value is LandingTheme {
+  return landingThemes.some((theme) => theme.value === value);
+}
+
 const metricImage =
   'https://scontent.fcnx2-1.fna.fbcdn.net/v/t39.30808-6/584872454_4169869119935810_5477853065058364813_n.jpg?_nc_cat=110&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeHHupjv7VXyKWmILsc_asIXKpV82G141MwqlXzYbXjUzBiRerduz06BUwU3q9OlRw38Zp9-Dq3iO3e1q1gimASi&_nc_ohc=hlsogu73xDAQ7kNvwFt3IdV&_nc_oc=Adr4FcF0bkxxCFzbTHTIPDUkeocpP5WOpdkzp4fBDxW37kNFxC2SNACXtmmLPSOMOwmo_v7uIIIq1aNSbgRvESY9&_nc_zt=23&_nc_ht=scontent.fcnx2-1.fna&_nc_gid=zHczvv3F85_ih1OcCBoLVA&_nc_ss=7b2a8&oh=00_Af9tP5pw0JHWeNqgDsHOcCMeVKvXDg3gf9Sb4GbjQxUhvA&oe=6A22DE7A';
 const faqImage =
-  'https://scontent.fcnx2-1.fna.fbcdn.net/v/t39.30808-6/617609518_4224207027835352_5966985523184439525_n.jpg?_nc_cat=104&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeHGzOd1M8kXefvb3C7nizIEN9nADv2140E32cAO_bXjQYuebKvIsPJZSBlXSayvzJVg0eWwM0V86t5I8mzpXRCH&_nc_ohc=vg22gezYMd0Q7kNvwHI5p44&_nc_oc=AdrEcXyaQqwrrgY8emzq3QT922iT8sm2qeEfb49ZTQIRS1gEWgM3ZQJ6W1ERFJ6ZkYF562U0YtEGxs4-4fpg4RyQ&_nc_zt=23&_nc_ht=scontent.fcnx2-1.fna&_nc_gid=Var8n6oF--ckGXIfnNXLLg&_nc_ss=7b2a8&oh=00_Af9eUS6PaHq3kTkKymBC2KQ02CqX6SITTf70FlVoQ2DMWA&oe=6A22DAA2';
+  'https://voom-obs.line-scdn.net/htyWa9lFNN1dMdCRZCCIwLhYGJjRFfG4JBSllNx8fczFFejsEVHliNBtNIG4XK2UJAntnNUYdcGZBISkAVyoxMx1KIg/m800x1200';
 
 const testimonials = [
   {
@@ -66,11 +84,103 @@ const testimonials = [
   },
 ];
 
-const faqs = [
+const serviceProcessItems = [
   'ล้างแอร์บ้าน คอนโด ร้านค้า และสำนักงานได้ครบ',
   'ซ่อมอาการแอร์ไม่เย็น น้ำหยด เสียงดัง และระบบไฟขัดข้อง',
   'ติดตั้งแอร์ใหม่ ย้ายแอร์ และเดินท่ออย่างเป็นระเบียบ',
   'แจ้งราคาและรายละเอียดก่อนเริ่มงานทุกครั้ง',
+];
+
+const seoFaqs = [
+  {
+    question: 'ล้างแอร์ เชียงใหม่ ราคาเริ่มต้นเท่าไร',
+    answer: 'ค่าบริการล้างแอร์เริ่มต้น 500 บาท สำหรับแอร์ติดผนังทั่วไป โดยราคาจะขึ้นกับรูปแบบการล้าง ขนาด BTU และสภาพเครื่องจริง',
+  },
+  {
+    question: 'ควรล้างแอร์บ่อยแค่ไหน',
+    answer: 'โดยทั่วไปควรล้างแอร์ทุก 4-6 เดือน หากใช้งานทุกวัน อยู่ในห้องที่มีฝุ่นเยอะ หรือเริ่มมีกลิ่นอับ ควรล้างเร็วกว่าปกติ',
+  },
+  {
+    question: 'ถ้าแอร์น้ำหยดหรือไม่เย็น ควรล้างหรือซ่อม',
+    answer: 'ควรให้ช่างตรวจอาการก่อน เพราะบางกรณีเกิดจากความสกปรกสะสมและแก้ได้ด้วยการล้าง แต่บางกรณีอาจมีปัญหาที่อะไหล่หรือระบบน้ำยา',
+  },
+  {
+    question: 'ล้างแอร์บ้าน คอนโด และร้านค้าในเชียงใหม่ได้ไหม',
+    answer: 'ให้บริการล้างแอร์ในเชียงใหม่ทั้งบ้าน คอนโด ร้านค้า และสำนักงาน พร้อมช่วยแนะนำรูปแบบการล้างให้เหมาะกับหน้างาน',
+  },
+];
+
+const workGalleryItems = [
+  {
+    image: '/Images/IMG_8332.JPG',
+    category: 'เตรียมเครื่องก่อนติดตั้ง',
+    title: 'เตรียมเครื่องและอุปกรณ์ก่อนเข้าหน้างานจริง',
+    text: 'จัดเตรียมเครื่องและอุปกรณ์ให้พร้อมก่อนเริ่มงาน ช่วยให้นัดติดตั้งได้ต่อเนื่องและหน้างานเดินไวขึ้น',
+    size: 'feature',
+  },
+  {
+    image: '/Images/IMG_8333.JPG',
+    category: 'ติดตั้งแอร์ฝังฝ้า',
+    title: 'ติดตั้งแอร์ฝังฝ้าในตำแหน่งใช้งานจริง',
+    text: 'เหมาะกับร้านค้า สำนักงาน หรือพื้นที่ที่ต้องการงานติดตั้งเรียบร้อยและวางตำแหน่งแอร์ให้สวยกับห้อง',
+    size: 'wide',
+  },
+  {
+    image: '/Images/IMG_8334.JPG',
+    category: 'เช็กตัวเครื่อง',
+    title: 'ตรวจเช็กชุดภายในก่อนประกอบและส่งงาน',
+    text: 'ตรวจรายละเอียดของตัวเครื่องระหว่างติดตั้ง เพื่อให้ระบบทำงานได้เรียบร้อยก่อนใช้งานจริง',
+    size: 'regular',
+  },
+  {
+    image: '/Images/IMG_8335.JPG',
+    category: 'ยกเครื่องเข้าตำแหน่ง',
+    title: 'ยกเครื่องเข้าตำแหน่งอย่างเป็นระบบ',
+    text: 'ทีมช่างช่วยกันยกและติดตั้งอย่างเป็นขั้นตอน เหมาะกับงานที่ต้องการความมั่นคงและเก็บงานเรียบร้อย',
+    size: 'tall',
+  },
+  {
+    image: '/Images/IMG_8336.JPG',
+    category: 'เดินระบบหน้างาน',
+    title: 'เดินท่อและเก็บระบบให้เหมาะกับพื้นที่',
+    text: 'ดูแลงานเดินท่อและเก็บรายละเอียดระหว่างติดตั้ง เพื่อให้งานออกมาดูเรียบร้อยและใช้งานได้มั่นใจ',
+    size: 'regular',
+  },
+  {
+    image: '/Images/IMG_8337.JPG',
+    category: 'ติดตั้งหน้างานจริง',
+    title: 'เข้าติดตั้งตามนัด พร้อมทีมช่วยยกและประกอบ',
+    text: 'เหมาะกับหน้างานที่ต้องใช้หลายคนช่วยกันติดตั้ง เพื่อให้งานเดินต่อได้ไวและปลอดภัยมากขึ้น',
+    size: 'wide',
+  },
+  {
+    image: '/Images/IMG_8338.JPG',
+    category: 'ล้างแอร์บ้าน',
+    title: 'ล้างแอร์ในบ้านโดยดูแลพื้นที่รอบข้าง',
+    text: 'เหมาะกับบ้านที่ต้องการล้างแอร์แบบระวังฝุ่นและน้ำ พร้อมคุมพื้นที่ใช้งานให้เรียบร้อยระหว่างทำงาน',
+    size: 'regular',
+  },
+  {
+    image: '/Images/IMG_8339.JPG',
+    category: 'ล้างแอร์บ้าน',
+    title: 'ล้างแอร์ในห้องนอนแบบดูแลพื้นที่รอบข้าง',
+    text: 'เหมาะกับบ้านที่ต้องการล้างแอร์แบบสะอาดและระวังพื้นที่ใช้งาน ช่วยลดฝุ่น กลิ่นอับ และคืนความเย็นสบายได้ดีขึ้น',
+    size: 'regular',
+  },
+  {
+    image: '/Images/IMG_8340.JPG',
+    category: 'พร้อมเริ่มงาน',
+    title: 'ยกอุปกรณ์เข้าหน้างานให้พร้อมก่อนติดตั้ง',
+    text: 'เตรียมทั้งเครื่อง มือช่าง และอุปกรณ์ให้พร้อมตั้งแต่ต้น ช่วยให้นัดหมายง่ายและเริ่มงานได้ตรงเวลา',
+    size: 'wide',
+  },
+  {
+    image: '/Images/IMG_8341.JPG',
+    category: 'สำรวจพื้นที่ก่อนติดตั้ง',
+    title: 'ประเมินพื้นที่ก่อนเลือกตำแหน่งติดตั้ง',
+    text: 'ช่วยดูตำแหน่งติดตั้งและพื้นที่ใช้งานจริงก่อนเริ่มงาน เพื่อให้เลือกรุ่นและจุดติดตั้งได้เหมาะกับบ้านมากขึ้น',
+    size: 'tall',
+  },
 ];
 
 const pricingPlans = [
@@ -78,37 +188,43 @@ const pricingPlans = [
     name: 'ล้างอัดโฟม',
     price: 'เริ่มต้น 500.-',
     tone: 'light',
-    items: ['รับประกัน 30 วัน', '1 เครื่อง มีค่าเดินทางเพิ่ม 100 บาท', 'เหมาะกับแอร์ติดผนังทั่วไป'],
+    description: 'เหมาะกับแอร์บ้านใช้งานทั่วไป ช่วยลดฝุ่น กลิ่นอับ และเพิ่มความเย็น',
+    items: ['รับประกัน 30 วัน', '1 เครื่อง มีค่าเดินทางเพิ่ม 100 บาท', 'เหมาะกับการล้างตามรอบ'],
   },
   {
     name: 'ล้างแก้น้ำหยด',
     price: '600.-',
     tone: 'dark',
-    items: ['รับประกัน 30 วัน', 'เหมาะกับแอร์น้ำหยด', 'ตรวจเช็กก่อนเริ่มงาน'],
+    description: 'สำหรับอาการน้ำหยดจากเครื่อง พร้อมตรวจเช็กจุดเสี่ยงก่อนเริ่มงาน',
+    items: ['รับประกัน 30 วัน', 'เหมาะกับอาการน้ำหยด', 'เช็กสาเหตุก่อนล้าง'],
   },
   {
     name: 'ล้างดับกลิ่นอับ',
     price: '600.-',
     tone: 'accent',
-    items: ['รับประกัน 30 วัน', 'ลดกลิ่นอับสะสม', 'แนะนำตามสภาพแอร์จริง'],
+    description: 'ช่วยลดกลิ่นอับและกลิ่นสะสม เหมาะกับแอร์ที่ใช้งานทุกวัน',
+    items: ['รับประกัน 30 วัน', 'ลดกลิ่นอับสะสม', 'เลือกตามสภาพแอร์จริง'],
   },
   {
     name: 'ล้างถอดโบลเวอร์',
     price: '700.-',
     tone: 'light',
+    description: 'ล้างละเอียดขึ้นกว่างานทั่วไป เหมาะกับแอร์ที่มีคราบสะสมชัดเจน',
     items: ['รับประกัน 30 วัน', 'ถอดล้างละเอียดขึ้น', 'เหมาะกับแอร์สกปรกสะสม'],
   },
   {
     name: 'ล้างใหญ่ถอดละเอียด',
     price: '1,500.-',
     tone: 'dark',
-    items: ['รับประกัน 90 วัน', 'เหมาะกับงานล้างลึก', 'เพิ่มประสิทธิภาพระยะยาว'],
+    description: 'เหมาะกับแอร์ที่ใช้งานหนักหรือไม่ได้ล้างมานาน ต้องการล้างลึกทั้งระบบ',
+    items: ['รับประกัน 90 วัน', 'เหมาะกับงานล้างลึก', 'ช่วยให้ระบบทำงานเต็มประสิทธิภาพ'],
   },
   {
     name: 'ตัดล้างแฟนคอยล์',
     price: '2,500 - 3,000.-',
     tone: 'accent',
-    items: ['รับประกัน 90 วัน', 'เหมาะกับงานล้างเชิงลึก', 'ประเมินตามหน้างานจริง'],
+    description: 'งานล้างเชิงลึกสำหรับเครื่องที่ต้องรื้อและเข้าถึงจุดสกปรกมากเป็นพิเศษ',
+    items: ['รับประกัน 90 วัน', 'เหมาะกับงานล้างเชิงลึก', 'ราคาขึ้นกับหน้างานจริง'],
   },
 ];
 
@@ -139,12 +255,12 @@ const serviceCards = [
   {
     icon: 'bi-wind',
     title: 'ล้างแอร์',
-    text: 'ล้างสะอาด ลดกลิ่นอับ และช่วยให้แอร์เย็นไวขึ้น',
+    text: 'ช่วยให้แอร์เย็นไว ลมสะอาดขึ้น และลดกลิ่นอับจากการใช้งานสะสม',
   },
   {
     icon: 'bi-tools',
     title: 'ซ่อมและติดตั้งแอร์',
-    text: 'ตรวจเช็ก ซ่อม และติดตั้งโดยทีมช่างมืออาชีพ',
+    text: 'ซ่อมอาการกวนใจ ติดตั้งใหม่ หรือย้ายแอร์ พร้อมเก็บงานเรียบร้อย',
   },
 ];
 
@@ -170,7 +286,7 @@ const fallbackServiceSlides = [
   {
     id: 'fallback-1',
     title: 'ล้างแอร์บ้าน',
-    description: 'ล้างทำความสะอาดคอยล์เย็นและจุดสำคัญภายในเครื่อง ช่วยให้แอร์เย็นไว ลดกลิ่นอับ และประหยัดไฟมากขึ้น',
+    description: 'ล้างจุดสำคัญภายในเครื่องให้สะอาดขึ้น ช่วยให้แอร์เย็นไว ลดกลิ่นอับ และใช้งานได้เต็มประสิทธิภาพ',
     priceLabel: 'เริ่มต้น 500.-',
     meta: 'เหมาะสำหรับบ้านและคอนโด',
     image:
@@ -179,16 +295,16 @@ const fallbackServiceSlides = [
   {
     id: 'fallback-2',
     title: 'ซ่อมแอร์',
-    description: 'ตรวจเช็กอาการแอร์ไม่เย็น น้ำหยด เสียงดัง หรือระบบไฟขัดข้อง พร้อมแจ้งแนวทางแก้ไขก่อนเริ่มงาน',
+    description: 'เช็กอาการแอร์ไม่เย็น น้ำหยด เสียงดัง หรือไฟขัดข้อง แล้วแจ้งแนวทางแก้ไขให้เข้าใจก่อนเริ่มงาน',
     priceLabel: 'ประเมินหน้างาน',
-    meta: 'วิเคราะห์อาการโดยช่างผู้ชำนาญ',
+    meta: 'เช็กอาการก่อนซ่อม',
     image:
       'https://scontent.fcnx2-1.fna.fbcdn.net/v/t39.30808-6/672085223_4311741569081897_4151352964468052596_n.jpg?_nc_cat=105&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeEXqm2_EWaNMETfA2835lCOZj00OnIkRZ1mPTQ6ciRFnQSs7il9DsxaCMYStRxyCePXXLzVyYdDe06kWXRS8Jju&_nc_ohc=pcJ5hCrLUHoQ7kNvwFsDTzh&_nc_oc=AdplME5oAMbUcvXmmulNeraED1SOstf2K1gn0FkZ0gqgDaNclx5DnL2H43l0KmuVOBsKrRG03aD_Gdw8Zek3bsT9&_nc_zt=23&_nc_ht=scontent.fcnx2-1.fna&_nc_gid=s84j_a6hpgqNtV9x57QyUA&_nc_ss=7b2a8&oh=00_Af8bMo81Coz5I3XT_k3v-rDZn8hSnvXo1vdnO81-Bh5jHg&oe=6A22E6E6',
   },
   {
     id: 'fallback-3',
     title: 'ติดตั้งแอร์',
-    description: 'ติดตั้งแอร์ใหม่ ย้ายแอร์ และรื้อแอร์อย่างเป็นระเบียบ พร้อมประเมินระยะเดินท่อและอุปกรณ์เพิ่มเติม',
+    description: 'ติดตั้งแอร์ใหม่ ย้ายแอร์ หรือรื้อแอร์ โดยจัดตำแหน่งและเดินงานให้เหมาะกับหน้างานจริง',
     priceLabel: 'สอบถามราคา',
     meta: 'รองรับบ้าน ร้านค้า และสำนักงาน',
     image:
@@ -197,7 +313,7 @@ const fallbackServiceSlides = [
   {
     id: 'fallback-4',
     title: 'ล้างแอร์เชิงพาณิชย์',
-    description: 'ดูแลแอร์ร้านค้า สำนักงาน และระบบขนาดใหญ่ ช่วยลดการสะสมของฝุ่นและยืดอายุการใช้งาน',
+    description: 'ดูแลแอร์ร้านค้า สำนักงาน และระบบขนาดใหญ่ ให้ใช้งานต่อเนื่อง ลดฝุ่นสะสม และช่วยยืดอายุเครื่อง',
     priceLabel: 'ประเมินตามหน้างาน',
     meta: 'เหมาะกับธุรกิจและอาคารพาณิชย์',
     image:
@@ -206,9 +322,9 @@ const fallbackServiceSlides = [
   {
     id: 'fallback-5',
     title: 'ติดตั้งแอร์ Inverter',
-    description: 'เหมาะสำหรับลูกค้าที่ต้องการติดตั้งแอร์ใหม่พร้อมเดินระบบอย่างเรียบร้อย ช่วยวางตำแหน่งและประเมินอุปกรณ์ก่อนเริ่มงาน',
+    description: 'เหมาะกับการติดตั้งแอร์ใหม่ที่ต้องการงานเรียบร้อย ดูสวย และเลือกอุปกรณ์ให้เหมาะกับพื้นที่ใช้งาน',
     priceLabel: 'ขอราคาเต็ม',
-    meta: 'พร้อมติดตั้งและประเมินหน้างาน',
+    meta: 'พร้อมสำรวจหน้างาน',
     image:
       'https://scontent.fcnx2-1.fna.fbcdn.net/v/t39.30808-6/659109428_4299277150328339_5154581625169831385_n.jpg?_nc_cat=109&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeFrklM2nF1El417jtA7WZIokpMl1L2vBiaSkyXUva8GJno2oBNL7HA28bTYsEDxLRFDYmlTZ8l7aI553D1ENiic&_nc_ohc=NrB0yyBhEeEQ7kNvwFBaI9T&_nc_oc=AdqLj2NCoN1MHzAHgTDYn8i_NjFseJhi2tlEDw8OREn8vclDUxBfWMKzowTixqx4_W6NW60OyL4AQ4qLRJDIh8hq&_nc_zt=23&_nc_ht=scontent.fcnx2-1.fna&_nc_gid=3M7HDYxcde_OdefukWX6UA&_nc_ss=7b2a8&oh=00_Af98DXgQ_Mrk2czc0Pd7kDsG1u1VK678U69GGjUpjnhc3g&oe=6A22D934',
   },
@@ -240,18 +356,111 @@ function truncateText(text: string, maxLength: number) {
 
 export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
   const brandName = shop?.name || 'PT Air Service';
-  const companyName = shop?.company_name || 'ช่างแอร์เชียงใหม่ บริการครบ จบไว ราคาโปร่งใส';
+  const brandTagline = 'บริการล้างแอร์ ซ่อมแอร์ ติดตั้งแอร์ ครบวงจรในเชียงใหม่ พร้อมให้คำปรึกษาและนัดหมายได้สะดวก';
+  const seoTitle = 'ล้างแอร์ เชียงใหม่ ราคาเริ่มต้น 500 บาท | PT Air Service';
+  const seoDescription =
+    'บริการล้างแอร์ เชียงใหม่ สำหรับบ้าน คอนโด ร้านค้า และสำนักงาน แจ้งราคาก่อนเริ่มงาน นัดคิวง่าย ทัก Line หรือโทรได้ทันที';
   const dashboardHref = user ? '/admin' : '/admin/login';
+  const lineContactUrl = 'https://line.me/R/ti/p/@ptairservice';
+  const lineQrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(lineContactUrl)}`;
   const { products, fetchProducts } = useProductStore();
   const [focusedServiceIndex, setFocusedServiceIndex] = useState(0);
   const [testimonialItemsPerPage, setTestimonialItemsPerPage] = useState(3);
   const [focusedTestimonialPage, setFocusedTestimonialPage] = useState(0);
   const [brandLogoBroken, setBrandLogoBroken] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState<LandingTheme>(() => {
+    if (typeof window === 'undefined') return 'classic';
+    const savedTheme = window.localStorage.getItem(LANDING_THEME_STORAGE_KEY);
+    return isLandingTheme(savedTheme) ? savedTheme : 'classic';
+  });
   const brandLogoSrc = shop?.logo_path ? getStorageUrl(shop.logo_path) : '';
 
   useEffect(() => {
     setBrandLogoBroken(false);
   }, [brandLogoSrc]);
+
+  useEffect(() => {
+    window.localStorage.setItem(LANDING_THEME_STORAGE_KEY, selectedTheme);
+  }, [selectedTheme]);
+
+  useEffect(() => {
+    const revealElements = Array.from(document.querySelectorAll<HTMLElement>('.landing-page [data-reveal]'));
+    if (revealElements.length === 0) return;
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    revealElements.forEach((element) => {
+      const delay = element.dataset.revealDelay;
+      if (delay) {
+        element.style.setProperty('--landing-reveal-delay', `${delay}ms`);
+      }
+    });
+
+    if (prefersReducedMotion) {
+      revealElements.forEach((element) => element.classList.add('is-visible'));
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      {
+        threshold: 0.16,
+        rootMargin: '0px 0px -10% 0px',
+      },
+    );
+
+    revealElements.forEach((element) => observer.observe(element));
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    document.title = seoTitle;
+    document.documentElement.lang = 'th';
+
+    const upsertMeta = (name: string, content: string) => {
+      let meta = document.head.querySelector(`meta[name="${name}"]`);
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('name', name);
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', content);
+    };
+
+    upsertMeta('description', seoDescription);
+    upsertMeta('keywords', 'ล้างแอร์ เชียงใหม่, ช่างล้างแอร์ เชียงใหม่, ล้างแอร์บ้าน เชียงใหม่, ล้างแอร์คอนโด เชียงใหม่');
+
+    const faqSchema = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: seoFaqs.map((item) => ({
+        '@type': 'Question',
+        name: item.question,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: item.answer,
+        },
+      })),
+    };
+
+    const schemaId = 'landing-faq-schema';
+    let schemaScript = document.getElementById(schemaId) as HTMLScriptElement | null;
+    if (!schemaScript) {
+      schemaScript = document.createElement('script');
+      schemaScript.type = 'application/ld+json';
+      schemaScript.id = schemaId;
+      document.head.appendChild(schemaScript);
+    }
+    schemaScript.textContent = JSON.stringify(faqSchema);
+  }, [seoDescription, seoTitle]);
 
   useEffect(() => {
     fetchProducts({ product_type: 'service', per_page: 12, sort_by: 'id', sort_order: 'desc' });
@@ -400,7 +609,7 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
   };
 
   return (
-    <div id="top" className="landing-page">
+    <div id="top" className="landing-page" data-theme={selectedTheme}>
       <header className="landing-header">
         <div className="container landing-nav">
           <a href="/" className="landing-brand" aria-label={brandName}>
@@ -416,7 +625,7 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
             )}
             <span className="landing-brand-text">
               <strong>{brandName}</strong>
-              <small>{companyName}</small>
+              <small>{brandTagline}</small>
             </span>
           </a>
 
@@ -428,9 +637,22 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
             <a href="#contact">ติดต่อ</a>
           </nav>
 
-          <a className="btn landing-nav-btn" href={dashboardHref}>
-            {user ? 'Dashboard' : 'จองคิว'}
-          </a>
+          <div className="landing-nav-actions">
+            <label className="landing-theme-picker">
+              <span>Theme</span>
+              <select value={selectedTheme} onChange={(event) => setSelectedTheme(event.target.value as LandingTheme)}>
+                {landingThemes.map((theme) => (
+                  <option key={theme.value} value={theme.value}>
+                    {theme.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <a className="btn landing-nav-btn" href={dashboardHref}>
+              {user ? 'Dashboard' : 'จองคิว'}
+            </a>
+          </div>
         </div>
       </header>
 
@@ -440,16 +662,17 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
             <div className="row align-items-center g-5">
               <div className="col-12 col-lg-6">
                 <div className="landing-hero-copy">
-                  <span className="landing-eyebrow">Air Service in Chiang Mai</span>
+                  <span className="landing-eyebrow">ล้างแอร์ เชียงใหม่</span>
                   <h1 className="landing-title">
                     <span className="landing-title-line">
-                      บริการ<span className="landing-title-accent">ล้างแอร์</span> ซ่อมแอร์
+                      <span className="landing-title-accent">ล้างแอร์ เชียงใหม่</span>
                     </span>
-                    <span className="landing-title-line">ติดตั้งแอร์ ครบวงจร</span>
-                    <span className="landing-title-line">ในเชียงใหม่</span>
+                    <span className="landing-title-line">ซ่อมแอร์ ติดตั้งแอร์</span>
+                    <span className="landing-title-line">ครบวงจร นัดง่าย</span>
+                    <span className="landing-title-line">ราคาแจ้งก่อน</span>
                   </h1>
                   <p className="landing-copy">
-                    ดูแลแอร์ครบวงจรโดยทีมช่างมืออาชีพในเชียงใหม่ เข้าบริการไว แจ้งราคาชัด และเก็บงานเรียบร้อย
+                    หากกำลังมองหาบริการล้างแอร์ เชียงใหม่ ที่นัดง่าย แจ้งราคาก่อน และเข้าบริการไว เราพร้อมดูแลทั้งบ้าน คอนโด ร้านค้า และสำนักงาน
                   </p>
                   <div className="landing-actions">
                     <a className="btn landing-btn-primary" href={dashboardHref}>
@@ -502,7 +725,7 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
                   <div className="landing-doodle landing-doodle-top"></div>
                   <div className="landing-floating-badge landing-floating-badge-top">
                     <i className="bi bi-stars"></i>
-                    บริการแอร์ครบวงจร
+                    ช่างล้างแอร์ เชียงใหม่
                   </div>
                   <div className="landing-floating-badge landing-floating-badge-left">
                     <strong>4.9/5 คะแนนรีวิว</strong>
@@ -562,7 +785,7 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
 
         <section id="about" className="landing-section landing-why-section">
           <div className="container">
-            <div className="landing-center-heading landing-center-heading-tight">
+            <div className="landing-center-heading landing-center-heading-tight" data-reveal="up">
               <span className="landing-section-label">Why Choose Us</span>
               <h2 className="landing-section-title">ทำไมต้อง PT AIR SERVICES</h2>
               <p className="landing-why-intro">
@@ -574,7 +797,7 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
             <div className="row g-4">
               {whyChooseUsCards.map((item, index) => (
                 <div key={item.title} className="col-12 col-lg-4">
-                  <article className="landing-why-card" style={{ animationDelay: `${index * 0.12}s` }}>
+                  <article className="landing-why-card" data-reveal="up" data-reveal-delay={String(index * 90)}>
                     <div className="landing-why-card-top">
                       <div className="landing-why-icon">
                         <i className={`bi ${item.icon}`}></i>
@@ -592,15 +815,15 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
             </div>
 
             <div className="landing-why-strip">
-              <div className="landing-why-strip-item">
+              <div className="landing-why-strip-item" data-reveal="up" data-reveal-delay="0">
                 <strong>คุณภาพงาน</strong>
                 <span>ตรวจเช็กละเอียดและอธิบายตรงไปตรงมา</span>
               </div>
-              <div className="landing-why-strip-item">
+              <div className="landing-why-strip-item" data-reveal="up" data-reveal-delay="90">
                 <strong>ตอบไว</strong>
                 <span>ประสานงานง่าย นัดหมายสะดวกในเชียงใหม่</span>
               </div>
-              <div className="landing-why-strip-item">
+              <div className="landing-why-strip-item" data-reveal="up" data-reveal-delay="180">
                 <strong>ไว้ใจได้</strong>
                 <span>ราคาโปร่งใส พร้อมดูแลหลังจบงาน</span>
               </div>
@@ -610,19 +833,19 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
 
         <section id="services" className="landing-section landing-services-carousel-section">
           <div className="container">
-            <div className="landing-center-heading landing-services-heading">
+            <div className="landing-center-heading landing-services-heading" data-reveal="up">
               <span className="landing-section-label">Our Services & Pricing</span>
-              <h2 className="landing-section-title">บริการทั้งหมดและราคาเบื้องต้น</h2>
+              <h2 className="landing-section-title">บริการล้างแอร์ เชียงใหม่ และราคาเบื้องต้น</h2>
               <p className="landing-services-intro mx-auto">
-                ดูบริการหลักและราคาเบื้องต้นได้ในจุดเดียว ก่อนสอบถามหรือจองคิวจริง
+                รวมบริการล้างแอร์ ซ่อมแอร์ และติดตั้งแอร์ในเชียงใหม่ พร้อมราคาเริ่มต้นให้ดูและเทียบได้ง่าย
               </p>
             </div>
 
             <div className="landing-services-showcase">
-              <div className="landing-services-showcase-copy">
+              <div className="landing-services-showcase-copy" data-reveal="left">
                 <div className="landing-services-info-card landing-services-info-card-dark">
                   <strong>{String(serviceSlides.length).padStart(2, '0')}</strong>
-                  <span>บริการพร้อมให้เลือก</span>
+                  <span>ตัวเลือกบริการหลัก</span>
                 </div>
 
                 <div className="landing-services-story">
@@ -632,27 +855,27 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
                   <div className="landing-services-story-points">
                     <div>
                       <strong>{activeService?.priceLabel || 'สอบถามราคา'}</strong>
-                      <span>ราคาเบื้องต้น</span>
+                      <span>ดูงบเริ่มต้นได้ทันที</span>
                     </div>
                     <div>
-                      <strong>ตรวจเช็กก่อนเริ่มงาน</strong>
-                      <span>แจ้งรายละเอียดชัดเจน</span>
+                      <strong>เช็กอาการก่อนลงมือ</strong>
+                      <span>อธิบายงานให้เข้าใจก่อนเริ่ม</span>
                     </div>
                     <div>
-                      <strong>พร้อมให้คำปรึกษา</strong>
-                      <span>ช่วยเลือกบริการที่เหมาะกับหน้างาน</span>
+                      <strong>เลือกแบบที่เหมาะกับเครื่อง</strong>
+                      <span>ไม่ต้องเดาเองว่าควรล้างหรือซ่อม</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="landing-services-stage-shell">
+              <div className="landing-services-stage-shell" data-reveal="zoom" data-reveal-delay="70">
                 <div className="landing-services-stage-glow landing-services-stage-glow-left"></div>
                 <div className="landing-services-stage-glow landing-services-stage-glow-right"></div>
 
                 <div className="landing-services-floating-card landing-services-floating-card-dark landing-services-floating-card-left">
                   <strong>{activeService?.priceLabel || 'สอบถามราคา'}</strong>
-                  <span>ราคาเริ่มต้น</span>
+                  <span>เริ่มต้นตามบริการนี้</span>
                 </div>
 
                 <div className="landing-services-floating-card landing-services-floating-card-dark landing-services-floating-card-right">
@@ -662,7 +885,7 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
 
                 <div className="landing-services-floating-card landing-services-floating-card-accent landing-services-floating-card-bottom">
                   <strong>30-90 วัน</strong>
-                  <span>รับประกันตามรายการบริการ</span>
+                  <span>มีรับประกันตามประเภทงาน</span>
                 </div>
 
                 <div className="landing-services-stage">
@@ -685,10 +908,10 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
                 </div>
               </div>
 
-              <div className="landing-services-showcase-side">
+              <div className="landing-services-showcase-side" data-reveal="right" data-reveal-delay="120">
                 <div className="landing-services-info-card landing-services-info-card-accent">
-                  <strong>พร้อมติดตั้ง</strong>
-                  <span>ล้าง ซ่อม ติดตั้ง ครบในที่เดียว</span>
+                  <strong>ครบจบในที่เดียว</strong>
+                  <span>ล้าง ซ่อม ติดตั้ง และย้ายแอร์</span>
                 </div>
 
                 <div className="landing-services-progress-card">
@@ -709,13 +932,13 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
                 </div>
 
                 <div className="landing-services-note-card">
-                  <strong>ราคาและรายละเอียด</strong>
-                  <p>ดูราคาเบื้องต้นก่อน แล้วค่อยให้ทีมงานช่วยประเมินหน้างานจริง</p>
+                  <strong>ยังไม่แน่ใจว่าควรเลือกแบบไหนดี?</strong>
+                  <p>ทักมาสอบถามก่อนได้เลย แล้วค่อยเลือกบริการให้เหมาะกับอาการและงบของคุณ</p>
                 </div>
               </div>
             </div>
 
-            <div className="landing-services-selector-grid" role="tablist" aria-label="เลือกบริการ">
+            <div className="landing-services-selector-grid" role="tablist" aria-label="เลือกบริการ" data-reveal="up" data-reveal-delay="160">
               {serviceSlides.map((slide, index) => (
                 <button
                   key={slide.id}
@@ -735,7 +958,7 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
               ))}
             </div>
 
-            <div className="landing-services-bottom-rail">
+            <div className="landing-services-bottom-rail" data-reveal="up" data-reveal-delay="220">
               <div className="landing-services-active-meta">
                 <span className="landing-services-active-label">บริการที่กำลังแสดง</span>
                 <strong>{activeService?.title}</strong>
@@ -755,22 +978,26 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
             </div>
 
             <div id="pricing" className="landing-services-unified">
-              <div className="landing-services-block">
+              <div className="landing-services-block" data-reveal="up">
                 <div className="landing-services-block-head">
                   <span className="landing-section-label">Wall Mounted Cleaning</span>
-                  <h3 className="landing-services-block-title">ค่าบริการล้างแอร์ติดผนัง</h3>
+                  <h3 className="landing-services-block-title">ล้างแอร์ เชียงใหม่ ราคาเริ่มต้นสำหรับแอร์ติดผนัง</h3>
                   <p className="landing-services-block-intro">
-                    เลือกรูปแบบล้างให้เหมาะกับสภาพแอร์ ตั้งแต่งานทั่วไปไปจนถึงงานล้างลึก
+                    เลือกแพ็กเกจล้างให้เหมาะกับอาการและความสกปรกของแอร์ ตั้งแต่งานล้างทั่วไปไปจนถึงล้างลึก
                   </p>
                 </div>
 
                 <div className="row g-4">
-                  {pricingPlans.map((plan) => (
+                  {pricingPlans.map((plan, index) => (
                     <div key={plan.name} className="col-12 col-md-6 col-xl-4">
-                      <article className={`landing-price-card landing-price-card-${plan.tone}`}>
+                      <article
+                        className={`landing-price-card landing-price-card-${plan.tone}`}
+                        data-reveal="up"
+                        data-reveal-delay={String(PRICING_REVEAL_RHYTHM[index] ?? index * 90)}
+                      >
                         <span className="landing-price-label">{plan.name}</span>
                         <h3>{plan.price}</h3>
-                        <p>เหมาะสำหรับแอร์ติดผนัง พร้อมตรวจเช็กก่อนเริ่มงาน</p>
+                        <p>{plan.description}</p>
                         <ul>
                           {plan.items.map((item) => (
                             <li key={item}>
@@ -794,24 +1021,28 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
                   </div>
                   <div className="landing-pricing-note-item">
                     <i className="bi bi-droplet-half"></i>
-                    <span>มีบริการตรวจเช็คน้ำยาฟรี และช่วยประเมินว่าควรล้างแบบใดให้เหมาะกับสภาพแอร์</span>
+                    <span>หากยังไม่แน่ใจว่าควรล้างแบบไหน สามารถส่งรูปหรือแจ้งอาการเพื่อให้ช่วยแนะนำก่อนได้</span>
                   </div>
                 </div>
               </div>
 
-              <div className="landing-services-block landing-services-block-install">
+              <div className="landing-services-block landing-services-block-install" data-reveal="up" data-reveal-delay="80">
                 <div className="landing-services-block-head">
                   <span className="landing-section-label">Air Conditioner Packages</span>
                   <h3 className="landing-services-block-title">ราคาแอร์ Inverter R32 พร้อมติดตั้ง</h3>
                   <p className="landing-services-block-intro">
-                    สรุปราคาแอร์พร้อมติดตั้งตามขนาด BTU ดูง่ายและเทียบงบได้ทันที
+                    เปรียบเทียบราคาแอร์พร้อมติดตั้งตามขนาด BTU ได้ง่าย เลือกงบที่เหมาะกับห้องของคุณได้ทันที
                   </p>
                 </div>
 
                 <div className="row g-4">
-                  {inverterPackages.map((pkg) => (
+                  {inverterPackages.map((pkg, index) => (
                     <div key={pkg.btu} className="col-12 col-md-6 col-xl-3">
-                      <article className="landing-install-card">
+                      <article
+                        className="landing-install-card"
+                        data-reveal="up"
+                        data-reveal-delay={String(INSTALL_REVEAL_RHYTHM[index] ?? index * 82)}
+                      >
                         <span className="landing-price-label">{pkg.btu}</span>
                         <h3>{pkg.priceRange}</h3>
                         <ul>
@@ -836,19 +1067,19 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
 
         <section className="landing-section landing-section-alt">
           <div className="container">
-            <div className="landing-center-heading">
+            <div className="landing-center-heading" data-reveal="up">
               <span className="landing-section-label">Our Experience</span>
               <h2 className="landing-section-title">เราดูแลงานแอร์อย่างมืออาชีพ</h2>
             </div>
 
             <div className="row align-items-center g-4">
               <div className="col-12 col-lg-3">
-                <div className="landing-stat-card landing-stat-card-dark">
+                <div className="landing-stat-card landing-stat-card-dark" data-reveal="left">
                   <strong>5,000+</strong>
                   <span>ลูกค้าที่ใช้บริการแล้ว</span>
                   <p>ลูกค้าไว้วางใจให้ดูแลงานล้าง ซ่อม และติดตั้งอย่างต่อเนื่อง</p>
                 </div>
-                <div className="landing-stat-card landing-stat-card-accent mt-3">
+                <div className="landing-stat-card landing-stat-card-accent mt-3" data-reveal="left" data-reveal-delay="90">
                   <strong>4.9/5</strong>
                   <span>คะแนนความพึงพอใจ</span>
                   <p>เน้นงานคุณภาพ ตรงเวลา และบริการเข้าใจง่าย</p>
@@ -856,19 +1087,19 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
               </div>
 
               <div className="col-12 col-lg-6">
-                <div className="landing-metric-visual">
+                <div className="landing-metric-visual" data-reveal="zoom" data-reveal-delay="80">
                   <div className="landing-blob landing-blob-primary"></div>
                   <img src={metricImage} alt="Business growth" className="landing-person-image landing-metric-image" />
                 </div>
               </div>
 
               <div className="col-12 col-lg-3">
-                <div className="landing-stat-card landing-stat-card-dark">
+                <div className="landing-stat-card landing-stat-card-dark" data-reveal="right">
                   <strong>10+</strong>
                   <span>ปีประสบการณ์</span>
                   <p>ดูแลงานแอร์ทั้งบ้านพักอาศัยและงานธุรกิจ</p>
                 </div>
-                <div className="landing-progress-card mt-3">
+                <div className="landing-progress-card mt-3" data-reveal="right" data-reveal-delay="90">
                   <div>
                     <span>คุณภาพงานบริการ</span>
                     <strong>92%</strong>
@@ -896,9 +1127,92 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
           </div>
         </section>
 
+        <section className="landing-section">
+          <div className="container">
+            <div className="landing-center-heading landing-center-heading-tight" data-reveal="up">
+              <span className="landing-section-label">Real Projects</span>
+              <h2 className="landing-section-title">ผลงานจริงหน้างานในเชียงใหม่</h2>
+              <p className="landing-services-intro mx-auto">
+                ตัวอย่างงานติดตั้ง ล้าง และดูแลแอร์จากหน้างานจริง เพื่อให้เห็นมาตรฐานงานก่อนตัดสินใจใช้บริการ
+              </p>
+            </div>
+
+            <div className="landing-work-overview" data-reveal="up" data-reveal-delay="70">
+              <div className="landing-work-overview-card">
+                <span className="landing-work-overview-kicker">10 ภาพหน้างานจริง</span>
+                <strong>รวมตัวอย่างงานติดตั้ง ล้าง และดูแลแอร์จากบ้าน คอนโด ร้านค้า และหน้างานจริงในเชียงใหม่</strong>
+              </div>
+              <div className="landing-work-overview-tags">
+                <span>ติดตั้งแอร์</span>
+                <span>ล้างแอร์</span>
+                <span>สำรวจหน้างาน</span>
+                <span>เก็บงานเรียบร้อย</span>
+              </div>
+            </div>
+
+            <div className="landing-work-gallery">
+              {workGalleryItems.map((item, index) => (
+                <article
+                  key={item.image}
+                  className={`landing-work-card ${
+                    index === 0
+                      ? 'landing-work-card-feature'
+                      : index === 1 || index === 2
+                        ? 'landing-work-card-wide'
+                        : index === 3
+                          ? 'landing-work-card-tall'
+                          : 'landing-work-card-regular'
+                  }`}
+                  data-reveal="up"
+                  data-reveal-delay={String(GALLERY_REVEAL_RHYTHM[index] ?? index * 72)}
+                >
+                  <div className="landing-work-image-wrap">
+                    <img src={item.image} alt={item.title} className="landing-work-image" />
+                    <div className="landing-work-image-overlay"></div>
+                    <div className="landing-work-card-top">
+                      <span className="landing-work-index">{String(index + 1).padStart(2, '0')}</span>
+                      <span className="landing-work-badge">{item.category}</span>
+                    </div>
+                    <div
+                      className={`landing-work-copy ${
+                        index === 0 ? 'landing-work-copy-feature' : 'landing-work-copy-compact'
+                      }`}
+                    >
+                      {index === 0 ? <span className="landing-work-feature-kicker">ผลงานเด่น</span> : null}
+                      <h3>{item.title}</h3>
+                      {index === 0 ? <p>{item.text}</p> : null}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="landing-section">
+          <div className="container">
+            <div className="landing-center-heading landing-center-heading-tight" data-reveal="up">
+              <span className="landing-section-label">FAQ</span>
+              <h2 className="landing-section-title">คำถามที่พบบ่อยเกี่ยวกับล้างแอร์ เชียงใหม่</h2>
+              <p className="landing-services-intro mx-auto">
+                รวมคำถามที่ลูกค้ามักใช้ตัดสินใจก่อนเรียกช่างล้างแอร์ในเชียงใหม่
+              </p>
+            </div>
+
+            <div className="landing-seo-faq-grid">
+              {seoFaqs.map((item, index) => (
+                <article key={item.question} className="landing-seo-faq-card" data-reveal="up" data-reveal-delay={String(index * 80)}>
+                  <h3>{item.question}</h3>
+                  <p>{item.answer}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section id="stories" className="landing-section landing-section-alt">
           <div className="container">
-            <div className="landing-testimonial-header">
+            <div className="landing-testimonial-header" data-reveal="up">
               <div className="landing-center-heading landing-testimonial-heading">
                 <span className="landing-section-label">Testimonials</span>
                 <h2 className="landing-section-title">เสียงจากลูกค้าของเรา</h2>
@@ -928,8 +1242,13 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
                     className="landing-testimonial-page"
                     style={{ gridTemplateColumns: `repeat(${page.length}, minmax(0, 1fr))` }}
                   >
-                    {page.map((item) => (
-                      <article key={`${item.name}-${item.role}`} className="landing-testimonial-card">
+                    {page.map((item, index) => (
+                      <article
+                        key={`${item.name}-${item.role}`}
+                        className="landing-testimonial-card"
+                        data-reveal="up"
+                        data-reveal-delay={String(index * 90)}
+                      >
                         <div className="landing-stars">
                           {Array.from({ length: 5 }).map((_, index) => (
                             <i key={index} className="bi bi-star-fill"></i>
@@ -974,18 +1293,18 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
           <div className="container">
             <div className="row align-items-center g-5">
               <div className="col-12 col-lg-5">
-                <div className="landing-photo-stack">
+                <div className="landing-photo-stack" data-reveal="left">
                   <div className="landing-blob landing-blob-primary"></div>
                   <img src={faqImage} alt="Customer support" className="landing-person-image landing-person-image-small" />
                 </div>
               </div>
 
               <div className="col-12 col-lg-7">
-                <span className="landing-section-label">Service Process</span>
-                <h2 className="landing-section-title">ขั้นตอนการให้บริการของเรา</h2>
+                <span className="landing-section-label" data-reveal="up">Service Process</span>
+                <h2 className="landing-section-title" data-reveal="up" data-reveal-delay="60">ล้างแอร์ เชียงใหม่ แบบไหนที่เราให้บริการ</h2>
                 <div className="landing-faq-list">
-                  {faqs.map((item) => (
-                    <div key={item} className="landing-faq-item">
+                  {serviceProcessItems.map((item, index) => (
+                    <div key={item} className="landing-faq-item" data-reveal="up" data-reveal-delay={String(index * 80)}>
                       <i className="bi bi-check2-circle"></i>
                       <span>{item}</span>
                     </div>
@@ -998,18 +1317,16 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
 
         <section id="contact" className="landing-section landing-section-cta">
           <div className="container">
-            <div className="landing-contact-shell">
+            <div className="landing-contact-shell" data-reveal="up">
               <div className="landing-contact-orb landing-contact-orb-left"></div>
               <div className="landing-contact-orb landing-contact-orb-right"></div>
 
               <div className="landing-contact-layout">
-                <div className="landing-contact-panel">
+                <div className="landing-contact-panel" data-reveal="left">
                   <div className="landing-contact-heading">
-                    <span className="landing-section-label landing-section-label-light">Let's Talk</span>
+                    <span className="landing-section-label landing-section-label-light">Contact Us</span>
                     <h2 className="landing-section-title landing-section-title-sm landing-section-title-light">ติดต่อเรา</h2>
-                    <p className="landing-contact-intro">
-                      ทีมช่างพร้อมให้คำปรึกษา ประเมินงาน และนัดหมายเข้าบริการได้อย่างรวดเร็ว
-                    </p>
+                    <p className="landing-contact-intro">โทรหรือทัก Line เพื่อสอบถามราคา แจ้งอาการแอร์ และนัดวันเข้าบริการได้เลย</p>
                   </div>
 
                   <div className="landing-contact-highlight-row">
@@ -1019,11 +1336,11 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
                     </div>
                     <div className="landing-contact-highlight">
                       <i className="bi bi-shield-check"></i>
-                      <span>โปร่งใส</span>
+                      <span>แจ้งราคาก่อน</span>
                     </div>
                     <div className="landing-contact-highlight">
                       <i className="bi bi-geo-alt-fill"></i>
-                      <span>เชียงใหม่</span>
+                      <span>เข้าถึงหน้างาน</span>
                     </div>
                   </div>
 
@@ -1055,7 +1372,7 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
                       <div className="landing-contact-copy">
                         <span>Line ID</span>
                         <strong>
-                          <a href="https://line.me/R/ti/p/@ptairservice" target="_blank" rel="noreferrer">
+                          <a href={lineContactUrl} target="_blank" rel="noreferrer">
                             @ptairservice
                           </a>
                         </strong>
@@ -1074,15 +1391,15 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
 
                   <div className="landing-contact-cta-grid">
                     <div className="landing-mini-cta landing-mini-cta-primary">
-                      <p>นัดคิววันนี้ เพื่อให้ทีมงานช่วยประเมินงานได้เร็วขึ้น</p>
+                      <p>ต้องการนัดวันล้าง ซ่อม หรือติดตั้งแอร์ กดจองคิวได้เลย</p>
                       <a href={dashboardHref} className="btn landing-contact-btn landing-contact-btn-primary">
                         จองคิวบริการ
                       </a>
                     </div>
                     <div className="landing-mini-cta landing-mini-cta-success">
-                      <p>สอบถามผ่าน Line ได้ทันที ตอบไวและสะดวก</p>
+                      <p>อยากถามราคา หรือส่งรูปอาการแอร์ ทัก Line ได้เลย</p>
                       <a
-                        href="https://line.me/R/ti/p/@ptairservice"
+                        href={lineContactUrl}
                         target="_blank"
                         rel="noreferrer"
                         className="btn landing-contact-btn landing-contact-btn-success"
@@ -1092,9 +1409,30 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
                       </a>
                     </div>
                   </div>
+
+                  <div className="landing-contact-qr-card">
+                    <div className="landing-contact-qr-copy">
+                      <span className="landing-contact-qr-label">Scan Line</span>
+                      <h3>สแกนเพิ่มเพื่อน Line ได้เลย</h3>
+                      <a href={lineContactUrl} target="_blank" rel="noreferrer" className="landing-contact-qr-link">
+                        เปิดแชต Line
+                        <i className="bi bi-arrow-up-right"></i>
+                      </a>
+                    </div>
+
+                    <a
+                      href={lineContactUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="landing-contact-qr-frame"
+                      aria-label="สแกนหรือเปิด Line PT Air Service"
+                    >
+                      <img src={lineQrCodeUrl} alt="QR Code สำหรับติดต่อ Line PT Air Service" className="landing-contact-qr-image" />
+                    </a>
+                  </div>
                 </div>
 
-                <div className="landing-map-panel">
+                <div className="landing-map-panel" data-reveal="right" data-reveal-delay="90">
                   <div className="landing-map-frame">
                     <iframe
                       title="PT Air Service Map"
@@ -1130,10 +1468,10 @@ export function LandingPage({ shop, user, getStorageUrl }: LandingPageProps) {
                   )}
                   <span className="landing-footer-brand-copy">
                     <strong>{brandName}</strong>
-                    <small>{companyName}</small>
+                    <small>{brandTagline}</small>
                   </span>
                 </a>
-                <p>บริการล้างแอร์ ซ่อมแอร์ ติดตั้งแอร์ ครบวงจรในเชียงใหม่ พร้อมให้คำปรึกษาและนัดหมายได้สะดวก</p>
+                <p>{brandTagline}</p>
               </div>
 
               <div className="landing-footer-column">
