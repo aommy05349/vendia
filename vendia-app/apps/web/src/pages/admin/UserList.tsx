@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { MessageModal } from '../../components/MessageModal';
+import { MobileListCard } from '../../components/MobileListCard';
 
 interface User {
   id: number;
@@ -101,7 +102,7 @@ export const UserList = () => {
   if (loading) return <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>;
 
   return (
-    <div className="container-fluid p-4">
+    <div className="container-fluid p-2 p-md-4 admin-page">
       <MessageModal
         open={alertMessage !== null}
         type={alertMessage?.type || 'danger'}
@@ -139,9 +140,9 @@ export const UserList = () => {
           }
         }}
       />
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="h3">{t('users.title')}</h1>
-        <div className="d-flex gap-2">
+      <div className="admin-page-header">
+        <h1 className="h3 m-0">{t('users.title')}</h1>
+        <div className="admin-page-actions">
           <button
             onClick={() => navigate('/users/create')}
             className="btn btn-success"
@@ -152,7 +153,7 @@ export const UserList = () => {
       </div>
 
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
-        <ul className="nav nav-tabs">
+        <ul className="nav nav-tabs admin-nav-tabs-scroll">
           <li className="nav-item">
             <button
               type="button"
@@ -203,7 +204,7 @@ export const UserList = () => {
           </li>
         </ul>
 
-        <div className="input-group" style={{ maxWidth: '420px' }}>
+        <div className="input-group w-100" style={{ maxWidth: '420px' }}>
           <span className="input-group-text">
             <i className="bi bi-search"></i>
           </span>
@@ -234,6 +235,7 @@ export const UserList = () => {
 
       <div className="card shadow-sm border-0">
         <div className="card-body p-0">
+          <div className="d-none d-md-block table-responsive">
           <table className="table table-hover mb-0">
             <thead className="table-light">
               <tr>
@@ -297,12 +299,57 @@ export const UserList = () => {
               ))}
             </tbody>
           </table>
+          </div>
+
+          <div className="d-block d-md-none admin-mobile-list">
+            {users.length > 0 ? (
+              users.map((user) => (
+                <MobileListCard
+                  key={user.id}
+                  title={`${user.first_name} ${user.last_name}`}
+                  subtitle={`${t('users.table.id')}: ${user.id}`}
+                  badge={
+                    <span className={`badge ${
+                      user.role === 'admin' ? 'bg-primary' :
+                      user.role === 'technician' ? 'bg-info text-dark' :
+                      'bg-secondary'
+                    }`}>
+                      {t(`users.roles.${user.role}`, { defaultValue: user.role })}
+                    </span>
+                  }
+                  meta={[
+                    { label: t('users.table.username'), value: user.username },
+                    { label: t('users.table.email'), value: user.email },
+                  ]}
+                  actions={
+                    <>
+                      <button
+                        onClick={() => navigate(`/users/${user.id}/edit`)}
+                        className="btn btn-warning btn-sm"
+                      >
+                        {t('actions.edit')}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(user.id)}
+                        className="btn btn-danger btn-sm"
+                        disabled={currentUser?.id === user.id}
+                      >
+                        {t('actions.delete')}
+                      </button>
+                    </>
+                  }
+                />
+              ))
+            ) : (
+              <div className="text-center p-4 text-muted">{t('common.no_data')}</div>
+            )}
+          </div>
         </div>
         
         {totalPages > 1 && (
           <div className="card-footer bg-white py-3">
             <nav aria-label="Page navigation">
-              <ul className="pagination justify-content-center mb-0">
+              <ul className="pagination justify-content-center mb-0 flex-wrap">
                 <li className={`page-item ${page === 1 ? 'disabled' : ''}`}>
                   <button 
                     className="page-link" 

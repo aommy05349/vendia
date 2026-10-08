@@ -7,6 +7,7 @@ import { th, enUS } from 'date-fns/locale';
 import { AppointmentCalendar } from './AppointmentCalendar';
 import { AppointmentMap } from './AppointmentMap';
 import { MessageModal } from '../../components/MessageModal';
+import { MobileListCard } from '../../components/MobileListCard';
 
 interface Appointment {
   id: number;
@@ -137,7 +138,7 @@ export const AppointmentList = () => {
         : null;
 
   return (
-    <div className="container-fluid p-4">
+    <div className="container-fluid p-2 p-md-4 admin-page">
       <MessageModal
         open={messageModal !== null}
         type={messageModal?.type || 'danger'}
@@ -155,10 +156,10 @@ export const AppointmentList = () => {
           });
         }}
       />
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>{t('appointments.title')}</h2>
-        <div className="d-flex gap-2">
-            <div className="btn-group">
+      <div className="admin-page-header">
+        <h2 className="m-0">{t('appointments.title')}</h2>
+        <div className="admin-page-actions">
+            <div className="btn-group admin-view-toggle">
                 <button 
                     className={`btn ${viewMode === 'list' ? 'btn-primary' : 'btn-outline-primary'}`}
                     onClick={() => setViewMode('list')}
@@ -258,7 +259,8 @@ export const AppointmentList = () => {
         </div>
       ) : (
         <>
-        <div className="table-responsive card">
+        <div className="card">
+          <div className="d-none d-md-block table-responsive">
           <table className="table table-hover mb-0">
             <thead className="table-light">
               <tr>
@@ -341,15 +343,50 @@ export const AppointmentList = () => {
               )}
             </tbody>
           </table>
+          </div>
+
+          <div className="d-block d-md-none admin-mobile-list">
+            {appointments.length > 0 ? (
+              appointments.map((apt) => {
+                const customerName =
+                  apt.customer.company_name ||
+                  (apt.customer.first_name
+                    ? `${apt.customer.first_name} ${apt.customer.last_name || ''}`
+                    : apt.customer.name);
+                return (
+                  <MobileListCard
+                    key={apt.id}
+                    title={apt.title}
+                    subtitle={`${format(new Date(apt.start_time), 'dd/MM/yyyy HH:mm', { locale })}`}
+                    badge={<span className={`badge ${getStatusBadge(apt.status)}`}>{getStatusLabel(apt.status)}</span>}
+                    meta={[
+                      { label: t('appointments.table.customer'), value: customerName },
+                      {
+                        label: t('appointments.table.location'),
+                        value: apt.location_name ? `${apt.location_name}: ${apt.address}` : apt.address,
+                      },
+                    ]}
+                    actions={
+                      <Link to={`/appointments/${apt.id}`} className="btn btn-sm btn-outline-primary">
+                        {t('appointments.view')}
+                      </Link>
+                    }
+                  />
+                );
+              })
+            ) : (
+              <div className="text-center py-4 text-muted">{t('appointments.no_appointments')}</div>
+            )}
+          </div>
         </div>
 
         {viewMode === 'list' && totalPages > 1 && (
-            <div className="d-flex justify-content-between align-items-center mt-3">
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2 mt-3">
                 <div className="text-muted small">
                     Showing {(currentPage - 1) * perPage + 1} to {Math.min(currentPage * perPage, totalItems)} of {totalItems} entries
                 </div>
                 <nav>
-                    <ul className="pagination justify-content-end mb-0">
+                    <ul className="pagination justify-content-center justify-content-md-end mb-0 flex-wrap">
                         <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
                             <button 
                                 className="page-link" 

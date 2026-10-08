@@ -4441,3 +4441,203 @@ html {
     height: 44px;
   }
 }
+
+/* ── Admin layout responsive ── */
+
+.admin-layout {
+  --admin-sidebar-width: 250px;
+  background: var(--vendia-surface-2);
+}
+
+.admin-layout .admin-sidebar {
+  width: var(--admin-sidebar-width);
+  min-width: var(--admin-sidebar-width);
+}
+
+.admin-layout .admin-page,
+.admin-layout .container-fluid {
+  max-width: 100%;
+}
+
+.admin-page-header {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .admin-page-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+.admin-page-header .admin-page-actions {
+  display: grid;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .admin-page-header .admin-page-actions {
+    display: flex;
+    width: auto;
+    justify-content: flex-end;
+  }
+}
+
+.admin-nav-tabs-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+}
+
+.admin-nav-tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-nav-tabs-scroll .nav-item {
+  flex-shrink: 0;
+}
+
+.admin-mobile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.admin-view-toggle {
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.admin-view-toggle::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-view-toggle .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.admin-dash-filters .admin-dash-select-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-dash-filters .admin-dash-select-month {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.admin-dash-filters .admin-dash-select-year {
+  flex: 0 1 110px;
+  min-width: 90px;
+}
+
+.admin-pending-tabs {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+}
+
+.admin-pending-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-pending-tabs .nav-item {
+  flex-shrink: 0;
+}
+
+.admin-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.admin-chart-legend-item {
+  min-width: 0;
+  white-space: normal;
+}
+
+@media (max-width: 991.98px) {
+  .admin-layout .admin-sidebar {
+    width: min(85vw, 300px);
+    min-width: min(85vw, 300px);
+  }
+
+  .admin-layout .container-fluid,
+  .admin-layout .admin-page {
+    padding: 0.75rem !important;
+  }
+
+  .admin-layout .container.py-4 {
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  .admin-layout .card-footer .d-flex.justify-content-between {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 0.75rem;
+  }
+
+  .admin-layout .pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .admin-layout .modal-dialog {
+    margin: 0.5rem;
+    max-width: calc(100% - 1rem);
+  }
+
+  .admin-layout .modal-dialog.modal-lg,
+  .admin-layout .modal-dialog.modal-xl {
+    max-width: calc(100% - 1rem);
+  }
+}
+
+@media (max-width: 767.98px) {
+  .admin-layout h1.h3,
+  .admin-layout h2 {
+    font-size: 1.35rem;
+  }
+
+  .admin-layout .table .btn-sm {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.78rem;
+  }
+
+  .admin-dash-filters {
+    width: 100%;
+  }
+
+  .admin-dash-filters > .d-flex {
+    width: 100%;
+  }
+
+  .admin-dash-filters .btn-primary {
+    width: 100%;
+  }
+
+  .admin-layout .card-body .d-flex.justify-content-between.align-items-center.mb-2 h5 {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .admin-layout .d-flex.gap-2 .btn-group {
+    width: 100%;
+  }
+}

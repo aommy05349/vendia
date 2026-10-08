@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { MessageModal } from '../../components/MessageModal';
+import { MobileListCard } from '../../components/MobileListCard';
 
 export const ProductList = () => {
   const { t } = useTranslation();
@@ -105,7 +106,7 @@ export const ProductList = () => {
   };
 
   return (
-    <div className="container-fluid p-4">
+    <div className="container-fluid p-2 p-md-4 admin-page">
       <MessageModal
         open={alertMessage !== null}
         type={alertMessage?.type || 'danger'}
@@ -139,14 +140,16 @@ export const ProductList = () => {
           }
         }}
       />
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="h3">{t('products.title')}</h1>
-        <button
-          onClick={() => navigate('/products/create')}
-          className="btn btn-success"
-        >
-          {t('products.list.create_button')}
-        </button>
+      <div className="admin-page-header">
+        <h1 className="h3 m-0">{t('products.title')}</h1>
+        <div className="admin-page-actions">
+          <button
+            onClick={() => navigate('/products/create')}
+            className="btn btn-success"
+          >
+            {t('products.list.create_button')}
+          </button>
+        </div>
       </div>
 
       {/* Filters and Sort Toolbar */}
@@ -155,7 +158,7 @@ export const ProductList = () => {
           <div className="row g-2 align-items-end">
             <div className="col-md-4">
               <label className="form-label mb-1">{t('products.list.filter.category')}</label>
-              <div className="d-flex gap-2">
+              <div className="d-flex flex-column flex-sm-row gap-2">
                 <select
                   className="form-select form-select-sm"
                   value={selectedParentCategoryId}
@@ -246,7 +249,7 @@ export const ProductList = () => {
             </div>
           ) : (
             <>
-              <div className="table-responsive">
+              <div className="d-none d-md-block table-responsive">
                 <table className="table table-hover mb-0">
                     <thead className="table-light">
                     <tr>
@@ -337,15 +340,78 @@ export const ProductList = () => {
                     </tbody>
                 </table>
               </div>
+
+              <div className="d-block d-md-none admin-mobile-list">
+                {products.length > 0 ? (
+                  products.map((product) => {
+                    const coverImage = product.images?.find((img) => img.is_cover) || product.images?.[0];
+                    const typeBadge =
+                      product.product_type === 'bundle' ? (
+                        <span className="badge bg-info text-dark">{t('products.form.fields.types.bundle')}</span>
+                      ) : product.product_type === 'service' ? (
+                        <span className="badge bg-secondary text-white">{t('products.form.fields.types.service')}</span>
+                      ) : (
+                        <span className="badge bg-light text-dark border">{t('products.form.fields.types.single')}</span>
+                      );
+                    return (
+                      <MobileListCard
+                        key={product.id}
+                        title={product.name}
+                        subtitle={`${t('products.list.table.sku')}: ${product.sku || '-'}`}
+                        badge={typeBadge}
+                        meta={[
+                          { label: t('products.list.table.price'), value: `฿${Number(product.price).toLocaleString()}` },
+                          {
+                            label: t('products.list.table.stock'),
+                            value:
+                              product.product_type === 'service'
+                                ? '-'
+                                : `${product.stock} ${product.unit?.name || ''}`,
+                          },
+                          {
+                            label: t('products.list.table.category'),
+                            value: product.category?.name || getCategoryName(product.category_id),
+                          },
+                        ]}
+                        actions={
+                          <>
+                            {coverImage && (
+                              <img
+                                src={getImageUrl(coverImage.image_path)}
+                                alt={product.name}
+                                style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', marginRight: 'auto' }}
+                              />
+                            )}
+                            <button
+                              onClick={() => navigate(`/products/${product.id}/edit`)}
+                              className="btn btn-sm btn-outline-primary"
+                            >
+                              {t('actions.edit')}
+                            </button>
+                            <button
+                              onClick={() => handleDelete(product.id)}
+                              className="btn btn-sm btn-outline-danger"
+                            >
+                              {t('actions.delete')}
+                            </button>
+                          </>
+                        }
+                      />
+                    );
+                  })
+                ) : (
+                  <div className="text-center p-4 text-muted">{t('common.no_data')}</div>
+                )}
+              </div>
               
               {/* Pagination */}
               {pagination && pagination.total > 0 && (
-                <div className="d-flex justify-content-between align-items-center p-3 border-top">
+                <div className="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2 p-3 border-top">
                     <div className="text-muted small">
                         Showing {pagination.from} to {pagination.to} of {pagination.total} results
                     </div>
                     <nav aria-label="Page navigation">
-                        <ul className="pagination mb-0">
+                        <ul className="pagination mb-0 flex-wrap justify-content-center">
                             <li className={`page-item ${pagination.current_page === 1 ? 'disabled' : ''}`}>
                                 <button className="page-link" onClick={() => handlePageChange(pagination.current_page - 1)}>Previous</button>
                             </li>

@@ -144,7 +144,7 @@ export const DashboardLayout = () => {
   }
 
   return (
-    <div className="d-flex flex-column min-vh-100">
+    <div className="admin-layout d-flex flex-column min-vh-100">
       {/* Mobile Header */}
       <header className="d-lg-none bg-white border-bottom p-3 d-flex justify-content-between align-items-center sticky-top shadow-sm">
         <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ minWidth: 0 }}>
@@ -239,8 +239,8 @@ export const DashboardLayout = () => {
 
         {/* Sidebar */}
         <aside 
-          className={`bg-light border-end p-3 d-flex flex-column overflow-hidden ${showMobileSidebar ? 'position-fixed top-0 start-0 h-100 shadow' : 'd-none d-lg-flex position-sticky top-0 vh-100'}`} 
-          style={{ width: '250px', minWidth: '250px', transition: 'transform 0.3s ease-in-out', zIndex: showMobileSidebar ? 1050 : 1 }}
+          className={`admin-sidebar bg-light border-end p-3 d-flex flex-column overflow-hidden ${showMobileSidebar ? 'position-fixed top-0 start-0 h-100 shadow' : 'd-none d-lg-flex position-sticky top-0 vh-100'}`} 
+          style={{ transition: 'transform 0.3s ease-in-out', zIndex: showMobileSidebar ? 1050 : 1 }}
         >
           {/* Mobile Close Button */}
           <div className="d-lg-none d-flex justify-content-end mb-3">

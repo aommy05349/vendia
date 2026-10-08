@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { MessageModal } from '../../components/MessageModal';
+import { MobileListCard } from '../../components/MobileListCard';
 
 export const WarehouseList = () => {
   const { t } = useTranslation();
@@ -30,7 +31,7 @@ export const WarehouseList = () => {
   if (loading && warehouses.length === 0) return <div className="text-center mt-5"><div className="spinner-border text-primary" role="status"></div></div>;
 
   return (
-    <div className="container-fluid p-4">
+    <div className="container-fluid p-2 p-md-4 admin-page">
       <MessageModal
         open={alertMessage !== null}
         type={alertMessage?.type || 'danger'}
@@ -64,18 +65,21 @@ export const WarehouseList = () => {
           }
         }}
       />
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="h3">{t('warehouses.title')}</h1>
-        <button
-          onClick={() => navigate('/warehouses/create')}
-          className="btn btn-success"
-        >
-          {t('warehouses.create_title')}
-        </button>
+      <div className="admin-page-header">
+        <h1 className="h3 m-0">{t('warehouses.title')}</h1>
+        <div className="admin-page-actions">
+          <button
+            onClick={() => navigate('/warehouses/create')}
+            className="btn btn-success"
+          >
+            {t('warehouses.create_title')}
+          </button>
+        </div>
       </div>
 
       <div className="card shadow-sm border-0">
         <div className="card-body p-0">
+          <div className="d-none d-md-block table-responsive">
           <table className="table table-hover mb-0">
             <thead className="table-light">
               <tr>
@@ -118,6 +122,42 @@ export const WarehouseList = () => {
               )}
             </tbody>
           </table>
+          </div>
+
+          <div className="d-block d-md-none admin-mobile-list">
+            {warehouses.length > 0 ? (
+              warehouses.map((warehouse) => (
+                <MobileListCard
+                  key={warehouse.id}
+                  title={warehouse.name}
+                  subtitle={`${t('warehouses.table.id')}: ${warehouse.id}`}
+                  meta={[
+                    { label: t('warehouses.table.address'), value: warehouse.address || '-' },
+                    { label: t('warehouses.table.phone'), value: warehouse.phone || '-' },
+                    { label: t('warehouses.table.email'), value: warehouse.email || '-' },
+                  ]}
+                  actions={
+                    <>
+                      <button
+                        onClick={() => navigate(`/warehouses/${warehouse.id}/edit`)}
+                        className="btn btn-sm btn-outline-primary"
+                      >
+                        {t('actions.edit')}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(warehouse.id)}
+                        className="btn btn-sm btn-outline-danger"
+                      >
+                        {t('actions.delete')}
+                      </button>
+                    </>
+                  }
+                />
+              ))
+            ) : (
+              <div className="text-center p-4 text-muted">{t('warehouses.alerts.no_warehouses')}</div>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -840,10 +840,23 @@ export const OrderDetail = () => {
       return;
     }
     const received = parseFloat(receivedAmount);
-    const subtotal = parseFloat(order.subtotal ?? order.total);
-    const vatAmount = applyVat ? round2(subtotal * 0.07) : 0;
-    const withholdingAmount = round2(subtotal * (withholdingRate / 100));
-    const payable = round2(subtotal + vatAmount - withholdingAmount);
+    const _grossTotal = Number(order.total ?? 0);
+    const _hasExplicit = Number(order.vat_rate ?? 0) > 0;
+    let _paySub: number, _payVat: number;
+    if (_hasExplicit || applyVat) {
+      _paySub = parseFloat(order.subtotal ?? order.total);
+      _payVat = applyVat && !_hasExplicit ? round2(_paySub * 0.07) : Number(order.vat_amount ?? 0);
+    } else {
+      // reverse-VAT / รวม VAT แล้ว
+      const g = Math.max(0, _grossTotal);
+      _paySub = round2(g / 1.07);
+      _payVat = round2(g - _paySub);
+      if (round2(_paySub + _payVat) !== g) {
+        _payVat = round2(_payVat + (g - round2(_paySub + _payVat)));
+      }
+    }
+    const withholdingAmount = round2(_paySub * (withholdingRate / 100));
+    const payable = round2(_paySub + _payVat - withholdingAmount);
     setChange(received - payable);
   }, [receivedAmount, paymentMethod, order, applyVat, withholdingRate, showPaymentModal]);
 
@@ -1123,14 +1136,42 @@ export const OrderDetail = () => {
   const remainingSummary = installmentData ? Math.max(0, Number(installmentData.remaining || 0)) : order.status === 'completed' ? 0 : totalSummary;
 
   const subtotalForTaxRaw = Number(order.subtotal ?? order.total ?? 0);
-  const subtotalForTax = Number.isFinite(subtotalForTaxRaw) ? subtotalForTaxRaw : 0;
-  const vatRateRawUncast = Number(order.vat_rate || 0);
-  const vatRateRaw = Number.isFinite(vatRateRawUncast) ? vatRateRawUncast : 0;
-  const vatPercent = vatRateRaw > 0 && vatRateRaw <= 1 ? vatRateRaw * 100 : vatRateRaw;
-  const vatAmount =
-    order.vat_amount !== undefined && order.vat_amount !== null && String(order.vat_amount).trim() !== ''
-      ? Number(order.vat_amount)
-      : round2(subtotalForTax * (vatPercent / 100));
+  const _subtotalRaw = Number.isFinite(subtotalForTaxRaw) ? subtotalForTaxRaw : 0;
+  const originalTotalForTax = Number(order.total ?? _subtotalRaw);
+  const orderHasExplicitVat = Number(order.vat_rate ?? 0) > 0;
+
+  let subtotalForTax: number;
+  let vatPercent: number;
+  let vatAmount: number;
+  let netBeforeWithholding: number;
+  let vatIsReverse = false;
+
+  if (orderHasExplicitVat) {
+    subtotalForTax = _subtotalRaw;
+    const vatRateRawUncast = Number(order.vat_rate || 0);
+    const vatRateRaw = Number.isFinite(vatRateRawUncast) ? vatRateRawUncast : 0;
+    vatPercent = vatRateRaw > 0 && vatRateRaw <= 1 ? vatRateRaw * 100 : vatRateRaw;
+    vatAmount =
+      order.vat_amount !== undefined && order.vat_amount !== null && String(order.vat_amount).trim() !== ''
+        ? Number(order.vat_amount)
+        : round2(subtotalForTax * (vatPercent / 100));
+    netBeforeWithholding = round2(subtotalForTax + vatAmount);
+  } else {
+    vatIsReverse = true;
+    const gross = Math.max(0, originalTotalForTax);
+    const net = round2(gross / 1.07);
+    const vat = round2(gross - net);
+    subtotalForTax = net;
+    vatPercent = 7;
+    vatAmount = vat;
+    netBeforeWithholding = round2(net + vat);
+    if (netBeforeWithholding !== gross) {
+      const diff = gross - netBeforeWithholding;
+      vatAmount = round2(vatAmount + diff);
+      netBeforeWithholding = gross;
+    }
+  }
+
   const withholdingRateRawUncast = Number(order.withholding_rate || 0);
   const withholdingRateRaw = Number.isFinite(withholdingRateRawUncast) ? withholdingRateRawUncast : 0;
   const withholdingPercent = withholdingRateRaw > 0 && withholdingRateRaw <= 1 ? withholdingRateRaw * 100 : withholdingRateRaw;
@@ -1138,7 +1179,7 @@ export const OrderDetail = () => {
     order.withholding_amount !== undefined && order.withholding_amount !== null && String(order.withholding_amount).trim() !== ''
       ? Number(order.withholding_amount)
       : round2(subtotalForTax * (withholdingPercent / 100));
-  const payableAfterTax = round2(subtotalForTax + vatAmount - withholdingAmount);
+  const payableAfterTax = round2(netBeforeWithholding - withholdingAmount);
 
   const jobLat = jobLoc?.latitude !== null && jobLoc?.latitude !== undefined && String(jobLoc.latitude).trim() !== '' ? Number(jobLoc.latitude) : null;
   const jobLng = jobLoc?.longitude !== null && jobLoc?.longitude !== undefined && String(jobLoc.longitude).trim() !== '' ? Number(jobLoc.longitude) : null;
@@ -1829,11 +1870,22 @@ export const OrderDetail = () => {
                     <div className="text-muted mb-1">{t('orders.total')}</div>
                     <div className="display-4 fw-bold text-primary">
                       ฿{(() => {
-                        const subtotal = parseFloat(order.subtotal ?? order.total);
-                        const vatAmount = applyVat ? round2(subtotal * 0.07) : 0;
-                        const withholdingAmount = round2(subtotal * (withholdingRate / 100));
-                        const payable = round2(subtotal + vatAmount - withholdingAmount);
-                        return payable.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        const _grossTotal = Number(order.total ?? 0);
+                        const _hasVatAlready = Number(order.vat_rate ?? 0) > 0;
+                        let _sub: number, _vat: number;
+                        if (_hasVatAlready || applyVat) {
+                          _sub = parseFloat(order.subtotal ?? order.total);
+                          _vat = applyVat && !_hasVatAlready ? round2(_sub * 0.07) : Number(order.vat_amount ?? 0);
+                        } else {
+                          const g = Math.max(0, _grossTotal);
+                          _sub = round2(g / 1.07);
+                          _vat = round2(g - _sub);
+                          if (round2(_sub + _vat) !== g) {
+                            _vat = round2(_vat + (g - round2(_sub + _vat)));
+                          }
+                        }
+                        const _wh = round2(_sub * (withholdingRate / 100));
+                        return round2(_sub + _vat - _wh).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                       })()}
                     </div>
                   </div>
@@ -1866,9 +1918,20 @@ export const OrderDetail = () => {
 
                   <div className="mb-3">
                     <div className="d-flex justify-content-between align-items-center">
-                      <span>{t('pos.subtotal_before_tax', 'ยอดก่อนภาษี')}</span>
+                      <div>
+                        <span>{t('pos.subtotal_before_tax', 'ยอดก่อนภาษี')}</span>
+                        {!applyVat && Number(order.vat_rate ?? 0) <= 0 && (
+                          <span className="badge bg-info ms-2" style={{ fontSize: '10px' }}>รวม VAT แล้ว</span>
+                        )}
+                      </div>
                       <span className="fw-bold">
-                        ฿{parseFloat(order.subtotal ?? order.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ฿{(() => {
+                          const _g = Number(order.total ?? 0);
+                          if (applyVat || Number(order.vat_rate ?? 0) > 0) {
+                            return parseFloat(order.subtotal ?? order.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                          }
+                          return round2(Math.max(0, _g) / 1.07).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        })()}
                       </span>
                     </div>
                     <div className="form-check mt-2">
@@ -2399,13 +2462,23 @@ export const OrderDetail = () => {
               </div>
 
               <div className="border-top mt-3 pt-3">
-                <div className="d-flex justify-content-between">
-                  <span className="text-muted">{t('pos.subtotal_before_tax', 'ยอดก่อนภาษี')}</span>
+                <div className="d-flex justify-content-between align-items-start">
+                  <div>
+                    <span className="text-muted">{t('pos.subtotal_before_tax', 'ยอดก่อนภาษี')}</span>
+                    {vatIsReverse && (
+                      <span className="badge bg-info ms-2" style={{ fontSize: '10px' }}>รวม VAT แล้ว</span>
+                    )}
+                  </div>
                   <span className="fw-semibold">฿{formatMoney(subtotalForTax)}</span>
                 </div>
-                <div className="d-flex justify-content-between mt-1">
-                  <span className="text-muted">{t('orders.vat', 'VAT')}</span>
-                  <span className={`fw-semibold ${vatAmount > 0 ? '' : 'text-muted'}`}>฿{formatMoney(Math.max(0, vatAmount))}</span>
+                <div className="d-flex justify-content-between align-items-start mt-1">
+                  <span className="text-muted">{t('orders.vat', 'VAT')} ({vatPercent}%)</span>
+                  <div className="text-end">
+                    <span className={`fw-semibold ${vatAmount > 0 ? '' : 'text-muted'}`}>฿{formatMoney(Math.max(0, vatAmount))}</span>
+                    {vatIsReverse && vatAmount > 0 && (
+                      <div className="small text-muted">(รวมในราคาหมดแล้ว)</div>
+                    )}
+                  </div>
                 </div>
                 <div className="d-flex justify-content-between mt-1">
                   <span className="text-muted">{t('orders.withholding', 'หัก ณ ที่จ่าย')}</span>
@@ -2415,6 +2488,12 @@ export const OrderDetail = () => {
                   <span className="fw-bold">{t('orders.total', 'ยอดรวม')}</span>
                   <span className="fw-bold text-primary">฿{formatMoney(payableAfterTax)}</span>
                 </div>
+                {vatIsReverse && (
+                  <div className="mt-2 p-2 rounded" style={{ backgroundColor: '#E0F2FE' }}>
+                    <div className="small fw-semibold text-primary">💡 ราคานี้รวม VAT 7% ไว้แล้ว</div>
+                    <div className="small text-muted">ยอดจ่ายทั้งหมดยังคงเท่าเดิม แค่แยกส่วนยอดก่อนภาษีและ VAT ออกให้ชัดเจนสำหรับออกใบกำกับภาษี</div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

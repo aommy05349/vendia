@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@vendia/shared';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { MobileListCard } from '../../components/MobileListCard';
 
 type GroupBy = 'day' | 'month';
 
@@ -556,8 +557,8 @@ export const Dashboard = () => {
   }, [pendingTotalPages, pendingMeta?.page, pendingPage]);
 
   return (
-    <div className="container py-4" style={{ maxWidth: 1400 }}>
-      <div className="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+    <div className="container-fluid p-2 p-md-4 admin-page" style={{ maxWidth: 1400 }}>
+      <div className="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3 admin-dash-filters">
         <div>
           <h2 className="mb-1">{t('dashboard.title', 'แดชบอร์ด')}</h2>
           {data && (
@@ -566,13 +567,12 @@ export const Dashboard = () => {
             </div>
           )}
         </div>
-        <div className="d-flex flex-wrap align-items-end gap-2">
-          <div>
+        <div className="d-flex flex-wrap align-items-end gap-2 w-100">
+          <div className="flex-grow-1" style={{ minWidth: '140px' }}>
             <div className="text-muted small mb-1">{t('dashboard.month_from', 'เดือนเริ่มต้น')}</div>
-            <div className="d-flex gap-2">
+            <div className="admin-dash-select-row">
               <select
-                className="form-select"
-                style={{ width: 150 }}
+                className="form-select admin-dash-select-month"
                 value={parseYM(fromMonth)?.month || '01'}
                 onChange={(e) => setFromMonth((v) => setYM(v, { month: e.target.value }))}
               >
@@ -583,8 +583,7 @@ export const Dashboard = () => {
                 ))}
               </select>
               <select
-                className="form-select"
-                style={{ width: 110 }}
+                className="form-select admin-dash-select-year"
                 value={parseYM(fromMonth)?.year || String(new Date().getFullYear())}
                 onChange={(e) => setFromMonth((v) => setYM(v, { year: e.target.value }))}
               >
@@ -596,12 +595,11 @@ export const Dashboard = () => {
               </select>
             </div>
           </div>
-          <div>
+          <div className="flex-grow-1" style={{ minWidth: '140px' }}>
             <div className="text-muted small mb-1">{t('dashboard.month_to', 'เดือนสิ้นสุด')}</div>
-            <div className="d-flex gap-2">
+            <div className="admin-dash-select-row">
               <select
-                className="form-select"
-                style={{ width: 150 }}
+                className="form-select admin-dash-select-month"
                 value={parseYM(toMonth)?.month || '01'}
                 onChange={(e) => setToMonth((v) => setYM(v, { month: e.target.value }))}
               >
@@ -612,8 +610,7 @@ export const Dashboard = () => {
                 ))}
               </select>
               <select
-                className="form-select"
-                style={{ width: 110 }}
+                className="form-select admin-dash-select-year"
                 value={parseYM(toMonth)?.year || String(new Date().getFullYear())}
                 onChange={(e) => setToMonth((v) => setYM(v, { year: e.target.value }))}
               >
@@ -722,20 +719,20 @@ export const Dashboard = () => {
                   {t('dashboard.go_orders', 'ไปหน้ารายการสั่งซื้อ')}
                 </button>
               </div>
-              <div className="d-flex align-items-center gap-3 mb-2 flex-wrap">
-                <div className="d-flex align-items-center gap-2">
+              <div className="admin-chart-legend mb-2">
+                <div className="admin-chart-legend-item d-flex align-items-center gap-2">
                   <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: 'var(--vendia-status-receipt)' }} />
                   <span className="small text-muted">{t('dashboard.legend_completed', 'ชำระแล้ว')}</span>
                 </div>
-                <div className="d-flex align-items-center gap-2">
+                <div className="admin-chart-legend-item d-flex align-items-center gap-2">
                   <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: 'var(--vendia-status-billing)' }} />
                   <span className="small text-muted">{t('dashboard.legend_billing_note', 'รอชำระ')}</span>
                 </div>
-                <div className="d-flex align-items-center gap-2">
+                <div className="admin-chart-legend-item d-flex align-items-center gap-2">
                   <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: 'var(--vendia-status-installment)' }} />
                   <span className="small text-muted">{t('orders.installment', 'ผ่อนชำระ')}</span>
                 </div>
-                <div className="d-flex align-items-center gap-2">
+                <div className="admin-chart-legend-item d-flex align-items-center gap-2">
                   <span className="d-inline-block rounded" style={{ width: 12, height: 12, background: 'var(--vendia-status-quotation)' }} />
                   <span className="small text-muted">{t('dashboard.legend_quotation', 'ใบเสนอราคา')}</span>
                 </div>
@@ -862,7 +859,7 @@ export const Dashboard = () => {
           <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
             <div className="d-flex flex-wrap align-items-end gap-3">
               <h5 className="mb-0">{t('dashboard.pending_list', 'รายการรอชำระล่าสุด')}</h5>
-              <ul className="nav nav-tabs" style={{ borderBottom: 0 }}>
+              <ul className="nav nav-tabs admin-pending-tabs" style={{ borderBottom: 0 }}>
                 <li className="nav-item">
                   <button
                     type="button"
@@ -945,7 +942,8 @@ export const Dashboard = () => {
           {!data || data.pending_orders.length === 0 ? (
             <div className="text-muted py-4 text-center">{t('dashboard.no_pending', 'ไม่มีรายการรอชำระในช่วงนี้')}</div>
           ) : (
-            <div className="table-responsive">
+            <>
+            <div className="d-none d-md-block table-responsive">
               <table className="table table-sm align-middle mb-0">
                 <thead className="table-light">
                   <tr>
@@ -1015,6 +1013,57 @@ export const Dashboard = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="d-block d-md-none admin-mobile-list">
+              {data.pending_orders.map((o) => {
+                const kindLabel =
+                  o.pending_kind === 'installment'
+                    ? t('orders.installment', 'ผ่อนชำระ')
+                    : o.pending_kind === 'billing_note'
+                      ? t('dashboard.kind.billing_note', 'รอชำระ')
+                      : t('dashboard.kind.quotation', 'ใบเสนอราคา');
+                const kindColor =
+                  o.pending_kind === 'installment'
+                    ? 'var(--vendia-status-installment)'
+                    : o.pending_kind === 'billing_note'
+                      ? 'var(--vendia-status-billing)'
+                      : 'var(--vendia-status-quotation)';
+                return (
+                  <MobileListCard
+                    key={o.id}
+                    title={`#${o.id} · ${o.customer_name || t('pos.walk_in', 'ลูกค้าหน้าร้าน')}`}
+                    subtitle={formatDateLong(o.created_at)}
+                    badge={
+                      <span
+                        className={`badge ${o.pending_kind === 'billing_note' ? 'text-dark' : ''}`}
+                        style={{ background: kindColor }}
+                      >
+                        {kindLabel}
+                      </span>
+                    }
+                    meta={[{ label: t('orders.total', 'ยอดรวม'), value: `฿${formatMoney(o.total)}` }]}
+                    onClick={() => navigate(`/orders/${o.id}`)}
+                    actions={
+                      o.pending_kind !== 'installment' && o.document_type ? (
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary btn-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDocument(o);
+                          }}
+                        >
+                          <i className="bi bi-printer me-1" />
+                          {t('dashboard.document', 'เอกสาร')}
+                        </button>
+                      ) : undefined
+                    }
+                  />
+                );
+              })}
+            </div>
+
               <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
                 <div className="text-muted small">
                   {pendingTotal > 0 ? (
@@ -1080,7 +1129,7 @@ export const Dashboard = () => {
                   </nav>
                 )}
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>

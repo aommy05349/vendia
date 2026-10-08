@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { MessageModal } from '../../components/MessageModal';
+import { MobileListCard } from '../../components/MobileListCard';
 
 export const CategoryList = () => {
   const { t } = useTranslation();
@@ -32,7 +33,7 @@ export const CategoryList = () => {
   const parents = categories.filter((c) => !c.parent_id);
 
   return (
-    <div className="container-fluid p-4">
+    <div className="container-fluid p-2 p-md-4 admin-page">
       <MessageModal
         open={alertMessage !== null}
         type={alertMessage?.type || 'danger'}
@@ -66,18 +67,21 @@ export const CategoryList = () => {
           }
         }}
       />
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="h3">{t('categories.title')}</h1>
-        <button
-          onClick={() => navigate('/categories/create')}
-          className="btn btn-success"
-        >
-          {t('categories.create')}
-        </button>
+      <div className="admin-page-header">
+        <h1 className="h3 m-0">{t('categories.title')}</h1>
+        <div className="admin-page-actions">
+          <button
+            onClick={() => navigate('/categories/create')}
+            className="btn btn-success"
+          >
+            {t('categories.create')}
+          </button>
+        </div>
       </div>
 
       <div className="card shadow-sm border-0">
         <div className="card-body p-0">
+          <div className="d-none d-md-block table-responsive">
           <table className="table table-hover mb-0">
             <thead className="table-light">
               <tr>
@@ -116,6 +120,38 @@ export const CategoryList = () => {
               )}
             </tbody>
           </table>
+          </div>
+
+          <div className="d-block d-md-none admin-mobile-list">
+            {parents.length > 0 ? (
+              parents.map((category) => (
+                <MobileListCard
+                  key={category.id}
+                  title={category.name}
+                  subtitle={`${t('categories.table.id')}: ${category.id}`}
+                  meta={category.description ? [{ label: t('categories.table.description'), value: category.description }] : undefined}
+                  actions={
+                    <>
+                      <button
+                        onClick={() => navigate(`/categories/${category.id}/edit`)}
+                        className="btn btn-sm btn-outline-primary"
+                      >
+                        {t('actions.edit')}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(category.id)}
+                        className="btn btn-sm btn-outline-danger"
+                      >
+                        {t('actions.delete')}
+                      </button>
+                    </>
+                  }
+                />
+              ))
+            ) : (
+              <div className="text-center p-4 text-muted">{t('common.no_data')}</div>
+            )}
+          </div>
         </div>
       </div>
     </div>

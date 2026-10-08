@@ -509,28 +509,6 @@ export const PrintOrder = () => {
 
     if (!order || !shop) return <div className="p-5 text-center">{t('common.loading')}</div>;
 
-    const documentTitle = isQuotation
-        ? t('print.quotation.title')
-        : isBillingNote
-            ? t('print.billing_note.title')
-            : isInvoice
-                ? t('print.invoice.title')
-            : t('print.receipt.title');
-
-    const documentSubtitle = isQuotation
-        ? t('print.quotation.subtitle')
-        : isBillingNote
-            ? t('print.billing_note.subtitle')
-            : isInvoice
-                ? t('print.invoice.subtitle')
-            : t('print.receipt.subtitle');
-
-    const displayTitle = headerTitleOverride.trim() !== '' ? headerTitleOverride.trim() : (documentRecord?.header_title || documentTitle);
-    const displaySubtitle = headerSubtitleOverride.trim() !== '' ? headerSubtitleOverride.trim() : (documentRecord?.header_subtitle || documentSubtitle);
-
-    const issueDateValue = parseDateInput(issueDate) || new Date(order.created_at);
-    const expiryDateValue = parseDateInput(expiryDate);
-
     const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
     const isInstallmentReceipt =
         !isQuotation &&
@@ -538,21 +516,94 @@ export const PrintOrder = () => {
         !isInvoice &&
         type === 'receipt' &&
         !!(documentRecord?.order_payment_id || documentRecord?.order_payment);
+
+    // === หัวเอกสาร: เพิ่มภาษาไทย " / ใบกำกับภาษี" และภาษาอังกฤษ " / TAX INVOICE"
+    // ยกเว้นใบเสร็จผ่อน (ไม่มี VAT) ===
+    const appendTaxInvoiceLabel = !isInstallmentReceipt;
+    const baseDocumentTitle = isQuotation
+        ? t('print.quotation.title')
+        : isBillingNote
+            ? t('print.billing_note.title')
+            : isInvoice
+                ? t('print.invoice.title')
+            : t('print.receipt.title');
+    const documentTitle = appendTaxInvoiceLabel ? `${baseDocumentTitle} / ใบกำกับภาษี` : baseDocumentTitle;
+
+    const baseDocumentSubtitle = isQuotation
+        ? t('print.quotation.subtitle')
+        : isBillingNote
+            ? t('print.billing_note.subtitle')
+            : isInvoice
+                ? t('print.invoice.subtitle')
+            : t('print.receipt.subtitle');
+    const documentSubtitle = appendTaxInvoiceLabel ? `${baseDocumentSubtitle} / TAX INVOICE` : baseDocumentSubtitle;
+
+    const rawDisplayTitle = headerTitleOverride.trim() !== '' ? headerTitleOverride.trim() : (documentRecord?.header_title || baseDocumentTitle);
+    const displayTitle =
+        (appendTaxInvoiceLabel && rawDisplayTitle && !String(rawDisplayTitle).includes('ใบกำกับภาษี'))
+            ? `${rawDisplayTitle} / ใบกำกับภาษี`
+            : rawDisplayTitle;
+    const rawDisplaySubtitle = headerSubtitleOverride.trim() !== '' ? headerSubtitleOverride.trim() : (documentRecord?.header_subtitle || baseDocumentSubtitle);
+    const displaySubtitle =
+        (appendTaxInvoiceLabel && rawDisplaySubtitle && !String(rawDisplaySubtitle).toUpperCase().includes('TAX INVOICE'))
+            ? `${rawDisplaySubtitle} / TAX INVOICE`
+            : rawDisplaySubtitle;
+
+    const issueDateValue = parseDateInput(issueDate) || new Date(order.created_at);
+    const expiryDateValue = parseDateInput(expiryDate);
     const installmentPayment = (documentRecord?.order_payment || null) as OrderPayment | null;
     const installmentPaidAmount = round2(Number(installmentPayment?.amount || 0));
     const planTotal = Number(installmentPayment?.plan?.total || order.total || 0);
     const paidSum = round2(((order.payments || []) as OrderPayment[]).reduce((sum, p) => sum + Number(p.amount || 0), 0));
     const remainingAfter = round2(Math.max(0, planTotal - paidSum));
 
-    const subtotal = isInstallmentReceipt ? installmentPaidAmount : Number(order.subtotal ?? order.total);
-    const vatRate = isInstallmentReceipt ? 0 : Number(order.vat_rate ?? 0);
-    const vatAmount =
-        isInstallmentReceipt
-            ? 0
-            : (order.vat_amount !== undefined
+    // === ยอดรวม & VAT ===
+    // - ใบเสร็จผ่อน: ไม่มี VAT ใช้ยอดงวดเดิม
+    // - บิลที่มี vat_rate > 0 อยู่แล้ว: ใช้การคำนวณปกติ (ยอดก่อนภาษี + VAT 7%)
+    // - บิลที่ยังไม่มี vat_rate (0 หรือ null): คำนวณแบบในาพ (reverse-VAT)
+    //   โดยถือว่า total เดิมคือราคารวม VAT 7% แล้ว → แยกก่อนภาษีและ VAT ออกมา
+    //   โดย Grand Total (totalWithVat) จะยังคงเท่าเดิม
+    let subtotal: number;
+    let vatRate: number;
+    let vatAmount: number;
+    let totalWithVat: number;
+
+    if (isInstallmentReceipt) {
+        subtotal = installmentPaidAmount;
+        vatRate = 0;
+        vatAmount = 0;
+        totalWithVat = installmentPaidAmount;
+    } else {
+        const originalTotal = Number(order.total ?? 0);
+        const orderHasExplicitVat = Number(order.vat_rate ?? 0) > 0;
+
+        if (orderHasExplicitVat) {
+            // เดิม: บิลเคย check "คิด VAT 7%" แล้ว ใช้การคำนวณปกติ
+            subtotal = Number(order.subtotal ?? order.total);
+            vatRate = Number(order.vat_rate ?? 0);
+            vatAmount = order.vat_amount !== undefined
                 ? Number(order.vat_amount)
-                : round2((subtotal * vatRate) / 100));
-    const totalWithVat = round2(subtotal + vatAmount);
+                : round2((subtotal * vatRate) / 100);
+            totalWithVat = round2(subtotal + vatAmount);
+        } else {
+            // ในาพ: ยอด originalTotal คือราคารวม VAT 7% อยู่แล้ว
+            // ก่อนภาษี = total / 1.07 , VAT = total - ก่อนภาษี
+            const gross = Math.max(0, originalTotal);
+            const net = round2(gross / 1.07);
+            const vat = round2(gross - net);
+            subtotal = net;
+            vatRate = 7;
+            vatAmount = vat;
+            totalWithVat = round2(net + vat);
+            // กันปัดเศษ: ให้ totalWithVat ล็อกที่ originalTotal เสมอ
+            if (totalWithVat !== gross) {
+                const diff = gross - totalWithVat;
+                vatAmount = round2(vatAmount + diff);
+                totalWithVat = gross;
+            }
+        }
+    }
+
     const withholdingRate = isInstallmentReceipt ? 0 : Number(order.withholding_rate ?? 0);
     const withholdingAmount =
         isInstallmentReceipt
@@ -563,7 +614,9 @@ export const PrintOrder = () => {
     const payable = round2(totalWithVat - withholdingAmount);
     const showWithholding = !isInstallmentReceipt && withholdingRate > 0 && !isQuotation;
     const payableForDocument = showWithholding ? payable : totalWithVat;
-    const summaryRowCount = isInstallmentReceipt ? 2 : (2 + (vatRate > 0 ? 1 : 0) + (showWithholding ? 2 : 0));
+    // ทุกเอกสาร (ยกเว้นผ่อน) จะต้องมีแถว VAT เสมอ (แม้จะเป็น reverse-VAT ก็ตาม)
+    const hasVatRow = !isInstallmentReceipt;
+    const summaryRowCount = isInstallmentReceipt ? 2 : (2 + (hasVatRow ? 1 : 0) + (showWithholding ? 2 : 0));
 
     const displayItems: Array<{ description: string; quantity: number; unitPrice: number }> = isInstallmentReceipt
         ? [
@@ -853,7 +906,7 @@ export const PrintOrder = () => {
                             {Number(subtotal).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                         </td>
                     </tr>
-                    {vatRate > 0 && (
+                    {hasVatRow && (
                         <tr>
                             <td className="text-end fw-bold">{t('print.footer.vat')} ({vatRate}%)</td>
                             <td className="text-end fw-bold align-middle">
