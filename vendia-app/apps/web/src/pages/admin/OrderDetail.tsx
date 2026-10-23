@@ -78,6 +78,7 @@ interface Order {
   id: number;
   total: string;
   subtotal?: string;
+  tax_mode?: string | null;
   vat_rate?: string;
   vat_amount?: string;
   withholding_rate?: string;
@@ -94,6 +95,16 @@ interface Order {
   invoice_status?: string;
   receipt_number?: string;
   receipt_status?: string;
+  job_location_id?: number | null;
+  job_address?: string | null;
+  job_google_maps_link?: string | null;
+  job_contact_person?: string | null;
+  job_contact_phone?: string | null;
+  billing_location_id?: number | null;
+  billing_address?: string | null;
+  billing_attention?: string | null;
+  jobLocation?: CustomerLocation | null;
+  billingLocation?: CustomerLocation | null;
   user?: {
     name: string;
     id?: number;
@@ -114,6 +125,77 @@ interface Order {
   paymentPlan?: OrderPaymentPlan | null;
   payments?: OrderPayment[];
 }
+
+type TaxMode = 'none' | 'exclusive' | 'inclusive';
+
+const roundTax2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+const normalizeTaxMode = (rawTaxMode: unknown, rawVatRate: unknown): TaxMode => {
+  if (rawTaxMode === 'none' || rawTaxMode === 'exclusive' || rawTaxMode === 'inclusive') {
+    return rawTaxMode;
+  }
+  return Number(rawVatRate ?? 0) > 0 ? 'exclusive' : 'inclusive';
+};
+
+const normalizePercent = (value: number) => (value > 0 && value <= 1 ? value * 100 : value);
+
+const calculateTaxBreakdown = ({
+  amount,
+  taxMode,
+  vatRate,
+  withholdingRate,
+  storedVatAmount,
+  storedWithholdingAmount,
+  preferStoredAmounts = false,
+}: {
+  amount: number;
+  taxMode: TaxMode;
+  vatRate: number;
+  withholdingRate: number;
+  storedVatAmount?: number;
+  storedWithholdingAmount?: number;
+  preferStoredAmounts?: boolean;
+}) => {
+  const safeAmount = roundTax2(Math.max(0, amount));
+  const vatPercent = taxMode === 'none' ? 0 : (normalizePercent(vatRate) > 0 ? normalizePercent(vatRate) : 7);
+  const hasStoredVatAmount = Number.isFinite(storedVatAmount);
+  const hasStoredWithholdingAmount = Number.isFinite(storedWithholdingAmount);
+
+  let subtotal = safeAmount;
+  let vatAmount = 0;
+  let total = safeAmount;
+
+  if (taxMode === 'inclusive') {
+    subtotal = roundTax2(safeAmount / (1 + (vatPercent / 100)));
+    vatAmount = roundTax2(safeAmount - subtotal);
+    total = safeAmount;
+    if (roundTax2(subtotal + vatAmount) !== total) {
+      vatAmount = roundTax2(vatAmount + (total - roundTax2(subtotal + vatAmount)));
+    }
+  } else if (taxMode === 'exclusive') {
+    subtotal = safeAmount;
+    vatAmount = preferStoredAmounts && hasStoredVatAmount
+      ? Number(storedVatAmount)
+      : roundTax2(subtotal * (vatPercent / 100));
+    total = roundTax2(subtotal + vatAmount);
+  }
+
+  const withholdingPercent = normalizePercent(withholdingRate);
+  const withholdingAmount =
+    preferStoredAmounts && taxMode !== 'inclusive' && hasStoredWithholdingAmount
+      ? Number(storedWithholdingAmount)
+      : roundTax2(subtotal * (withholdingPercent / 100));
+
+  return {
+    subtotal,
+    vatPercent,
+    vatAmount,
+    total,
+    withholdingAmount,
+    payable: roundTax2(total - withholdingAmount),
+    vatIsInclusive: taxMode === 'inclusive',
+  };
+};
 
 export const OrderDetail = () => {
   const { t } = useTranslation();
@@ -141,7 +223,7 @@ export const OrderDetail = () => {
   const [receivedAmount, setReceivedAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
   const [change, setChange] = useState<number | null>(null);
-  const [applyVat, setApplyVat] = useState(false);
+  const [taxMode, setTaxMode] = useState<TaxMode>('none');
   const [withholdingRate, setWithholdingRate] = useState<0 | 3 | 7>(0);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
@@ -840,25 +922,24 @@ export const OrderDetail = () => {
       return;
     }
     const received = parseFloat(receivedAmount);
-    const _grossTotal = Number(order.total ?? 0);
-    const _hasExplicit = Number(order.vat_rate ?? 0) > 0;
-    let _paySub: number, _payVat: number;
-    if (_hasExplicit || applyVat) {
-      _paySub = parseFloat(order.subtotal ?? order.total);
-      _payVat = applyVat && !_hasExplicit ? round2(_paySub * 0.07) : Number(order.vat_amount ?? 0);
-    } else {
-      // reverse-VAT / รวม VAT แล้ว
-      const g = Math.max(0, _grossTotal);
-      _paySub = round2(g / 1.07);
-      _payVat = round2(g - _paySub);
-      if (round2(_paySub + _payVat) !== g) {
-        _payVat = round2(_payVat + (g - round2(_paySub + _payVat)));
-      }
-    }
-    const withholdingAmount = round2(_paySub * (withholdingRate / 100));
-    const payable = round2(_paySub + _payVat - withholdingAmount);
-    setChange(received - payable);
-  }, [receivedAmount, paymentMethod, order, applyVat, withholdingRate, showPaymentModal]);
+    const currentOrderTaxMode = normalizeTaxMode(order.tax_mode, order.vat_rate);
+    const rawItemsTotal = round2((order.items || []).reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 0)), 0));
+    const amountForMode = taxMode === 'inclusive'
+      ? (currentOrderTaxMode === 'inclusive' ? Number(order.total ?? 0) : rawItemsTotal || Number(order.total ?? 0))
+      : (currentOrderTaxMode === 'inclusive'
+        ? rawItemsTotal || Number(order.total ?? 0)
+        : Number(order.subtotal ?? rawItemsTotal ?? order.total ?? 0));
+    const paymentBreakdown = calculateTaxBreakdown({
+      amount: amountForMode,
+      taxMode,
+      vatRate: Number(order.vat_rate ?? 0),
+      withholdingRate,
+      storedVatAmount: Number(order.vat_amount),
+      storedWithholdingAmount: Number(order.withholding_amount),
+      preferStoredAmounts: taxMode === currentOrderTaxMode,
+    });
+    setChange(received - paymentBreakdown.payable);
+  }, [receivedAmount, paymentMethod, order, taxMode, withholdingRate, showPaymentModal, round2]);
 
   useEffect(() => {
     if (!moreMenuOpen) return;
@@ -1041,7 +1122,7 @@ export const OrderDetail = () => {
     setReceivedAmount('');
     setPaymentMethod('cash');
     setChange(null);
-    setApplyVat(Number(order.vat_rate || 0) > 0);
+    setTaxMode(normalizeTaxMode(order.tax_mode, order.vat_rate));
     setWithholdingRate((Number(order.withholding_rate || 0) as 0 | 3 | 7) || 0);
     setShowPaymentModal(true);
   };
@@ -1053,7 +1134,8 @@ export const OrderDetail = () => {
       await api.put(`/orders/${order.id}`, {
         status: 'completed',
         payment_method: paymentMethod,
-        apply_vat: applyVat,
+        apply_vat: taxMode === 'exclusive',
+        tax_mode: taxMode,
         withholding_rate: withholdingRate,
       });
       await fetchOrder();
@@ -1134,52 +1216,40 @@ export const OrderDetail = () => {
   const totalSummary = Number(order.total || 0);
   const paidSummary = installmentData ? Number(installmentData.paid || 0) : order.status === 'completed' ? totalSummary : 0;
   const remainingSummary = installmentData ? Math.max(0, Number(installmentData.remaining || 0)) : order.status === 'completed' ? 0 : totalSummary;
-
-  const subtotalForTaxRaw = Number(order.subtotal ?? order.total ?? 0);
-  const _subtotalRaw = Number.isFinite(subtotalForTaxRaw) ? subtotalForTaxRaw : 0;
-  const originalTotalForTax = Number(order.total ?? _subtotalRaw);
-  const orderHasExplicitVat = Number(order.vat_rate ?? 0) > 0;
-
-  let subtotalForTax: number;
-  let vatPercent: number;
-  let vatAmount: number;
-  let netBeforeWithholding: number;
-  let vatIsReverse = false;
-
-  if (orderHasExplicitVat) {
-    subtotalForTax = _subtotalRaw;
-    const vatRateRawUncast = Number(order.vat_rate || 0);
-    const vatRateRaw = Number.isFinite(vatRateRawUncast) ? vatRateRawUncast : 0;
-    vatPercent = vatRateRaw > 0 && vatRateRaw <= 1 ? vatRateRaw * 100 : vatRateRaw;
-    vatAmount =
-      order.vat_amount !== undefined && order.vat_amount !== null && String(order.vat_amount).trim() !== ''
-        ? Number(order.vat_amount)
-        : round2(subtotalForTax * (vatPercent / 100));
-    netBeforeWithholding = round2(subtotalForTax + vatAmount);
-  } else {
-    vatIsReverse = true;
-    const gross = Math.max(0, originalTotalForTax);
-    const net = round2(gross / 1.07);
-    const vat = round2(gross - net);
-    subtotalForTax = net;
-    vatPercent = 7;
-    vatAmount = vat;
-    netBeforeWithholding = round2(net + vat);
-    if (netBeforeWithholding !== gross) {
-      const diff = gross - netBeforeWithholding;
-      vatAmount = round2(vatAmount + diff);
-      netBeforeWithholding = gross;
-    }
-  }
-
-  const withholdingRateRawUncast = Number(order.withholding_rate || 0);
-  const withholdingRateRaw = Number.isFinite(withholdingRateRawUncast) ? withholdingRateRawUncast : 0;
-  const withholdingPercent = withholdingRateRaw > 0 && withholdingRateRaw <= 1 ? withholdingRateRaw * 100 : withholdingRateRaw;
-  const withholdingAmount =
-    order.withholding_amount !== undefined && order.withholding_amount !== null && String(order.withholding_amount).trim() !== ''
-      ? Number(order.withholding_amount)
-      : round2(subtotalForTax * (withholdingPercent / 100));
-  const payableAfterTax = round2(netBeforeWithholding - withholdingAmount);
+  const currentOrderTaxMode = normalizeTaxMode(order.tax_mode, order.vat_rate);
+  const summaryAmount = currentOrderTaxMode === 'inclusive'
+    ? Number(order.total ?? 0)
+    : Number(order.subtotal ?? order.total ?? 0);
+  const summaryBreakdown = calculateTaxBreakdown({
+    amount: summaryAmount,
+    taxMode: currentOrderTaxMode,
+    vatRate: Number(order.vat_rate || 0),
+    withholdingRate: Number(order.withholding_rate || 0),
+    storedVatAmount: Number(order.vat_amount),
+    storedWithholdingAmount: Number(order.withholding_amount),
+    preferStoredAmounts: true,
+  });
+  const subtotalForTax = summaryBreakdown.subtotal;
+  const vatPercent = summaryBreakdown.vatPercent;
+  const vatAmount = summaryBreakdown.vatAmount;
+  const withholdingAmount = summaryBreakdown.withholdingAmount;
+  const payableAfterTax = summaryBreakdown.payable;
+  const vatIsReverse = summaryBreakdown.vatIsInclusive;
+  const orderRawItemsTotal = round2((order.items || []).reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 0)), 0));
+  const paymentPreviewAmount = taxMode === 'inclusive'
+    ? (currentOrderTaxMode === 'inclusive' ? Number(order.total ?? 0) : orderRawItemsTotal || Number(order.total ?? 0))
+    : (currentOrderTaxMode === 'inclusive'
+      ? orderRawItemsTotal || Number(order.total ?? 0)
+      : Number(order.subtotal ?? orderRawItemsTotal ?? order.total ?? 0));
+  const paymentPreviewBreakdown = calculateTaxBreakdown({
+    amount: paymentPreviewAmount,
+    taxMode,
+    vatRate: Number(order.vat_rate || 0),
+    withholdingRate,
+    storedVatAmount: Number(order.vat_amount),
+    storedWithholdingAmount: Number(order.withholding_amount),
+    preferStoredAmounts: taxMode === currentOrderTaxMode,
+  });
 
   const jobLat = jobLoc?.latitude !== null && jobLoc?.latitude !== undefined && String(jobLoc.latitude).trim() !== '' ? Number(jobLoc.latitude) : null;
   const jobLng = jobLoc?.longitude !== null && jobLoc?.longitude !== undefined && String(jobLoc.longitude).trim() !== '' ? Number(jobLoc.longitude) : null;
@@ -1869,24 +1939,7 @@ export const OrderDetail = () => {
                   <div className="text-center mb-4">
                     <div className="text-muted mb-1">{t('orders.total')}</div>
                     <div className="display-4 fw-bold text-primary">
-                      ฿{(() => {
-                        const _grossTotal = Number(order.total ?? 0);
-                        const _hasVatAlready = Number(order.vat_rate ?? 0) > 0;
-                        let _sub: number, _vat: number;
-                        if (_hasVatAlready || applyVat) {
-                          _sub = parseFloat(order.subtotal ?? order.total);
-                          _vat = applyVat && !_hasVatAlready ? round2(_sub * 0.07) : Number(order.vat_amount ?? 0);
-                        } else {
-                          const g = Math.max(0, _grossTotal);
-                          _sub = round2(g / 1.07);
-                          _vat = round2(g - _sub);
-                          if (round2(_sub + _vat) !== g) {
-                            _vat = round2(_vat + (g - round2(_sub + _vat)));
-                          }
-                        }
-                        const _wh = round2(_sub * (withholdingRate / 100));
-                        return round2(_sub + _vat - _wh).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                      })()}
+                      ฿{paymentPreviewBreakdown.payable.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                   </div>
 
@@ -1920,31 +1973,33 @@ export const OrderDetail = () => {
                     <div className="d-flex justify-content-between align-items-center">
                       <div>
                         <span>{t('pos.subtotal_before_tax', 'ยอดก่อนภาษี')}</span>
-                        {!applyVat && Number(order.vat_rate ?? 0) <= 0 && (
+                        {taxMode === 'inclusive' && (
                           <span className="badge bg-info ms-2" style={{ fontSize: '10px' }}>รวม VAT แล้ว</span>
                         )}
                       </div>
                       <span className="fw-bold">
-                        ฿{(() => {
-                          const _g = Number(order.total ?? 0);
-                          if (applyVat || Number(order.vat_rate ?? 0) > 0) {
-                            return parseFloat(order.subtotal ?? order.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                          }
-                          return round2(Math.max(0, _g) / 1.07).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                        })()}
+                        ฿{paymentPreviewBreakdown.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
-                    <div className="form-check mt-2">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id="applyVatOrderDetail"
-                        checked={applyVat}
-                        onChange={(e) => setApplyVat(e.target.checked)}
-                      />
-                      <label className="form-check-label fw-bold" htmlFor="applyVatOrderDetail">
-                        {t('pos.apply_vat_7', 'คิด VAT 7%')}
+                    <div className="mt-2">
+                      <label className="form-label fw-bold" htmlFor="taxModeOrderDetail">
+                        {t('orders.vat', 'VAT')}
                       </label>
+                      <select
+                        id="taxModeOrderDetail"
+                        className="form-select"
+                        value={taxMode}
+                        onChange={(e) => setTaxMode(e.target.value as TaxMode)}
+                      >
+                        <option value="none">ไม่คิด VAT</option>
+                        <option value="exclusive">บวก VAT 7%</option>
+                        <option value="inclusive">รวม VAT 7% แล้ว</option>
+                      </select>
+                      {taxMode === 'inclusive' && (
+                        <div className="small text-muted mt-2">
+                          ยอดรวมจะคงเดิม แล้วแยกยอดก่อนภาษีกับ VAT ออกมาให้เอง
+                        </div>
+                      )}
                     </div>
                     <div className="mt-3">
                       <label className="form-label fw-bold">{t('pos.withholding', 'หัก ณ ที่จ่าย')}</label>

@@ -4,6 +4,15 @@ import { useTranslation } from 'react-i18next';
 import { useCartStore, useProductStore, useCategoryStore, useCustomerStore, api, Product, Customer } from '@vendia/shared';
 import { MessageModal } from '../components/MessageModal';
 
+type TaxMode = 'none' | 'exclusive' | 'inclusive';
+
+const normalizeTaxMode = (rawTaxMode: unknown, rawVatRate: unknown): TaxMode => {
+  if (rawTaxMode === 'none' || rawTaxMode === 'exclusive' || rawTaxMode === 'inclusive') {
+    return rawTaxMode;
+  }
+  return Number(rawVatRate ?? 0) > 0 ? 'exclusive' : 'inclusive';
+};
+
 export const Pos = () => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
@@ -37,15 +46,29 @@ export const Pos = () => {
   const [newCustomerCompany, setNewCustomerCompany] = useState('');
   const [newCustomerContactChannel, setNewCustomerContactChannel] = useState<'line' | 'facebook'>('line');
   const [newCustomerContactHandle, setNewCustomerContactHandle] = useState('');
-  const [applyVat, setApplyVat] = useState(false);
+  const [taxMode, setTaxMode] = useState<TaxMode>('none');
   const [withholdingRate, setWithholdingRate] = useState<0 | 3 | 7>(0);
 
   const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-  const subtotalAmount = total();
-  const vatRate = applyVat ? 7 : 0;
-  const vatAmount = round2((subtotalAmount * vatRate) / 100);
+  const rawAmount = round2(total());
+  const vatRate = taxMode === 'none' ? 0 : 7;
+  let subtotalAmount = rawAmount;
+  let vatAmount = 0;
+  let totalWithVat = rawAmount;
+
+  if (taxMode === 'exclusive') {
+    vatAmount = round2((rawAmount * vatRate) / 100);
+    totalWithVat = round2(rawAmount + vatAmount);
+  } else if (taxMode === 'inclusive') {
+    subtotalAmount = round2(rawAmount / 1.07);
+    vatAmount = round2(rawAmount - subtotalAmount);
+    totalWithVat = rawAmount;
+    if (round2(subtotalAmount + vatAmount) !== rawAmount) {
+      vatAmount = round2(vatAmount + (rawAmount - round2(subtotalAmount + vatAmount)));
+    }
+  }
+
   const withholdingAmount = round2((subtotalAmount * withholdingRate) / 100);
-  const totalWithVat = round2(subtotalAmount + vatAmount);
   const payableAmount = round2(totalWithVat - withholdingAmount);
   const [createCustomerError, setCreateCustomerError] = useState<string | null>(null);
 
@@ -247,7 +270,7 @@ export const Pos = () => {
 
         // Direct update without timeout to test immediate reactivity
         setCart(newCartItems);
-        setApplyVat(Number(res.data?.vat_rate || 0) > 0);
+        setTaxMode(normalizeTaxMode(res.data?.tax_mode, res.data?.vat_rate));
         setWithholdingRate((Number(res.data?.withholding_rate || 0) as 0 | 3 | 7) || 0);
         
       }).catch(err => {
@@ -339,7 +362,7 @@ export const Pos = () => {
     setDownPayment('');
     setInstallmentAmount('');
     if (!editingOrderId) {
-      setApplyVat(false);
+      setTaxMode('none');
       setWithholdingRate(0);
     }
   };
@@ -366,7 +389,8 @@ export const Pos = () => {
         status: status,
         customer_id: selectedCustomer?.id || null,
         parent_id: parentOrderId || null,
-        apply_vat: applyVat,
+        apply_vat: taxMode === 'exclusive',
+        tax_mode: taxMode,
         withholding_rate: withholdingRate,
       };
 
@@ -1183,22 +1207,33 @@ export const Pos = () => {
                     </div>
 
                     <div className="mb-3">
-                        <div className="form-check">
-                            <input
-                                className="form-check-input"
-                                type="checkbox"
-                                id="applyVat"
-                                checked={applyVat}
-                                onChange={(e) => setApplyVat(e.target.checked)}
-                            />
-                            <label className="form-check-label fw-bold" htmlFor="applyVat">
-                                {t('pos.apply_vat_7', 'คิด VAT 7%')}
-                            </label>
-                        </div>
-                        {applyVat && (
+                        <label className="form-label fw-bold" htmlFor="taxMode">
+                            {t('orders.vat', 'VAT')}
+                        </label>
+                        <select
+                            id="taxMode"
+                            className="form-select"
+                            value={taxMode}
+                            onChange={(e) => setTaxMode(e.target.value as TaxMode)}
+                        >
+                            <option value="none">ไม่คิด VAT</option>
+                            <option value="exclusive">บวก VAT 7%</option>
+                            <option value="inclusive">รวม VAT 7% แล้ว</option>
+                        </select>
+                        {taxMode === 'inclusive' && (
+                            <div className="small text-muted mt-2">
+                                ราคาที่เห็นรวม VAT อยู่แล้ว ยอดรวมสุดท้ายจะไม่เพิ่มขึ้น
+                            </div>
+                        )}
+                        {vatRate > 0 && (
                             <div className="d-flex justify-content-between align-items-center mt-2">
                                 <span className="text-muted">{t('pos.vat', 'VAT')} ({vatRate}%)</span>
-                                <span className="fw-bold">฿{vatAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <div className="text-end">
+                                  <span className="fw-bold">฿{vatAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  {taxMode === 'inclusive' && (
+                                    <div className="small text-muted">(รวมในราคาหมดแล้ว)</div>
+                                  )}
+                                </div>
                             </div>
                         )}
                         <div className="d-flex justify-content-between align-items-center mt-2">

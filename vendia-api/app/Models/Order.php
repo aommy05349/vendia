@@ -13,7 +13,16 @@ class Order extends Model
         'user_id',
         'customer_id',
         'parent_id',
+        'job_location_id',
+        'job_address',
+        'job_google_maps_link',
+        'job_contact_person',
+        'job_contact_phone',
+        'billing_location_id',
+        'billing_address',
+        'billing_attention',
         'subtotal',
+        'tax_mode',
         'vat_rate',
         'vat_amount',
         'withholding_rate',
@@ -49,6 +58,16 @@ class Order extends Model
     public function customer()
     {
         return $this->belongsTo(Customer::class, 'customer_id');
+    }
+
+    public function jobLocation()
+    {
+        return $this->belongsTo(CustomerLocation::class, 'job_location_id');
+    }
+
+    public function billingLocation()
+    {
+        return $this->belongsTo(CustomerLocation::class, 'billing_location_id');
     }
 
     public function items()

@@ -1398,8 +1398,17 @@ class OrderController extends Controller
             'customer_id' => 'nullable|exists:customers,id',
             'parent_id' => 'nullable|exists:orders,id',
             'apply_vat' => 'sometimes|boolean',
+            'tax_mode' => 'sometimes|in:none,exclusive,inclusive',
             'vat_rate' => 'sometimes|numeric|min:0|max:100',
             'withholding_rate' => 'sometimes|numeric|min:0|max:100',
+            'job_location_id' => 'sometimes|nullable|exists:customer_locations,id',
+            'job_address' => 'sometimes|nullable|string|max:1000',
+            'job_google_maps_link' => 'sometimes|nullable|string|max:500',
+            'job_contact_person' => 'sometimes|nullable|string|max:255',
+            'job_contact_phone' => 'sometimes|nullable|string|max:50',
+            'billing_location_id' => 'sometimes|nullable|exists:customer_locations,id',
+            'billing_address' => 'sometimes|nullable|string|max:1000',
+            'billing_attention' => 'sometimes|nullable|string|max:255',
         ]);
 
         return DB::transaction(function () use ($request) {
@@ -1488,20 +1497,30 @@ class OrderController extends Controller
                 unset($i['_sort_order']);
             }
 
+            $taxMode = $this->resolveTaxModeFromRequest($request, 'none');
             $vatRate = $request->has('vat_rate')
                 ? (float) $request->input('vat_rate')
-                : ($request->boolean('apply_vat') ? 7.0 : 0.0);
+                : ($taxMode === 'none' ? 0.0 : 7.0);
             $withholdingRate = $request->has('withholding_rate')
                 ? (float) $request->input('withholding_rate')
                 : 0.0;
 
-            $taxTotals = $this->calculateTaxTotals($subtotal, $vatRate, $withholdingRate);
+            $taxTotals = $this->calculateTaxTotals($subtotal, $vatRate, $withholdingRate, $taxMode);
 
             $order = Order::create([
                 'user_id' => $request->user()->id,
                 'customer_id' => $request->customer_id,
                 'parent_id' => $request->parent_id,
+                'job_location_id' => $request->input('job_location_id'),
+                'job_address' => $request->input('job_address'),
+                'job_google_maps_link' => $request->input('job_google_maps_link'),
+                'job_contact_person' => $request->input('job_contact_person'),
+                'job_contact_phone' => $request->input('job_contact_phone'),
+                'billing_location_id' => $request->input('billing_location_id'),
+                'billing_address' => $request->input('billing_address'),
+                'billing_attention' => $request->input('billing_attention'),
                 'subtotal' => $taxTotals['subtotal'],
+                'tax_mode' => $taxTotals['tax_mode'],
                 'vat_rate' => $taxTotals['vat_rate'],
                 'vat_amount' => $taxTotals['vat_amount'],
                 'withholding_rate' => $taxTotals['withholding_rate'],
@@ -1532,6 +1551,8 @@ class OrderController extends Controller
             'documents',
             'paymentPlan',
             'payments.documents',
+            'jobLocation',
+            'billingLocation',
         ]);
         
         $sortedItems = collect($order->items)->sortBy(function($item) {
@@ -1556,8 +1577,17 @@ class OrderController extends Controller
             'items.*.quantity' => 'required_with:items|integer|min:1',
             'items.*.price' => 'nullable|numeric',
             'apply_vat' => 'sometimes|boolean',
+            'tax_mode' => 'sometimes|in:none,exclusive,inclusive',
             'vat_rate' => 'sometimes|numeric|min:0|max:100',
             'withholding_rate' => 'sometimes|numeric|min:0|max:100',
+            'job_location_id' => 'sometimes|nullable|exists:customer_locations,id',
+            'job_address' => 'sometimes|nullable|string|max:1000',
+            'job_google_maps_link' => 'sometimes|nullable|string|max:500',
+            'job_contact_person' => 'sometimes|nullable|string|max:255',
+            'job_contact_phone' => 'sometimes|nullable|string|max:50',
+            'billing_location_id' => 'sometimes|nullable|exists:customer_locations,id',
+            'billing_address' => 'sometimes|nullable|string|max:1000',
+            'billing_attention' => 'sometimes|nullable|string|max:255',
         ]);
 
         return DB::transaction(function () use ($request, $order) {
@@ -1584,6 +1614,16 @@ class OrderController extends Controller
             if ($request->has('status')) $order->status = $request->status;
             if ($request->has('payment_method')) $order->payment_method = $request->payment_method;
             if ($request->has('customer_id')) $order->customer_id = $request->customer_id;
+
+            // Location / Billing address fields (always allow direct override from payload)
+            if ($request->has('job_location_id')) $order->job_location_id = $request->input('job_location_id');
+            if ($request->has('job_address')) $order->job_address = $request->input('job_address');
+            if ($request->has('job_google_maps_link')) $order->job_google_maps_link = $request->input('job_google_maps_link');
+            if ($request->has('job_contact_person')) $order->job_contact_person = $request->input('job_contact_person');
+            if ($request->has('job_contact_phone')) $order->job_contact_phone = $request->input('job_contact_phone');
+            if ($request->has('billing_location_id')) $order->billing_location_id = $request->input('billing_location_id');
+            if ($request->has('billing_address')) $order->billing_address = $request->input('billing_address');
+            if ($request->has('billing_attention')) $order->billing_attention = $request->input('billing_attention');
 
             // No automatic document generation anymore
             
@@ -1675,19 +1715,18 @@ class OrderController extends Controller
                     unset($i['_sort_order']);
                 }
 
-                $order->subtotal = $subtotal;
-
+                $taxMode = $this->resolveTaxModeFromRequest($request, $this->inferOrderTaxMode($order));
                 $vatRate = $request->has('vat_rate')
                     ? (float) $request->input('vat_rate')
-                    : ($request->has('apply_vat')
-                        ? ($request->boolean('apply_vat') ? 7.0 : 0.0)
-                        : (float) ($order->vat_rate ?? 0));
+                    : ($taxMode === 'none' ? 0.0 : 7.0);
 
                 $withholdingRate = $request->has('withholding_rate')
                     ? (float) $request->input('withholding_rate')
                     : (float) ($order->withholding_rate ?? 0);
 
-                $taxTotals = $this->calculateTaxTotals((float) $order->subtotal, $vatRate, $withholdingRate);
+                $taxTotals = $this->calculateTaxTotals($subtotal, $vatRate, $withholdingRate, $taxMode);
+                $order->subtotal = $taxTotals['subtotal'];
+                $order->tax_mode = $taxTotals['tax_mode'];
                 $order->vat_rate = $taxTotals['vat_rate'];
                 $order->vat_amount = $taxTotals['vat_amount'];
                 $order->withholding_rate = $taxTotals['withholding_rate'];
@@ -1713,19 +1752,19 @@ class OrderController extends Controller
                     }
                 }
 
+                $taxMode = $this->resolveTaxModeFromRequest($request, $this->inferOrderTaxMode($order));
                 $vatRate = $request->has('vat_rate')
                     ? (float) $request->input('vat_rate')
-                    : ($request->has('apply_vat')
-                        ? ($request->boolean('apply_vat') ? 7.0 : 0.0)
-                        : (float) ($order->vat_rate ?? 0));
+                    : ($taxMode === 'none' ? 0.0 : 7.0);
 
                 $withholdingRate = $request->has('withholding_rate')
                     ? (float) $request->input('withholding_rate')
                     : (float) ($order->withholding_rate ?? 0);
 
-                $baseSubtotal = (float) ($order->subtotal ?? $order->total);
-                $taxTotals = $this->calculateTaxTotals($baseSubtotal, $vatRate, $withholdingRate);
+                $rawItemsTotal = (float) $order->items()->sum(DB::raw('price * quantity'));
+                $taxTotals = $this->calculateTaxTotals($rawItemsTotal, $vatRate, $withholdingRate, $taxMode);
                 $order->subtotal = $taxTotals['subtotal'];
+                $order->tax_mode = $taxTotals['tax_mode'];
                 $order->vat_rate = $taxTotals['vat_rate'];
                 $order->vat_amount = $taxTotals['vat_amount'];
                 $order->withholding_rate = $taxTotals['withholding_rate'];
@@ -1794,18 +1833,70 @@ class OrderController extends Controller
         });
     }
 
-    private function calculateTaxTotals(float $subtotal, float $vatRate, float $withholdingRate): array
+    private function resolveTaxModeFromRequest(Request $request, string $default = 'none'): string
     {
-        $subtotal = round($subtotal, 2);
+        $taxMode = (string) $request->input('tax_mode', '');
+        if (in_array($taxMode, ['none', 'exclusive', 'inclusive'], true)) {
+            return $taxMode;
+        }
+
+        if ($request->has('vat_rate')) {
+            return ((float) $request->input('vat_rate')) > 0 ? 'exclusive' : $default;
+        }
+
+        if ($request->has('apply_vat')) {
+            return $request->boolean('apply_vat') ? 'exclusive' : $default;
+        }
+
+        return $default;
+    }
+
+    private function inferOrderTaxMode(Order $order): string
+    {
+        $taxMode = (string) ($order->tax_mode ?? '');
+        if (in_array($taxMode, ['none', 'exclusive', 'inclusive'], true)) {
+            return $taxMode;
+        }
+
+        return ((float) ($order->vat_rate ?? 0)) > 0 ? 'exclusive' : 'inclusive';
+    }
+
+    private function calculateTaxTotals(float $rawAmount, float $vatRate, float $withholdingRate, string $taxMode = 'none'): array
+    {
+        $rawAmount = round($rawAmount, 2);
         $vatRate = max(0.0, min(100.0, $vatRate));
         $withholdingRate = max(0.0, min(100.0, $withholdingRate));
 
-        $vatAmount = round($subtotal * $vatRate / 100, 2);
+        if (!in_array($taxMode, ['none', 'exclusive', 'inclusive'], true)) {
+            $taxMode = $vatRate > 0 ? 'exclusive' : 'none';
+        }
+
+        if ($taxMode === 'inclusive') {
+            $effectiveVatRate = $vatRate > 0 ? $vatRate : 7.0;
+            $subtotal = round($rawAmount / (1 + ($effectiveVatRate / 100)), 2);
+            $vatAmount = round($rawAmount - $subtotal, 2);
+            $total = $rawAmount;
+            if (round($subtotal + $vatAmount, 2) !== $total) {
+                $vatAmount = round($vatAmount + ($total - round($subtotal + $vatAmount, 2)), 2);
+            }
+            $vatRate = $effectiveVatRate;
+        } elseif ($taxMode === 'exclusive') {
+            $subtotal = $rawAmount;
+            $vatRate = $vatRate > 0 ? $vatRate : 7.0;
+            $vatAmount = round($subtotal * $vatRate / 100, 2);
+            $total = round($subtotal + $vatAmount, 2);
+        } else {
+            $subtotal = $rawAmount;
+            $vatRate = 0.0;
+            $vatAmount = 0.0;
+            $total = $subtotal;
+        }
+
         $withholdingAmount = round($subtotal * $withholdingRate / 100, 2);
-        $total = round($subtotal + $vatAmount, 2);
 
         return [
             'subtotal' => $subtotal,
+            'tax_mode' => $taxMode,
             'vat_rate' => $vatRate,
             'vat_amount' => $vatAmount,
             'withholding_rate' => $withholdingRate,

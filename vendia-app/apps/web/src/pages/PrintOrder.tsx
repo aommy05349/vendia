@@ -53,6 +53,7 @@ type OrderPayment = {
 interface Order {
     id: number;
     subtotal?: string;
+    tax_mode?: string | null;
     vat_rate?: string;
     vat_amount?: string;
     withholding_rate?: string;
@@ -65,6 +66,14 @@ interface Order {
     billing_note_number?: string;
     invoice_number?: string;
     receipt_number?: string;
+    job_location_id?: number | null;
+    job_address?: string | null;
+    job_google_maps_link?: string | null;
+    job_contact_person?: string | null;
+    job_contact_phone?: string | null;
+    billing_location_id?: number | null;
+    billing_address?: string | null;
+    billing_attention?: string | null;
     user?: {
         name: string;
     };
@@ -89,6 +98,15 @@ interface Order {
         remarks?: string | null;
     }[];
 }
+
+type TaxMode = 'none' | 'exclusive' | 'inclusive';
+
+const normalizeTaxMode = (rawTaxMode: unknown, rawVatRate: unknown): TaxMode => {
+    if (rawTaxMode === 'none' || rawTaxMode === 'exclusive' || rawTaxMode === 'inclusive') {
+        return rawTaxMode;
+    }
+    return Number(rawVatRate ?? 0) > 0 ? 'exclusive' : 'inclusive';
+};
 
 type DocumentRecord = {
     id: number;
@@ -558,15 +576,15 @@ export const PrintOrder = () => {
     const remainingAfter = round2(Math.max(0, planTotal - paidSum));
 
     // === ยอดรวม & VAT ===
-    // - ใบเสร็จผ่อน: ไม่มี VAT ใช้ยอดงวดเดิม
-    // - บิลที่มี vat_rate > 0 อยู่แล้ว: ใช้การคำนวณปกติ (ยอดก่อนภาษี + VAT 7%)
-    // - บิลที่ยังไม่มี vat_rate (0 หรือ null): คำนวณแบบในาพ (reverse-VAT)
-    //   โดยถือว่า total เดิมคือราคารวม VAT 7% แล้ว → แยกก่อนภาษีและ VAT ออกมา
-    //   โดย Grand Total (totalWithVat) จะยังคงเท่าเดิม
+    // - ผ่อน: ไม่มี VAT
+    // - exclusive: บวก VAT เพิ่มจากราคาสินค้า
+    // - inclusive: ราคาสินค้ารวม VAT อยู่แล้ว แยกออกมาเพื่อพิมพ์เอกสาร
+    // - none: ไม่คิด VAT
     let subtotal: number;
     let vatRate: number;
     let vatAmount: number;
     let totalWithVat: number;
+    let currentTaxMode: TaxMode = 'none';
 
     if (isInstallmentReceipt) {
         subtotal = installmentPaidAmount;
@@ -574,21 +592,17 @@ export const PrintOrder = () => {
         vatAmount = 0;
         totalWithVat = installmentPaidAmount;
     } else {
-        const originalTotal = Number(order.total ?? 0);
-        const orderHasExplicitVat = Number(order.vat_rate ?? 0) > 0;
+        currentTaxMode = normalizeTaxMode(order.tax_mode, order.vat_rate);
 
-        if (orderHasExplicitVat) {
-            // เดิม: บิลเคย check "คิด VAT 7%" แล้ว ใช้การคำนวณปกติ
+        if (currentTaxMode === 'exclusive') {
             subtotal = Number(order.subtotal ?? order.total);
-            vatRate = Number(order.vat_rate ?? 0);
+            vatRate = Number(order.vat_rate ?? 0) || 7;
             vatAmount = order.vat_amount !== undefined
                 ? Number(order.vat_amount)
                 : round2((subtotal * vatRate) / 100);
             totalWithVat = round2(subtotal + vatAmount);
-        } else {
-            // ในาพ: ยอด originalTotal คือราคารวม VAT 7% อยู่แล้ว
-            // ก่อนภาษี = total / 1.07 , VAT = total - ก่อนภาษี
-            const gross = Math.max(0, originalTotal);
+        } else if (currentTaxMode === 'inclusive') {
+            const gross = Math.max(0, Number(order.total ?? 0));
             const net = round2(gross / 1.07);
             const vat = round2(gross - net);
             subtotal = net;
@@ -601,15 +615,26 @@ export const PrintOrder = () => {
                 vatAmount = round2(vatAmount + diff);
                 totalWithVat = gross;
             }
+        } else {
+            subtotal = Number(order.subtotal ?? order.total ?? 0);
+            vatRate = 0;
+            vatAmount = 0;
+            totalWithVat = round2(subtotal);
         }
     }
 
     const withholdingRate = isInstallmentReceipt ? 0 : Number(order.withholding_rate ?? 0);
+    const storedWithholdingAmountRaw = Number(order.withholding_amount);
+    const hasStoredWithholdingAmount =
+        order.withholding_amount !== undefined &&
+        order.withholding_amount !== null &&
+        String(order.withholding_amount).trim() !== '' &&
+        Number.isFinite(storedWithholdingAmountRaw);
     const withholdingAmount =
         isInstallmentReceipt
             ? 0
-            : (order.withholding_amount !== undefined
-                ? Number(order.withholding_amount)
+            : ((currentTaxMode === 'exclusive' || currentTaxMode === 'none') && hasStoredWithholdingAmount
+                ? storedWithholdingAmountRaw
                 : round2((subtotal * withholdingRate) / 100));
     const payable = round2(totalWithVat - withholdingAmount);
     const showWithholding = !isInstallmentReceipt && withholdingRate > 0 && !isQuotation;
@@ -675,10 +700,13 @@ export const PrintOrder = () => {
         (typeof customerNameOverride === 'string' && customerNameOverride.trim() !== '')
             ? customerNameOverride.trim()
             : (order.customer?.company_name || order.customer?.name || 'Walk-in Customer');
+    const fallbackCustomerAddress = String(order.customer?.address || '').trim();
+    const orderBillingAddress = String(order.billing_address || '').trim();
+    const primaryBillingText = orderBillingAddress || fallbackCustomerAddress || '-';
     const customerDisplayAddress =
         (typeof customerAddressOverride === 'string' && customerAddressOverride.trim() !== '')
             ? customerAddressOverride.trim()
-            : (order.customer?.address || '-');
+            : primaryBillingText;
     const displayRemarks =
         (typeof remarksOverride === 'string' && remarksOverride.trim() !== '')
             ? remarksOverride.trim()
