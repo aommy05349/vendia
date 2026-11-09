@@ -46,7 +46,7 @@ export const Pos = () => {
   const [newCustomerCompany, setNewCustomerCompany] = useState('');
   const [newCustomerContactChannel, setNewCustomerContactChannel] = useState<'line' | 'facebook'>('line');
   const [newCustomerContactHandle, setNewCustomerContactHandle] = useState('');
-  const [taxMode, setTaxMode] = useState<TaxMode>('none');
+  const [taxMode, setTaxMode] = useState<TaxMode>('inclusive');
   const [withholdingRate, setWithholdingRate] = useState<0 | 3 | 7>(0);
 
   const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -84,6 +84,7 @@ export const Pos = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [receivedAmount, setReceivedAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
+  const [saleDate, setSaleDate] = useState('');
   const [change, setChange] = useState<number | null>(null);
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [isInstallment, setIsInstallment] = useState(false);
@@ -355,6 +356,7 @@ export const Pos = () => {
   const handleCheckoutClick = () => {
     setShowPaymentModal(true);
     setReceivedAmount('');
+    setSaleDate('');
     setChange(null);
     setPaymentMethod('cash');
     setIsInstallment(false);
@@ -362,7 +364,7 @@ export const Pos = () => {
     setDownPayment('');
     setInstallmentAmount('');
     if (!editingOrderId) {
-      setTaxMode('none');
+      setTaxMode('inclusive');
       setWithholdingRate(0);
     }
   };
@@ -378,6 +380,10 @@ export const Pos = () => {
     method: string,
     options?: SubmitOrderOptions
   ) => {
+    if (!saleDate) {
+      setAlertMessage({ type: 'danger', text: t('pos.sale_date_required', 'กรุณาเลือกวันที่ขาย') });
+      return;
+    }
     try {
       const payload = {
         items: items.map((item) => ({
@@ -387,6 +393,7 @@ export const Pos = () => {
         })),
         payment_method: method,
         status: status,
+        order_date: saleDate || null,
         customer_id: selectedCustomer?.id || null,
         parent_id: parentOrderId || null,
         apply_vat: taxMode === 'exclusive',
@@ -458,14 +465,14 @@ export const Pos = () => {
       });
 
       if (down > 0) {
-        const today = new Date().toISOString().slice(0, 10);
+        const paidDate = saleDate || new Date().toISOString().slice(0, 10);
         await api.post(`/orders/${orderId}/installment-payments`, {
           amount: down,
           method: paymentMethod,
-          paid_at: today,
+          paid_at: paidDate,
           installment_no: 0,
           issue_receipt: true,
-          issued_date: today,
+          issued_date: paidDate,
         });
       }
 
@@ -1085,6 +1092,18 @@ export const Pos = () => {
                                 )}
                             </div>
                         </div>
+                    </div>
+
+                    <div className="mb-3">
+                        <label className="form-label fw-bold" htmlFor="posSaleDate">{t('pos.sale_date', 'วันที่ขาย')}</label>
+                        <input
+                            type="date"
+                            id="posSaleDate"
+                            className="form-control"
+                            value={saleDate}
+                            onChange={(e) => setSaleDate(e.target.value)}
+                            required
+                        />
                     </div>
 
                     <div className="mb-3">

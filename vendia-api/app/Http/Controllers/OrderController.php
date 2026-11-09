@@ -1395,6 +1395,7 @@ class OrderController extends Controller
             'items.*.price' => 'nullable|numeric',
             'payment_method' => 'required|string',
             'status' => 'nullable|in:completed,cancelled,pending,quotation',
+            'order_date' => 'sometimes|nullable|date',
             'customer_id' => 'nullable|exists:customers,id',
             'parent_id' => 'nullable|exists:orders,id',
             'apply_vat' => 'sometimes|boolean',
@@ -1537,6 +1538,11 @@ class OrderController extends Controller
             
             $order->items()->createMany($items);
 
+            if ($request->filled('order_date')) {
+                $order->created_at = Carbon::parse($request->input('order_date'))->copy()->setTimeFrom($order->created_at);
+                $order->save();
+            }
+
             return $order->load('items.product', 'customer', 'parent');
         });
     }
@@ -1571,6 +1577,7 @@ class OrderController extends Controller
         $request->validate([
             'status' => 'nullable|in:completed,cancelled,pending,quotation',
             'payment_method' => 'nullable|string',
+            'order_date' => 'sometimes|nullable|date',
             'customer_id' => 'nullable|exists:customers,id',
             'items' => 'nullable|array',
             'items.*.product_id' => 'required_with:items|exists:products,id',
@@ -1629,91 +1636,7 @@ class OrderController extends Controller
             
             // Logic 1: Items are being updated
             if ($request->has('items')) {
-                // A. Revert Old Stock (if it was reserved)
-                if ($wasReal) {
-                    foreach ($order->items as $item) {
-                        $this->revertItemStock($item);
-                    }
-                }
-
-                // B. Delete Old Items
-                $order->items()->delete();
-
-                // C. Process New Items
-                $subtotal = 0;
-                $items = [];
-
-                foreach ($request->items as $item) {
-                    $product = Product::with('bundleItems')->find($item['product_id']);
-                    $metadata = null;
-                    $price = $product->price;
-                    
-                    if ($product->product_type === 'service') {
-                        if (isset($item['price'])) {
-                            $price = $item['price'];
-                        }
-                    } elseif ($product->product_type === 'bundle') {
-                        $bundleSnapshot = [];
-                        foreach ($product->bundleItems as $child) {
-                            $requiredQty = $child->pivot->quantity * $item['quantity'];
-                            
-                            // Check and Deduct ONLY if it will be a real order
-                            if ($willBeReal) {
-                                if ($child->stock < $requiredQty) {
-                                    throw new \Exception("Insufficient stock for bundle component: {$child->name}");
-                                }
-                                $child->decrement('stock', $requiredQty);
-                            }
-                            
-                            $bundleSnapshot[] = [
-                                'id' => $child->id,
-                                'name' => $child->name,
-                                'sku' => $child->sku,
-                                'quantity_per_bundle' => $child->pivot->quantity,
-                                'total_quantity_deducted' => $requiredQty,
-                                'price_at_sale' => $child->price,
-                            ];
-                        }
-                        $metadata = ['bundle_items' => $bundleSnapshot];
-                        
-                        if ($willBeReal && $product->stock > 0) {
-                            $product->decrement('stock', $item['quantity']);
-                        }
-                    } else {
-                        // Single product
-                        if ($willBeReal) {
-                            if ($product->stock < $item['quantity']) {
-                                throw new \Exception("Insufficient stock for product: {$product->name}");
-                            }
-                            $product->decrement('stock', $item['quantity']);
-                        }
-                    }
-
-                    $subtotal += $price * $item['quantity'];
-
-                    $sortOrder = 1;
-                    if ($product->product_type === 'service') {
-                        $sortOrder = ($price < 0) ? 3 : 2;
-                    }
-
-                    $items[] = [
-                        'product_id' => $product->id,
-                        'quantity' => $item['quantity'],
-                        'price' => $price,
-                        'metadata' => $metadata,
-                        '_sort_order' => $sortOrder
-                    ];
-                }
-
-                // Sort items before saving
-                usort($items, function($a, $b) {
-                    return $a['_sort_order'] <=> $b['_sort_order'];
-                });
-
-                // Remove temporary sort key
-                foreach ($items as &$i) {
-                    unset($i['_sort_order']);
-                }
+                $subtotal = $this->rebuildOrderItems($order, $request->items, $wasReal, $willBeReal);
 
                 $taxMode = $this->resolveTaxModeFromRequest($request, $this->inferOrderTaxMode($order));
                 $vatRate = $request->has('vat_rate')
@@ -1734,7 +1657,6 @@ class OrderController extends Controller
                 $order->total = $taxTotals['total'];
 
                 $order->save();
-                $order->items()->createMany($items);
 
             } else {
                 // Logic 2: Only Status/Payment Update (No Item Change)
@@ -1774,7 +1696,129 @@ class OrderController extends Controller
                 $order->save();
             }
 
+            if ($request->filled('order_date')) {
+                $order->created_at = Carbon::parse($request->input('order_date'))->copy()->setTimeFrom($order->created_at);
+                $order->save();
+            }
+
             return $order->load('items.product');
+        });
+    }
+
+    /**
+     * แก้ไขบิลที่ออกใบเสร็จแล้ว (เฉพาะ admin)
+     * - แก้รายการสินค้า/ราคา, VAT/หัก ณ ที่จ่าย, ลูกค้า, ข้อมูลหัวบิล/หมายเหตุ
+     * - คงเลขที่ใบเสร็จเดิมไว้เสมอ
+     */
+    public function amend(Request $request, Order $order)
+    {
+        $user = $request->user();
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($order->status === 'cancelled') {
+            return response()->json([
+                'message' => 'ออเดอร์ที่ถูกยกเลิกแล้วไม่สามารถแก้บิลได้',
+            ], 422);
+        }
+
+        // ต้องมีใบเสร็จที่ยังใช้งานอยู่
+        $activeReceipt = null;
+        if ($order->receipt_number && ($order->receipt_status ?? 'active') !== 'cancelled') {
+            $activeReceipt = Document::where('order_id', $order->id)
+                ->where('type', 'receipt')
+                ->where('number', $order->receipt_number)
+                ->where('status', 'active')
+                ->first();
+        }
+
+        if (!$activeReceipt) {
+            return response()->json([
+                'message' => 'ไม่พบใบเสร็จที่ยังใช้งานอยู่ ไม่สามารถแก้บิลได้',
+            ], 422);
+        }
+
+        if ($order->paymentPlan()->exists()) {
+            return response()->json([
+                'message' => 'ออเดอร์แบบผ่อนชำระไม่รองรับการแก้บิลรวม กรุณายกเลิกแล้วออกใหม่',
+            ], 422);
+        }
+
+        $request->validate([
+            'items' => 'nullable|array',
+            'items.*.product_id' => 'required_with:items|exists:products,id',
+            'items.*.quantity' => 'required_with:items|integer|min:1',
+            'items.*.price' => 'nullable|numeric',
+            'tax_mode' => 'sometimes|in:none,exclusive,inclusive',
+            'vat_rate' => 'sometimes|numeric|min:0|max:100',
+            'withholding_rate' => 'sometimes|numeric|min:0|max:100',
+            'customer_id' => 'sometimes|nullable|exists:customers,id',
+            'number_mode' => 'sometimes|in:keep',
+            'document' => 'sometimes|array',
+            'document.customer_name' => 'sometimes|nullable|string|max:255',
+            'document.customer_address' => 'sometimes|nullable|string',
+            'document.customer_attention' => 'sometimes|nullable|string|max:255',
+            'document.remarks' => 'sometimes|nullable|string',
+        ]);
+
+        return DB::transaction(function () use ($request, $order, $activeReceipt) {
+
+            // 1) รายการสินค้า
+            $wasReal = !in_array($order->status, ['quotation', 'cancelled']);
+            $willBeReal = $wasReal; // amend ไม่เปลี่ยนสถานะ
+
+            if ($request->has('items')) {
+                $subtotal = $this->rebuildOrderItems($order, $request->items, $wasReal, $willBeReal);
+            } else {
+                $subtotal = (float) $order->items()->sum(DB::raw('price * quantity'));
+            }
+
+            // 2) ภาษี
+            $taxMode = $this->resolveTaxModeFromRequest($request, $this->inferOrderTaxMode($order));
+            $vatRate = $request->has('vat_rate')
+                ? (float) $request->input('vat_rate')
+                : ($taxMode === 'none'
+                    ? 0.0
+                    : ((float) ($order->vat_rate ?? 0) > 0 ? (float) $order->vat_rate : 7.0));
+
+            $withholdingRate = $request->has('withholding_rate')
+                ? (float) $request->input('withholding_rate')
+                : (float) ($order->withholding_rate ?? 0);
+
+            $taxTotals = $this->calculateTaxTotals($subtotal, $vatRate, $withholdingRate, $taxMode);
+            $order->subtotal = $taxTotals['subtotal'];
+            $order->tax_mode = $taxTotals['tax_mode'];
+            $order->vat_rate = $taxTotals['vat_rate'];
+            $order->vat_amount = $taxTotals['vat_amount'];
+            $order->withholding_rate = $taxTotals['withholding_rate'];
+            $order->withholding_amount = $taxTotals['withholding_amount'];
+            $order->total = $taxTotals['total'];
+
+            // 3) ลูกค้า
+            if ($request->has('customer_id')) {
+                $order->customer_id = $request->input('customer_id');
+            }
+
+            $order->save();
+
+            // 5) ข้อมูลหัวบิล/ลูกค้าบนใบเสร็จ
+            if ($request->has('document')) {
+                $docFields = (array) $request->input('document', []);
+                foreach (['customer_name', 'customer_address', 'customer_attention', 'remarks'] as $field) {
+                    if (array_key_exists($field, $docFields)) {
+                        $activeReceipt->$field = $docFields[$field];
+                    }
+                }
+                $activeReceipt->save();
+            }
+
+            return response()->json($order->load([
+                'items.product',
+                'user',
+                'customer',
+                'documents',
+            ]));
         });
     }
 
@@ -2027,6 +2071,102 @@ class OrderController extends Controller
 
         $order->save();
         return response()->json($order->load('documents'));
+    }
+
+    /**
+     * แทนที่รายการสินค้าของออเดอร์ คืนยอดรวมก่อนภาษี (raw amount)
+     */
+    private function rebuildOrderItems(Order $order, array $newItems, bool $wasReal, bool $willBeReal): float
+    {
+        // A. Revert Old Stock (if it was reserved)
+        if ($wasReal) {
+            foreach ($order->items as $item) {
+                $this->revertItemStock($item);
+            }
+        }
+
+        // B. Delete Old Items
+        $order->items()->delete();
+
+        // C. Process New Items
+        $subtotal = 0;
+        $items = [];
+
+        foreach ($newItems as $item) {
+            $product = Product::with('bundleItems')->find($item['product_id']);
+            $metadata = null;
+            $price = $product->price;
+
+            if ($product->product_type === 'service') {
+                if (isset($item['price'])) {
+                    $price = $item['price'];
+                }
+            } elseif ($product->product_type === 'bundle') {
+                $bundleSnapshot = [];
+                foreach ($product->bundleItems as $child) {
+                    $requiredQty = $child->pivot->quantity * $item['quantity'];
+
+                    // Check and Deduct ONLY if it will be a real order
+                    if ($willBeReal) {
+                        if ($child->stock < $requiredQty) {
+                            throw new \Exception("Insufficient stock for bundle component: {$child->name}");
+                        }
+                        $child->decrement('stock', $requiredQty);
+                    }
+
+                    $bundleSnapshot[] = [
+                        'id' => $child->id,
+                        'name' => $child->name,
+                        'sku' => $child->sku,
+                        'quantity_per_bundle' => $child->pivot->quantity,
+                        'total_quantity_deducted' => $requiredQty,
+                        'price_at_sale' => $child->price,
+                    ];
+                }
+                $metadata = ['bundle_items' => $bundleSnapshot];
+
+                if ($willBeReal && $product->stock > 0) {
+                    $product->decrement('stock', $item['quantity']);
+                }
+            } else {
+                // Single product
+                if ($willBeReal) {
+                    if ($product->stock < $item['quantity']) {
+                        throw new \Exception("Insufficient stock for product: {$product->name}");
+                    }
+                    $product->decrement('stock', $item['quantity']);
+                }
+            }
+
+            $subtotal += $price * $item['quantity'];
+
+            $sortOrder = 1;
+            if ($product->product_type === 'service') {
+                $sortOrder = ($price < 0) ? 3 : 2;
+            }
+
+            $items[] = [
+                'product_id' => $product->id,
+                'quantity' => $item['quantity'],
+                'price' => $price,
+                'metadata' => $metadata,
+                '_sort_order' => $sortOrder,
+            ];
+        }
+
+        // Sort items before saving
+        usort($items, function ($a, $b) {
+            return $a['_sort_order'] <=> $b['_sort_order'];
+        });
+
+        // Remove temporary sort key
+        foreach ($items as &$i) {
+            unset($i['_sort_order']);
+        }
+
+        $order->items()->createMany($items);
+
+        return round($subtotal, 2);
     }
 
     private function generateDocumentNumber($type, $orderId, Carbon $issuedDate)

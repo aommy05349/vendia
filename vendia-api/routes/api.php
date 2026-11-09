@@ -41,6 +41,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/analytics/subcategory-dashboard', [OrderController::class, 'subcategoryDashboard']);
     Route::post('/orders/{id}/cancel-document', [OrderController::class, 'cancelDocument']);
     Route::post('/orders/{id}/issue-document', [OrderController::class, 'issueDocument']);
+    Route::post('/orders/{order}/amend', [OrderController::class, 'amend']);
     Route::post('/orders/{order}/installment-plan', [OrderPaymentController::class, 'upsertPlan']);
     Route::post('/orders/{order}/installment-payments', [OrderPaymentController::class, 'storePayment']);
     Route::post('/order-payments/{payment}/issue-receipt', [OrderPaymentController::class, 'issueReceipt']);

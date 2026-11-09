@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { MessageModal } from '../../components/MessageModal';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { EditOrderModal } from './EditOrderModal';
+import { AmendReceiptModal } from './AmendReceiptModal';
 
 interface BundleItemSnapshot {
   id: number;
@@ -218,6 +219,15 @@ export const OrderDetail = () => {
   >(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [editingMode, setEditingMode] = useState<null | 'full' | 'customer-only'>(null);
+  const [showAmendModal, setShowAmendModal] = useState(false);
+  const [docDateAction, setDocDateAction] = useState<
+    | { kind: 'issue-document'; type: 'quotation' | 'billing_note' | 'invoice' | 'receipt' }
+    | { kind: 'issue-receipt'; paymentId: number }
+    | null
+  >(null);
+  const [docDateValue, setDocDateValue] = useState('');
+  const [docDateError, setDocDateError] = useState<string | null>(null);
+  const [docDateBusy, setDocDateBusy] = useState(false);
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [receivedAmount, setReceivedAmount] = useState('');
@@ -613,7 +623,7 @@ export const OrderDetail = () => {
         : Math.min(expectedForNo(targetNo), Math.max(0, remaining));
     setInstallmentPayAmount(String(round2(suggested || 0)));
     setInstallmentPayMethod('cash');
-    setInstallmentPayDate(new Date().toISOString().slice(0, 10));
+    setInstallmentPayDate('');
     setInstallmentPayNote('');
     setInstallmentUseExistingReceipt(false);
     setInstallmentExistingReceiptNo('');
@@ -677,21 +687,6 @@ export const OrderDetail = () => {
     if (billing.address) params.set('customer_address', billing.address);
     if (billing.attention) params.set('customer_attention', billing.attention);
     window.open(`/print/order/${order.id}?${params.toString()}`, '_blank');
-  };
-
-  const issueReceiptForPayment = async (paymentId: number) => {
-    if (!order) return;
-    try {
-      const res = await api.post(`/order-payments/${paymentId}/issue-receipt`, {});
-      const docId = res.data?.id;
-      await fetchOrder();
-      if (docId) {
-        openReceiptPrintByDocId(Number(docId));
-      }
-    } catch (err) {
-      console.error(err);
-      setUiMessage({ type: 'danger', text: t('common.error', 'ไม่สำเร็จ') });
-    }
   };
 
   const deleteReceiptForPayment = async (paymentId: number) => {
@@ -1035,14 +1030,53 @@ export const OrderDetail = () => {
     window.open(`/print/order/${o.id}?${params.toString()}`, '_blank');
   };
 
-  const handleIssueDocument = async (orderId: number, type: 'quotation' | 'billing_note' | 'invoice' | 'receipt') => {
+  const openDocDatePrompt = (
+    action:
+      | { kind: 'issue-document'; type: 'quotation' | 'billing_note' | 'invoice' | 'receipt' }
+      | { kind: 'issue-receipt'; paymentId: number }
+  ) => {
+    setDocDateAction(action);
+    setDocDateValue('');
+    setDocDateError(null);
+  };
+
+  const closeDocDatePrompt = () => {
+    setDocDateAction(null);
+    setDocDateValue('');
+    setDocDateError(null);
+  };
+
+  const confirmDocDatePrompt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!order || !docDateAction) return;
+    if (docDateValue.trim() === '') {
+      setDocDateError(t('orders.select_date_required', 'กรุณาเลือกวันที่'));
+      return;
+    }
+    setDocDateBusy(true);
     try {
-      await api.post(`/orders/${orderId}/issue-document`, { type });
-      await fetchOrder();
-      setUiMessage({ type: 'success', text: t('orders.update_success') });
+      if (docDateAction.kind === 'issue-document') {
+        await api.post(`/orders/${order.id}/issue-document`, {
+          type: docDateAction.type,
+          issued_date: docDateValue,
+        });
+        closeDocDatePrompt();
+        await fetchOrder();
+        setUiMessage({ type: 'success', text: t('orders.update_success') });
+      } else {
+        const res = await api.post(`/order-payments/${docDateAction.paymentId}/issue-receipt`, {
+          issued_date: docDateValue,
+        });
+        const docId = res.data?.id;
+        closeDocDatePrompt();
+        await fetchOrder();
+        if (docId) openReceiptPrintByDocId(Number(docId));
+      }
     } catch (error) {
       console.error('Failed to issue document:', error);
-      setUiMessage({ type: 'danger', text: t('orders.update_failed') });
+      setDocDateError(t('orders.update_failed', 'ไม่สำเร็จ'));
+    } finally {
+      setDocDateBusy(false);
     }
   };
 
@@ -1274,7 +1308,7 @@ export const OrderDetail = () => {
               {(!order.quotation_number || order.quotation_status === 'cancelled') && (
                 <button
                   className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
-                  onClick={() => handleIssueDocument(order.id, 'quotation')}
+                  onClick={() => openDocDatePrompt({ kind: 'issue-document', type: 'quotation' })}
                   title={t('orders.create')}
                   style={{ width: '40px', height: '40px' }}
                 >
@@ -1330,7 +1364,7 @@ export const OrderDetail = () => {
               {(!order.billing_note_number || order.billing_note_status === 'cancelled') && (
                 <button
                   className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
-                  onClick={() => handleIssueDocument(order.id, 'billing_note')}
+                  onClick={() => openDocDatePrompt({ kind: 'issue-document', type: 'billing_note' })}
                   title={t('orders.create')}
                   style={{ width: '40px', height: '40px' }}
                 >
@@ -1386,7 +1420,7 @@ export const OrderDetail = () => {
               {(!order.invoice_number || order.invoice_status === 'cancelled') && (
                 <button
                   className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
-                  onClick={() => handleIssueDocument(order.id, 'invoice')}
+                  onClick={() => openDocDatePrompt({ kind: 'issue-document', type: 'invoice' })}
                   title={t('orders.create')}
                   style={{ width: '40px', height: '40px' }}
                 >
@@ -1442,7 +1476,7 @@ export const OrderDetail = () => {
               {(!order.receipt_number || order.receipt_status === 'cancelled') && (
                 <button
                   className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
-                  onClick={() => handleIssueDocument(order.id, 'receipt')}
+                  onClick={() => openDocDatePrompt({ kind: 'issue-document', type: 'receipt' })}
                   title={t('orders.create')}
                   style={{ width: '40px', height: '40px' }}
                 >
@@ -1464,6 +1498,16 @@ export const OrderDetail = () => {
                 <div className="btn-group">
                   {doc.status !== 'cancelled' ? (
                     <>
+                      {user?.role === 'admin' && (
+                        <button
+                          className="btn btn-outline-warning p-0 d-inline-flex align-items-center justify-content-center"
+                          onClick={() => setShowAmendModal(true)}
+                          title={t('orders.amend_title', 'แก้ไขบิล')}
+                          style={{ width: '40px', height: '40px' }}
+                        >
+                          <i className="bi bi-pencil" style={{ fontSize: '1.05rem' }}></i>
+                        </button>
+                      )}
                       <button
                         className="btn btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center"
                         onClick={() => handlePrint(order, 'receipt')}
@@ -1523,17 +1567,30 @@ export const OrderDetail = () => {
               <div key={docType} className="card border-0 shadow-sm">
                 <div className="card-header bg-white d-flex justify-content-between align-items-center">
                   <span className="fw-bold">{title}</span>
-                  {canCreate && (
-                    <button
-                      className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
-                      onClick={() => handleIssueDocument(order.id, docType)}
-                      title={t('orders.create', 'สร้างเอกสาร')}
-                      type="button"
-                      style={{ width: '44px', height: '44px' }}
-                    >
-                      <i className="bi bi-plus-lg" style={{ fontSize: '1.1rem' }}></i>
-                    </button>
-                  )}
+                  <div className="d-flex gap-2">
+                    {docType === 'receipt' && user?.role === 'admin' && !canCreate && (
+                      <button
+                        className="btn btn-outline-warning p-0 d-inline-flex align-items-center justify-content-center"
+                        onClick={() => setShowAmendModal(true)}
+                        title={t('orders.amend_title', 'แก้ไขบิล')}
+                        type="button"
+                        style={{ width: '44px', height: '44px' }}
+                      >
+                        <i className="bi bi-pencil" style={{ fontSize: '1.05rem' }}></i>
+                      </button>
+                    )}
+                    {canCreate && (
+                      <button
+                        className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
+                        onClick={() => openDocDatePrompt({ kind: 'issue-document', type: docType })}
+                        title={t('orders.create', 'สร้างเอกสาร')}
+                        type="button"
+                        style={{ width: '44px', height: '44px' }}
+                      >
+                        <i className="bi bi-plus-lg" style={{ fontSize: '1.1rem' }}></i>
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="card-body">
                   {history.length > 0 ? (
@@ -1666,6 +1723,60 @@ export const OrderDetail = () => {
             setUiMessage({ type: 'success', text: t('orders.update_success') });
           }}
         />
+      )}
+
+      {showAmendModal && (
+        <AmendReceiptModal
+          orderId={order.id}
+          onClose={() => setShowAmendModal(false)}
+          onSuccess={async () => {
+            setShowAmendModal(false);
+            await fetchOrder();
+            setUiMessage({ type: 'success', text: t('orders.update_success') });
+          }}
+        />
+      )}
+
+      {docDateAction && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  {docDateAction.kind === 'issue-document'
+                    ? t('orders.issue_document_date', 'วันที่ออกเอกสาร')
+                    : t('orders.issue_receipt_date', 'วันที่ออกใบเสร็จ')}
+                </h5>
+                <button type="button" className="btn-close" onClick={closeDocDatePrompt}></button>
+              </div>
+              <form onSubmit={confirmDocDatePrompt}>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">{t('orders.document_date', 'วันที่')}</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={docDateValue}
+                      onChange={(e) => { setDocDateValue(e.target.value); setDocDateError(null); }}
+                      required
+                      autoFocus
+                    />
+                    <div className="form-text">{t('orders.document_date_note', 'วันที่นี้กำหนดเดือนของเลขเอกสาร')}</div>
+                  </div>
+                  {docDateError && <div className="text-danger small">{docDateError}</div>}
+                </div>
+                <div className="modal-footer d-grid gap-2 d-md-flex justify-content-end">
+                  <button type="button" className="btn btn-outline-secondary" onClick={closeDocDatePrompt}>
+                    {t('common.cancel')}
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={docDateBusy}>
+                    {t('common.confirm')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-3 mb-md-4">
@@ -2916,7 +3027,7 @@ export const OrderDetail = () => {
                                   <button
                                     type="button"
                                     className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
-                                    onClick={() => issueReceiptForPayment(p!.id)}
+                                    onClick={() => openDocDatePrompt({ kind: 'issue-receipt', paymentId: p!.id })}
                                     title={t('orders.create_receipt', 'ออกใบเสร็จ')}
                                     style={{ width: '40px', height: '40px' }}
                                   >
@@ -2999,7 +3110,7 @@ export const OrderDetail = () => {
                                 <button
                                   type="button"
                                   className="btn btn-outline-primary p-0 d-inline-flex align-items-center justify-content-center"
-                                  onClick={() => issueReceiptForPayment(p!.id)}
+                                  onClick={() => openDocDatePrompt({ kind: 'issue-receipt', paymentId: p!.id })}
                                   title={t('orders.create_receipt', 'ออกใบเสร็จ')}
                                   style={{ width: '44px', height: '44px' }}
                                 >
@@ -3049,7 +3160,7 @@ export const OrderDetail = () => {
                                     <button
                                       type="button"
                                       className="btn btn-outline-primary btn-sm"
-                                      onClick={() => issueReceiptForPayment(p.id)}
+                                      onClick={() => openDocDatePrompt({ kind: 'issue-receipt', paymentId: p.id })}
                                     >
                                       {t('orders.create_receipt', 'ออกใบเสร็จ')}
                                     </button>
